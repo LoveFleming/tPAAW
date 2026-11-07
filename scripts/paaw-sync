@@ -1,0 +1,4 @@
+#!/bin/bash
+# paaw-sync — thin wrapper that calls the cross-platform Node.js version
+# Usage: paaw-sync [dev|git|status]
+exec node "$(dirname "$0")/paaw-sync.mjs" "$@"

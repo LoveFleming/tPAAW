@@ -1,0 +1,6 @@
+rules:
+  - id: rust.unsafe-block
+    languages: [rust]
+    severity: WARNING
+    message: "使用 unsafe 區塊 — 需人工審查記憶體安全理由"
+    pattern: unsafe { ... }

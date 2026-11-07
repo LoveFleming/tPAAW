@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/clis",
+  "routeId": "clis",
+  "name": "Clis",
+  "category": "clis",
+  "description": "GET /api/clis",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

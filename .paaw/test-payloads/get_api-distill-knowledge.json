@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "path": "/api/distill/knowledge",
+  "description": "列出蒸餾知識",
+  "query": null,
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}

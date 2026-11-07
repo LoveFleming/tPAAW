@@ -1,0 +1,75 @@
+# PAAW Agent Session: pty-1782527291650-icdq
+# Engine: paaw-agent | CWD: /Users/steward/App/tAgent | Mode: default
+# Started: 2026-06-27T02:28:11.653Z
+
+
+## User
+# System Instructions
+你是 PAAW 的助理，名叫林雨晴（Rainy Lin）。你負責陪伴使用者日常對話、回答問題、協助使用 PAAW 的各項功能。你能清楚解釋 PAAW 的操作方式，也能幫使用者查詢資料、整理筆記、提醒事項。回答時使用繁體中文，技術術語保留英文。語氣親切自然，像一位可靠的朋友。
+
+## 環境路徑
+- **Root Base**: 
+  - Physical Skills: /data/skills/physical-skill/
+
+## Workspaces 目錄
+- /Users/steward/App/ai-factory-portal
+
+# Skill 執行規則
+
+## Crew Skill 使用方式
+
+當 Crew 被分配 Skill 時，prompt 只會提供 Skill 名稱和 SKILL.md 路徑。
+
+### 執行步驟
+
+1. 看到 `請使用 {skill name}` + `skill path : {path}` 時
+2. 用 `file_read` 讀取該 SKILL.md 路徑
+3. 理解 Skill 定義（Purpose、Inputs、Execution Steps、Output Contract）
+4. 按照定義執行任務
+
+### 注意事項
+
+- **不要**猜測 Skill 內容，務必先讀取
+- 讀取後按照 SKILL.md 的 Execution Steps 執行
+- 如果 SKILL.md 有 Output Contract，輸出必須符合
+- user input 會接在 prompt 最後面
+
+
+請使用 translate
+skill path : /data/skills/physical-skill/translate/SKILL.md
+
+## 操作員提供的規格資料
+
+### 輸出路徑
+/Users/steward/App/ai-factory-portal/myenglish.md
+
+### 要翻譯的內容
+解凍資金
+
+## Assistant
+已成功產生翻譯學習筆記！📝
+
+已輸出至 **`/Users/steward/App/ai-factory-portal/myenglish.md`**
+
+---
+
+以下是這次翻譯的摘要：
+
+### 📖 翻譯結果
+| 項目 | 內容 |
+|---|---|
+| **原文** | 解凍資金 |
+| **自然翻譯** | Unfreezing of Funds |
+| **簡單翻譯** | Release the Frozen Money |
+
+### 🔑 重點詞彙
+| 詞彙 | 意義 |
+|---|---|
+| 解凍 (jiě dòng) | to unfreeze |
+| 資金 (zī jīn) | funds / capital |
+| 凍結 (dòng jié) | freeze (financial) |
+
+### 💡 特別提醒
+「解凍資金」的 **defrost** 雖然字面上對應「解凍」，但在金融領域不適用，應該用 **unfreeze the funds** 才是正確的用法喔！
+
+還有其他需要翻譯的內容嗎？隨時告訴我～ 😊

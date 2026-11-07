@@ -1,0 +1,13 @@
+{
+  "method": "GET",
+  "path": "/api/coding-tasks",
+  "description": "列出所有 tasks（支援 filter: status, type, priority, assignee, parentId, pipeline, search）",
+  "query": {
+    "path": "/Users/steward/App/tPAAW",
+    "status": "open",
+    "priority": "high"
+  },
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}

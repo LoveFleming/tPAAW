@@ -1,0 +1,92 @@
+/**
+ * shell-exec.mjs — 跨平台 shell 執行 helper
+ *
+ * 核心問題：Node.js 在 Windows 上 exec() 預設用 PowerShell，
+ * PowerShell 把 < > | $ " 當特殊字元，導致 LLM 產生的命令全部炸。
+ *
+ * 解法：所有 exec 調用統一走這裡，Windows 強制用 cmd.exe。
+ *
+ * 使用方式：
+ *   import { shellExec, shellExecSync } from "./shell-exec.mjs";
+ *   const { stdout, stderr } = await shellExec("git status", { cwd });
+ *   const out = shellExecSync("git status", { cwd });
+ */
+
+import { exec as execCb, execSync } from "child_process";
+import { promisify } from "util";
+import { existsSync } from "fs";
+
+const IS_WIN = process.platform === "win32";
+
+/**
+ * 跨平台挑一個「真的存在」的 POSIX shell。
+ * ⚠️ 2026-10-13：舊碼一律 fallback "/bin/zsh" — Linux 多半沒有 zsh，且 server 由
+ * launchd/systemd/pm2 啟動時 $SHELL 常是空的 → spawn ENOENT，整條 sandbox/dev-server 掛掉。
+ * 順序：$SHELL → /bin/bash → /bin/sh → /bin/zsh，取第一個存在的；都不在就 /bin/sh。
+ */
+export function posixShellBin() {
+  if (IS_WIN) return process.env.ComSpec || "cmd.exe";
+  // darwin 優先 /bin/zsh（保持 macOS 原有行為）；其他 POSIX 優先 /bin/bash
+  const preferred = process.platform === "darwin" ? "/bin/zsh" : "/bin/bash";
+  for (const c of [process.env.SHELL, preferred, "/bin/bash", "/bin/sh", "/bin/zsh"]) {
+    if (c && existsSync(c)) return c;
+  }
+  return "/bin/sh";
+}
+
+// Windows 用 shell: true (Node 自動解析 cmd.exe，不會 ENOENT)
+// Mac/Linux 用系統 shell
+const SHELL_OPT = true;
+
+/**
+ * Async exec — 跨平台安全
+ * @param {string} command
+ * @param {object} options - { cwd, timeout, maxBuffer, env, ... }
+ * @returns {Promise<{ stdout: string, stderr: string }>}
+ */
+export async function shellExec(command, options = {}) {
+  // Merge env: caller env merged ON TOP of process.env (not replacing)
+  const callerEnv = options.env || {};
+  const mergedEnv = { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb", ...callerEnv };
+  const { env: _discard, ...restOpts } = options;
+  const opts = {
+    shell: SHELL_OPT,
+    maxBuffer: 10 * 1024 * 1024,
+    timeout: 30_000,
+    env: mergedEnv,
+    ...restOpts,
+  };
+  return promisify(execCb)(command, opts);
+}
+
+/**
+ * Sync exec — 跨平台安全
+ * @param {string} command
+ * @param {object} options
+ * @returns {string} stdout
+ */
+export function shellExecSync(command, options = {}) {
+  // Merge env: caller env merged ON TOP of process.env (not replacing)
+  const callerEnv = options.env || {};
+  const mergedEnv = { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb", ...callerEnv };
+  const { env: _discard, ...restOpts } = options;
+  const opts = {
+    encoding: "utf-8",
+    shell: SHELL_OPT,
+    timeout: 30_000,
+    maxBuffer: 10 * 1024 * 1024,
+    env: mergedEnv,
+    ...restOpts,
+  };
+  return execSync(command, opts);  // nosemgrep: detect-child-process — 此模組即受控 shell 執行器本身（shell-guard 管轄）
+}
+
+/**
+ * 回傳目前平台的 shell 名稱（給 spawn/terminal 用）
+ */
+export function getShell() {
+  if (IS_WIN) return { bin: process.env.ComSpec || "cmd.exe", args: [] };
+  return { bin: posixShellBin(), args: [] };
+}
+
+export { IS_WIN };

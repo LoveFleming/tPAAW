@@ -1,0 +1,6 @@
+{"timestamp":"2026-06-16T14:29:57.860Z","event":"tool_call_start","toolName":"file_list","args":{},"sessionKey":"chat","agentId":"default","now":1781620197860}
+{"timestamp":"2026-06-16T14:29:57.860Z","event":"tool_call_allowed","toolName":"file_list","args":{},"sessionKey":"chat","agentId":"default","now":1781620197860}
+{"timestamp":1781620197862,"event":"tool_call_end","toolName":"file_list","args":{},"result":{"text":"可用工作區（1 個）：\n1. **ai-factory-portal** — /Users/steward/App/ai-factory-portal\n\n請指定 workspace 參數來選擇工作區，或直接使用 workspace 名稱。"},"sessionKey":"chat","agentId":"default","duration":2}
+{"timestamp":"2026-06-16T14:30:04.467Z","event":"tool_call_start","toolName":"file_read","args":{},"sessionKey":"chat","agentId":"default","now":1781620204467}
+{"timestamp":"2026-06-16T14:30:04.467Z","event":"tool_call_allowed","toolName":"file_read","args":{},"sessionKey":"chat","agentId":"default","now":1781620204467}
+{"timestamp":1781620204469,"event":"tool_call_end","toolName":"file_read","args":{},"result":{"text":"讀取失敗: The \"paths[1]\" argument must be of type string. Received undefined","error":true},"sessionKey":"chat","agentId":"default","duration":2}

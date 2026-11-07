@@ -1,0 +1,66 @@
+{
+  "id": "ai-daily-digest",
+  "name": "AI 每日摘要",
+  "description": "搜集 AI 新聞 → 中文摘要 → 英文學習筆記",
+  "icon": "🤖",
+  "status": "published",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "Start",
+      "position": { "x": 50, "y": 120 },
+      "config": {
+        "inputMapping": {}
+      }
+    },
+    {
+      "id": "node-1",
+      "type": "skill",
+      "skillId": "ai-news-digest",
+      "name": "搜集新聞 + 摘要 + 英文筆記",
+      "position": { "x": 300, "y": 120 },
+      "config": {
+        "inputMapping": {
+          "output_path": "{{workflow.input.output_path}}",
+          "topic": "{{workflow.input.topic}}"
+        }
+      }
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "name": "End",
+      "position": { "x": 600, "y": 120 },
+      "config": {
+        "inputMapping": {},
+        "outputTarget": "chat"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-start-node-1",
+      "source": "start",
+      "target": "node-1"
+    },
+    {
+      "id": "e-node-1-end",
+      "source": "node-1",
+      "target": "end"
+    }
+  ],
+  "inputSchema": {
+    "properties": {
+      "output_path": {
+        "type": "string",
+        "description": "輸出檔案路徑（選填）"
+      },
+      "topic": {
+        "type": "string",
+        "description": "主題篩選關鍵字（選填）"
+      }
+    },
+    "required": []
+  }
+}

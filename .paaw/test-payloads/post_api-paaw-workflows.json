@@ -1,0 +1,13 @@
+{
+  "method": "POST",
+  "path": "/api/paaw/workflows",
+  "description": "建立 workflow",
+  "query": null,
+  "body": {
+    "name": "My Workflow",
+    "nodes": [],
+    "edges": []
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@paaw/context",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@paaw/db": "*",
+    "@paaw/shared": "*",
+    "json-stable-stringify": "^1.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "route": "DELETE /api/api-tester/history",
+  "routeId": "api_tester_history",
+  "name": "ApiTesterHistory",
+  "category": "api",
+  "description": "DELETE /api/api-tester/history",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

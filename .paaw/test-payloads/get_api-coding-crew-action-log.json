@@ -1,0 +1,12 @@
+{
+  "method": "GET",
+  "path": "/api/coding-crew/action-log",
+  "description": "讀取 action log（跨 agent 交接紀錄）",
+  "query": {
+    "path": "/Users/steward/App/tPAAW",
+    "limit": "20"
+  },
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}

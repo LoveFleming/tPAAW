@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/pick-directory",
+  "routeId": "pick_directory",
+  "name": "PickDirectory",
+  "category": "pick",
+  "description": "GET /api/pick-directory",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

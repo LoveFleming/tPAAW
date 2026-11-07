@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/api/coding-auto-dispatch/prompts/reset",
+  "description": "重置 prompts 為預設值",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": null,
+  "expectedStatus": 200,
+  "notes": "⚠️ 覆蓋所有自訂 prompts"
+}

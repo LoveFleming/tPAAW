@@ -1,0 +1,13 @@
+{
+  "method": "PUT",
+  "path": "/api/coding-memory/:agentId",
+  "description": "寫入/更新 agent memory",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": {
+    "content": "# Architect Memory\n\n## Lessons Learned\n- Always check cross-platform paths"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

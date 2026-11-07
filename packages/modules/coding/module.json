@@ -1,0 +1,19 @@
+{
+  "id": "coding",
+  "name": "Coding 部門",
+  "icon": "💻",
+  "version": "1.0.0",
+  "crews": [
+    "coding.architect",
+    "coding.developer",
+    "coding.doc-writer",
+    "coding.em",
+    "coding.handover",
+    "coding.helpdesk",
+    "coding.ops",
+    "coding.qa",
+    "coding.rm",
+    "coding.tester"
+  ],
+  "_rev": "2026-10-09"
+}

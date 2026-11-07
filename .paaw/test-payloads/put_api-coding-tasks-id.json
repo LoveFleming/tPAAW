@@ -1,0 +1,15 @@
+{
+  "method": "PUT",
+  "path": "/api/coding-tasks/:id",
+  "description": "更新 task",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": {
+    "title": "Updated title",
+    "status": "in-progress",
+    "priority": "critical"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

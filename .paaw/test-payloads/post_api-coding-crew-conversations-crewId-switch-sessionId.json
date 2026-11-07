@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/api/coding-crew/conversations/:crewId/switch/:sessionId",
+  "description": "切換到 history session",
+  "query": {
+    "cwd": "/Users/steward/App/tPAAW"
+  },
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}

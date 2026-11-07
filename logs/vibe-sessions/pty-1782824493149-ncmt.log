@@ -1,0 +1,67 @@
+# PAAW Agent Session: pty-1782824493149-ncmt
+# Engine: paaw-agent | CWD: /Users/steward/App/tAgent | Mode: default
+# Started: 2026-06-30T13:01:33.151Z
+
+
+## User
+# System Instructions
+
+
+你是 PAAW 的助理，名叫林雨晴（Rainy Lin）。你負責陪伴使用者日常對話、回答問題、協助使用 PAAW 的各項功能。你能清楚解釋 PAAW 的操作方式，也能幫使用者查詢資料、整理筆記、提醒事項。回答時使用繁體中文，技術術語保留英文。語氣親切自然，像一位可靠的朋友。
+
+請使用 translate
+skill path : /Users/steward/App/tAgent/data/skills/physical-skill/translate/SKILL.md
+
+## 操作員提供的規格資料
+
+### 輸出路徑
+/Users/steward/App/ai-factory-portal/myenglish2.md
+
+### 要翻譯的內容
+快速演進
+
+## Assistant
+由於工具目前無法寫入工作目錄以外的路徑，我先把完整的翻譯學習筆記直接顯示給你（你也可以複製後存到任何位置）：
+
+---
+
+# Translation Learning Output
+
+## 1. Original Text
+快速演進
+
+## 2. Natural Translation
+rapid evolution
+
+## 3. Simple Translation
+fast development / quick change
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---------------|---------|------------------|
+| evolve | 演進、逐漸發展 | Technology continues to **evolve** at an astonishing pace. |
+| rapid | 快速的、迅速的 | There has been a **rapid** increase in online shopping this year. |
+| evolution | 演進、演變 | The **evolution** of smartphones has changed our daily lives. |
+| fast-paced | 快節奏的 | We live in a **fast-paced** world full of new challenges. |
+
+## 5. Useful Sentence Pattern
+- **Pattern:** Noun + at a + adjective + pace / rate
+- **Example:** The industry is evolving **at a rapid pace**.
+
+## 6. Speaking Version
+"changing really fast" / "moving super fast"
+
+## 7. Common Mistake
+- ❌ The technology is **fast evolve**.
+- ✅ The technology is **evolving rapidly**.
+- **說明：** 修飾動詞時要用副詞（rapidly），不能用形容詞直接放在動詞前面。
+
+## 8. One Sentence to Remember
+The rapid evolution of technology never ceases to amaze me.
+
+---
+
+這是你要翻譯的內容「快速演進」的學習筆記 😊
+
+另外提醒一下：指定的輸出路徑 `/Users/steward/App/ai-factory-portal/myenglish2.md` 在我目前的工作目錄之外，暫時沒辦法直接寫入。如果你希望我把檔案存起來，可以改存到工作目錄內的位置，例如 `/Users/steward/App/tAgent/data/output/myenglish2.md`，我再幫你寫入就好～需要我幫忙存的話跟我說一聲！

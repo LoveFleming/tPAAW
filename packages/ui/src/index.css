@@ -1,0 +1,184 @@
+/* ── Emoji font fallback for Linux ── */
+
+/* Apply emoji font as fallback everywhere */
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Noto Color Emoji", sans-serif;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════ Theme overrides ═══════ */
+/* Default (sunny) = Tailwind orange/amber — no override needed */
+
+/* Sky theme: orange → sky, amber → sky */
+[data-theme="sky"] {
+  /* orange → sky */
+  --tw-bg-opacity: 1;
+}
+[data-theme="sky"] .bg-orange-50\/40, [data-theme="sky"] .bg-orange-50\/20 { background-color: rgb(240 249 255 / var(--tw-bg-opacity, 0.4)); }
+[data-theme="sky"] .bg-orange-50 { background-color: rgb(240 249 255); }
+[data-theme="sky"] .bg-orange-50\/50 { background-color: rgb(240 249 255 / 0.5); }
+[data-theme="sky"] .bg-orange-50\/60 { background-color: rgb(240 249 255 / 0.6); }
+[data-theme="sky"] .bg-orange-100 { background-color: rgb(224 242 254); }
+[data-theme="sky"] .bg-orange-200 { background-color: rgb(186 230 253); }
+[data-theme="sky"] .bg-orange-500 { background-color: rgb(14 165 233); }
+[data-theme="sky"] .hover\\:bg-orange-600:hover { background-color: rgb(2 132 199); }
+[data-theme="sky"] .bg-orange-50\/50\/50 { background-color: rgb(240 249 255 / 0.5); }
+[data-theme="sky"] .border-orange-100 { border-color: rgb(224 242 254); }
+[data-theme="sky"] .border-orange-200 { border-color: rgb(186 230 253); }
+[data-theme="sky"] .border-orange-300 { border-color: rgb(125 211 252); }
+[data-theme="sky"] .border-orange-400 { border-color: rgb(56 189 248); }
+[data-theme="sky"] .hover\\:border-orange-300:hover { border-color: rgb(125 211 252); }
+[data-theme="sky"] .text-orange-400 { color: rgb(56 189 248); }
+[data-theme="sky"] .text-orange-600 { color: rgb(2 132 199); }
+[data-theme="sky"] .text-orange-700 { color: rgb(3 105 161); }
+[data-theme="sky"] .ring-orange-300 { --tw-ring-color: rgb(125 211 252); }
+[data-theme="sky"] .focus\\:ring-orange-300:focus { --tw-ring-color: rgb(125 211 252); }
+[data-theme="sky"] .hover\\:bg-orange-50\/50:hover { background-color: rgb(240 249 255 / 0.5); }
+[data-theme="sky"] .hover\\:bg-orange-50:hover { background-color: rgb(240 249 255); }
+[data-theme="sky"] .hover\\:bg-orange-50\/50\/50:hover { background-color: rgb(240 249 255 / 0.5); }
+/* amber → sky light */
+[data-theme="sky"] .bg-amber-50 { background-color: rgb(240 249 255); }
+[data-theme="sky"] .bg-amber-50\/50 { background-color: rgb(240 249 255 / 0.5); }
+[data-theme="sky"] .bg-amber-50\/50\/50 { background-color: rgb(240 249 255 / 0.5); }
+[data-theme="sky"] .selection\\:bg-amber-200::selection { background-color: rgb(186 230 253); }
+
+/* Cyan theme: orange → cyan, amber → cyan */
+[data-theme="cyan"] .bg-orange-50\/40, [data-theme="cyan"] .bg-orange-50\/20 { background-color: rgb(236 254 255 / var(--tw-bg-opacity, 0.4)); }
+[data-theme="cyan"] .bg-orange-50 { background-color: rgb(236 254 255); }
+[data-theme="cyan"] .bg-orange-50\/50 { background-color: rgb(236 254 255 / 0.5); }
+[data-theme="cyan"] .bg-orange-50\/60 { background-color: rgb(236 254 255 / 0.6); }
+[data-theme="cyan"] .bg-orange-100 { background-color: rgb(207 250 254); }
+[data-theme="cyan"] .bg-orange-200 { background-color: rgb(165 243 252); }
+[data-theme="cyan"] .bg-orange-500 { background-color: rgb(6 182 212); }
+[data-theme="cyan"] .hover\\:bg-orange-600:hover { background-color: rgb(8 145 178); }
+[data-theme="cyan"] .bg-orange-50\/50\/50 { background-color: rgb(236 254 255 / 0.5); }
+[data-theme="cyan"] .border-orange-100 { border-color: rgb(207 250 254); }
+[data-theme="cyan"] .border-orange-200 { border-color: rgb(165 243 252); }
+[data-theme="cyan"] .border-orange-300 { border-color: rgb(103 232 249); }
+[data-theme="cyan"] .border-orange-400 { border-color: rgb(34 211 238); }
+[data-theme="cyan"] .hover\\:border-orange-300:hover { border-color: rgb(103 232 249); }
+[data-theme="cyan"] .text-orange-400 { color: rgb(34 211 238); }
+[data-theme="cyan"] .text-orange-600 { color: rgb(8 145 178); }
+[data-theme="cyan"] .text-orange-700 { color: rgb(14 116 144); }
+[data-theme="cyan"] .ring-orange-300 { --tw-ring-color: rgb(103 232 249); }
+[data-theme="cyan"] .focus\\:ring-orange-300:focus { --tw-ring-color: rgb(103 232 249); }
+[data-theme="cyan"] .hover\\:bg-orange-50\/50:hover { background-color: rgb(236 254 255 / 0.5); }
+[data-theme="cyan"] .hover\\:bg-orange-50:hover { background-color: rgb(236 254 255); }
+[data-theme="cyan"] .hover\\:bg-orange-50\/50\/50:hover { background-color: rgb(236 254 255 / 0.5); }
+[data-theme="cyan"] .bg-amber-50 { background-color: rgb(236 254 255); }
+[data-theme="cyan"] .bg-amber-50\/50 { background-color: rgb(236 254 255 / 0.5); }
+[data-theme="cyan"] .bg-amber-50\/50\/50 { background-color: rgb(236 254 255 / 0.5); }
+[data-theme="cyan"] .selection\\:bg-amber-200::selection { background-color: rgb(165 243 252); }
+
+/* Minor polish for code blocks */
+pre { tab-size: 2; }
+
+/* Force scrollbar to be permanently visible */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 8px;
+  background-color: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1; /* tailwind slate-300 */
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8; /* tailwind slate-400 */
+}
+
+/* Hide scrollbar on tab bar */
+[style*="scrollbar-width: none"]::-webkit-scrollbar {
+  display: none;
+}
+
+/* ═══ Coding App 跨平台捲軸統一（2026-09-02 Fleming）═══
+   問題：Linux Chrome 的 GTK 捲軸吃不到 scrollbar-width:thin，維持粗捲軸佔寬度
+         並蓋住欄位左側資料（caption/檔名），而 Win/Mac 用 overlay 捲軸不佔位
+         → 三平台渲染不一致、Linux 有東西被遮。
+   解法：不分 CSS 版。在 coding app root 內統一細捲軸 + scrollbar-gutter:stable
+         （永久預留溝槽，內容永遠不被竿軸壓到），三平台顯示一致。 */
+.coding-app-root,
+.coding-app-root * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+}
+
+/* 內容容器永久預留捲軸溝槽 → Linux 粗捲軸不會再蓋住檔名/caption */
+.coding-app-root .overflow-y-auto,
+.coding-app-root [class*="overflow-y-auto"] {
+  scrollbar-gutter: stable;
+}
+
+/* Webkit 細捲軸（Linux/Windows Chrome 走這條） */
+.coding-app-root ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.coding-app-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.coding-app-root ::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.55);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.coding-app-root ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 116, 139, 0.75);
+  background-clip: padding-box;
+}
+.coding-app-root ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Notes editor placeholder */
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+/* Notes editor content styles */
+[contenteditable] h2 { font-size: 1.5em; font-weight: 700; margin: 0.8em 0 0.4em; }
+[contenteditable] h3 { font-size: 1.2em; font-weight: 600; margin: 0.6em 0 0.3em; }
+[contenteditable] blockquote {
+  border-left: 3px solid currentColor;
+  padding-left: 12px;
+  margin: 8px 0;
+  opacity: 0.8;
+  font-style: italic;
+}
+[contenteditable] pre {
+  background: #f4f4f5;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  font-size: 13px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+[contenteditable] ul, [contenteditable] ol { padding-left: 24px; }
+[contenteditable] li { margin: 4px 0; }
+[contenteditable] img { max-width: 100%; border-radius: 8px; }
+
+/* Notes toolbar button hover */
+.toolBtn:hover { background: rgba(0,0,0,0.06); border-color: rgba(0,0,0,0.1); }
+
+/* AI writing spinner */
+@keyframes aiSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.ai-spinner { animation: aiSpin 1.2s ease-in-out infinite; display: inline-block; }
+
+/* ⬛ Coding App 專注模式（2026-09-01）：
+   App.tsx 的 tab 容器（absolute inset-0 + inline zIndex:1）會把 focus wrapper 的
+   z-[9999] 卡在 stacking context 裡，導致 PAAW header（44px）蓋住 coding toolbar、
+   ⛶ 返回按鈕看不到。這條規則讓「直接包含 focus wrapper」的 tab 容器突破上限。
+   :has() 只在專注模式開啟時 match，關閉時自動還原，React re-render 也蓋不掉 (!important)。 */
+div.absolute.inset-0:has(> div.fixed.z-\[9999\]) {
+  z-index: 9998 !important;
+}

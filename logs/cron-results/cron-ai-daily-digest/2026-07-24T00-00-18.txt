@@ -1,0 +1,97 @@
+Now I have enough data. Let me compile the digest.
+
+# 📰 AI News Digest — 2026-07-23
+
+**來源**：https://techcrunch.com/
+**擷取文章數**：47 | **摘要文章數**：10
+**關鍵字篩選**：無
+
+---
+
+## 1. AMD takes on Nvidia with its Helios AI rack-scale system
+🔗 https://techcrunch.com/2026/07/23/amd-takes-on-nvidia-with-its-helios-ai-rack-scale-system/
+📅 2026-07-23
+
+AMD 在舊金山 Advancing AI 大會上發表 Helios 機架級 AI 系統，號稱「業界最高效能 AI 機架」，專為訓練和運行前沿模型設計。微軟已宣布將使用 Helios 擴展 Azure 基礎設施，Anthropic 也與 AMD 合作，預計今年稍後出貨。
+
+---
+
+## 2. AI chip startup Etched defies skeptics, hits $10.3B valuation
+🔗 https://techcrunch.com/2026/07/23/ai-chip-startup-etched-defies-skeptics-hits-10-3b-valuation-from-big-name-investors/
+📅 2026-07-23
+
+三位哈佛輟學生創辦的 AI 晶片新創 Etched 完成 3 億美元 C 輪融資，估值達 103 億美元，七個月內翻倍。本輪由 Sequoia 領投，a16z、SK Hynix 等參與，公司已接獲 10 億美元訂單，並在 Milpitas 開設 8 萬平方英尺的新資料中心。
+
+---
+
+## 3. Google's Gemini nears billion-user milestone
+🔗 https://techcrunch.com/2026/07/23/google-closes-in-on-another-billion-user-product-with-gemini/
+📅 2026-07-23
+
+Google 在 Q2 2026 財報電話會議中宣布，AI 助理 Gemini 月活躍用戶已超過 9.5 億，較去年成長 3 倍。Sensor Tower 數據顯示 Gemini 市佔率已升至 27.7%，而 ChatGPT 市佔率首次跌破 50%。CEO Sundar Pichai 強調 Daily Brief 和 Gemini Spark 等代理功能推動了成長。
+
+---
+
+## 4. OpenAI makes ChatGPT Health available to all US users
+🔗 https://techcrunch.com/2026/07/23/openai-makes-chatgpt-health-available-to-all-u-s-users/
+📅 2026-07-23
+
+OpenAI 宣布 ChatGPT Health 功能向所有美國 18 歲以上用戶開放，可整合 Apple Health、Epic、Oracle Health 等醫療記錄。OpenAI 表示用戶每週提出 3 億個健康相關查詢，但強調不適用於診斷或治療疾病，且不會使用用戶數據訓練模型。
+
+---
+
+## 5. Anthropic updates Claude voice mode with more capable models
+🔗 https://techcrunch.com/2026/07/23/anthropic-updates-claude-voice-mode-with-more-capable-models/
+📅 2026-07-23
+
+Anthropic 更新 Claude 語音模式，用戶可選擇 Opus、Sonnet、Haiku 模型，並支援連接 Gmail、Google Calendar、Slack、Canva 和 Notion 等應用程式。這與 OpenAI 的語音模式形成明顯差異——後者仍無法使用工具完成工作。免費用戶僅限使用 Haiku 模型並連接一個應用。
+
+---
+
+## 6. Nvidia is sending GPUs to the moon
+🔗 https://techcrunch.com/2026/07/23/nvidia-is-sending-gpus-to-the-moon/
+📅 2026-07-23
+
+太空基礎設施新創 Lunar Outpost 宣布其下一代月球探測車將使用 Nvidia Jetson 晶片控制雷射雷達系統，有望成為首個登上月球表面的 GPU。該任務將搭載 Intuitive Machines 的登陸器，由 Falcon 9 火箭在今年底前發射，執行 NASA 商業月球探索計畫。
+
+---
+
+## 7. AegisAI, founded by former Google security execs, lands $36M
+🔗 https://techcrunch.com/2026/07/23/aegisai-founded-by-former-google-security-execs-lands-36m-to-stop-ai-driven-spear-phishing/
+📅 2026-07-23
+
+由前 Google 安全主管 Cy Khormaee 和 Ryan Luo 創立的 AegisAI 獲 3600 萬美元 A 輪融資，由 Battery Ventures 領投。該公司使用 AI 代理分析電子郵件中的細微異常，對抗 AI 驅動的魚叉式網路釣魚攻擊，已獲得 Mesh、LangChain 等客戶。
+
+---
+
+## 8. Tesla's robotaxis are moving in reverse
+🔗 https://techcrunch.com/2026/07/23/teslas-robotaxis-are-moving-in-reverse/
+📅 2026-07-23
+
+Tesla Robotaxi 網路第二季付費載客里程數較第一季下降，與公司持續擴張的宣傳形成對比。儘管已擴展至德州和佛羅里達州六個城市，但里程數不增反減。Tesla 股價週四暴跌逾 13%，Musk 承認 Cybercab 需要累積更多特定駕駛數據才能擴大規模。
+
+---
+
+## 9. Meta launches AI optimism ad set to a song about human extinction
+🔗 https://techcrunch.com/2026/07/23/meta-launched-a-new-ai-optimism-ad-set-to-a-song-about-human-extinction/
+📅 2026-07-23
+
+Meta 推出最新 AI 形象廣告，主打「AI 樂觀主義」訊息，但背景音樂選用的歌曲實際上是在描述人類面臨滅絕事件後的恐慌。這則廣告在社群媒體上引發爭議，許多人質疑 Meta 的訊息傳達與其投入數千億美元押注 AI 的策略之間的矛盾。
+
+---
+
+## 10. Google will now let you sign in with a selfie video
+🔗 https://techcrunch.com/2026/07/23/google-will-now-let-you-sign-in-to-your-account-with-a-selfie-video/
+📅 2026-07-23
+
+Google 推出新功能，允許用戶透過拍攝自拍影片（含轉頭、點頭等動作）來驗證身分並登入帳戶。該功能旨在打擊深度偽造和帳號盜用，採用多層安全機制。Google 表示自拍影片會加密儲存，用戶可隨時刪除，但也引發了對生物辨識數據隱私的擔憂。
+
+---
+
+### 其他值得關注的新聞
+
+- **Mobileye CEO Amnon Shashua 將卸任**，公司轉向機器人計程車和人形機器人領域 → [閱讀全文](https://techcrunch.com/2026/07/23/mobileye-ceo-amnon-shashua-to-step-aside-as-company-pushes-into-robotaxis-robotics/)
+- **Patreon 裁員 20%**（93 人），CEO 表示 AI 已根本改變科技產業 → [閱讀全文](https://techcrunch.com/2026/07/23/patreon-lays-off-off-20-of-its-workforce/)
+- **Meta 退出大型清潔能源協議**，為 AI 資料中心擴建天然氣發電廠 → [閱讀全文](https://techcrunch.com/2026/07/23/meta-drops-out-of-a-major-clean-energy-pact-as-its-natural-gas-buildout-accelerates/)
+- **Runway 推出 AI 模型路由器**，自動選擇最佳圖片/影片/音訊生成模型 → [閱讀全文](https://techcrunch.com/2026/07/23/runway-bets-on-ai-model-routing-as-generative-media-gets-crowded/)
+- **Ford 押注 Apple 打造下一代電動車**，Apple Maps 將深度整合 → [閱讀全文](https://techcrunch.com/2026/07/23/ford-bets-on-apple-for-its-next-generation-of-evs/)

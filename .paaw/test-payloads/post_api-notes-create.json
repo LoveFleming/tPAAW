@@ -1,0 +1,14 @@
+{
+  "method": "POST",
+  "path": "/api/notes/create",
+  "description": "建立筆記",
+  "query": null,
+  "body": {
+    "notebook": "nb_001",
+    "section": "sec_001",
+    "title": "New Note",
+    "content": "# Hello\n\nWorld"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

@@ -1,0 +1,68 @@
+# PAAW — Personal AI Assistant Workspace
+# Docker sandbox deployment
+#
+# Usage:
+#   docker compose up -d          — start everything
+#   docker compose logs -f paaw   — watch PAAW logs
+#   docker compose down           — stop
+#
+# Architecture:
+#   paaw       — complete PAAW in sandbox (API + UI + CLI)
+#   bridge     — host guardian (backup + sync + tool proxy + update)
+
+services:
+  paaw:
+    build: .
+    container_name: paaw
+    ports:
+      - "4097:4097"   # API + UI
+      - "4098:4098"   # PTY WebSocket
+    volumes:
+      - paaw-data:/paaw/data
+    environment:
+      - PAAW_ROOT=/paaw
+      - PAAW_PORT=4097
+      - PAAW_WS_PORT=4098
+      - NODE_ENV=production
+      # Bridge service (sandbox calls this for external tools)
+      - BRIDGE_URL=http://host.docker.internal:4100
+      - BRIDGE_TOKEN=${BRIDGE_TOKEN:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4097/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    # Security: no privileged mode, no docker socket
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits
+    mem_limit: 2g
+    cpus: 2.0
+
+  bridge:
+    image: node:22-slim
+    container_name: paaw-bridge
+    ports:
+      - "4100:4100"
+    volumes:
+      - ./backups:/backups
+      - ./packages/server/src/lib/bridge:/bridge:ro
+      - /var/run/docker.sock:/var/run/docker.sock   # manage paaw container
+      - ./:/paaw-src:ro                              # for rebuild
+    working_dir: /bridge
+    command: node paaw-bridge.mjs
+    environment:
+      - BRIDGE_PORT=4100
+      - PAAW_CONTAINER=paaw
+      - BACKUP_DIR=/backups
+      - BACKUP_INTERVAL_MS=${BACKUP_INTERVAL_MS:-1800000}
+      - BRIDGE_TOKEN=${BRIDGE_TOKEN:-}
+      # API keys for tool proxy (JSON file path or inline)
+      - TOOL_TOKENS_FILE=/backups/tool-tokens.json
+    restart: unless-stopped
+    depends_on:
+      - paaw
+
+volumes:
+  paaw-data:

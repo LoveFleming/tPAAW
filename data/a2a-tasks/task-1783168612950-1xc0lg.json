@@ -1,0 +1,56 @@
+{
+  "id": "task-1783168612950-1xc0lg",
+  "contextId": "task-1783168612950-1xc0lg",
+  "status": {
+    "state": "completed",
+    "timestamp": "2026-07-04T12:36:58.395Z"
+  },
+  "message": {
+    "role": "user",
+    "parts": [
+      {
+        "type": "text",
+        "text": "PAAW 是什麼？一兩句話"
+      }
+    ]
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "PAAW 是什麼？一兩句話"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "PAAW 是 **Personal AI Assistant Workspace** 的縮寫，也就是你的個人 AI 助理工作區 — 一個讓你可以透過 AI 管理資料、執行任務、記筆記和串接各種 App 的本地端平台。"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art-final-1783168618395",
+      "name": "Response",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "PAAW 是 **Personal AI Assistant Workspace** 的縮寫，也就是你的個人 AI 助理工作區 — 一個讓你可以透過 AI 管理資料、執行任務、記筆記和串接各種 App 的本地端平台。"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "toolsUsed": [],
+    "model": "paaw-default"
+  }
+}

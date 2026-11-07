@@ -1,0 +1,46 @@
+The requested output path `/Users/steward/App/ai-factory-portal/myenglish.md` is outside the allowed working directory. Since I cannot write to that path, I'll display the result directly instead.
+
+以下是你的翻譯學習筆記：
+
+---
+
+# Translation Learning Output
+
+## 1. Original Text
+火熱
+
+## 2. Natural Translation
+Trending / Scorching Hot
+
+## 3. Simple Translation
+Very Popular / Burning Hot
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| 火熱 (huǒ rè) | trending, popular; scorching hot; passionate | 這款新手機在市場上非常火熱，上市第一天就賣光了。 |
+| 超夯 (chāo hāng) | super popular, hyped (slang) | 這家餐廳最近超夯，想吃得提前一個月訂位。 |
+| 爆紅 (bào hóng) | to go viral, become an overnight sensation | 這位歌手因為一首翻唱歌曲而爆紅全亞洲。 |
+
+## 5. Useful Sentence Pattern
+**Pattern:** [Subject] + 在 [領域/範圍] + 非常火熱
+
+**Example:** 人工智慧話題在科技圈非常火熱。
+
+**Translation:** The topic of artificial intelligence is very hot in the tech circle.
+
+## 6. Speaking Version
+This thing is totally on fire right now! / It's blowing up everywhere!
+
+## 7. Common Mistake
+❌ **錯誤用法：** 我今天身體很火熱。
+（"火熱" 不用來形容身體發燒或不適）
+
+✅ **正確用法：** 我今天身體很燙，好像發燒了。
+（發燒用「發燙」「發燒」，而非「火熱」）
+
+**Explanation:** In Chinese, 火熱 describes an object's popularity, atmosphere, or passionate feelings — not physical fever or body temperature. Use 發燒 (fever) or 很燙 (very hot to touch) for that.
+
+## 8. One Sentence to Remember
+When a topic catches fire, hearts burn with passion.

@@ -1,0 +1,45 @@
+/**
+ * coding-db repos — 查詢入口（2026-11-01 起 db 為單一真相，dual-write 過渡期結束）
+ */
+import { openCodingDb } from "./connection.mjs";
+import { saveTasks } from "./tasks.repo.mjs";
+import { saveFeatures } from "./features.repo.mjs";
+import {
+  appendDispatchRecord, appendActionRecord, appendQaResult, appendExecApproval,
+  saveConversation, archiveConversation, setKv, setGates, setHandover, saveIssue, saveReleaseRequest,
+} from "./stores.repo.mjs";
+
+export {
+  appendDispatchRecord, appendActionRecord, appendQaResult, appendExecApproval,
+  saveConversation, archiveConversation, deleteConversationSession,
+  setKv, setGates, setHandover, saveIssue, saveReleaseRequest,
+} from "./stores.repo.mjs";
+export { saveTasks } from "./tasks.repo.mjs";
+export { saveFeatures } from "./features.repo.mjs";
+export { saveApiFeatures, buildFileApiMap } from "./api-features.repo.mjs";
+export { openCodingDb } from "./connection.mjs";
+export { readDoc, writeDoc, hasDoc, deleteDoc, readDocUpdatedAt, DOC_FILES } from "./docs.repo.mjs";
+
+// Phase B 讀取函式
+export {
+  readFeatures, readApiFeatures, readUiFeatures, readTasks, readActionLog,
+  readConversationAgents, readConversationSessions, readConversation,
+} from "./reads.mjs";
+
+/** list 查詢範例：某 RU 最近 dispatch */
+export function recentDispatch(ruRoot, { limit = 50, taskId } = {}) {
+  const db = openCodingDb(ruRoot);
+  if (taskId) return db.prepare("SELECT * FROM dispatch_log WHERE task_id=? ORDER BY id DESC LIMIT ?").all(taskId, limit);
+  return db.prepare("SELECT * FROM dispatch_log ORDER BY id DESC LIMIT ?").all(limit);
+}
+
+export function taskHistory(ruRoot, taskId) {
+  const db = openCodingDb(ruRoot);
+  return {
+    task: db.prepare("SELECT * FROM task WHERE id=?").get(taskId),
+    details: db.prepare("SELECT * FROM task_detail WHERE task_id=? ORDER BY id").all(taskId), // v2：notes/assign/status/qa 全在這
+    dispatch: db.prepare("SELECT * FROM dispatch_log WHERE task_id=? ORDER BY id").all(taskId),
+    qa: db.prepare("SELECT * FROM qa_results WHERE task_id=? ORDER BY id").all(taskId),
+  };
+}
+export { saveUiFeatures, findUiByApiCall } from "./ui-features.repo.mjs";

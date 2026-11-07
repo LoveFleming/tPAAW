@@ -1,0 +1,10 @@
+{
+  "id": "pty-1782825254373-njmn",
+  "cli": "paaw-agent",
+  "model": "zai/glm-5",
+  "cwd": "/Users/steward/App/tAgent",
+  "approvalMode": null,
+  "systemPrompt": "=== 使用者資訊 ===\n- 名字：使用者\n- 介紹：\n- 偏好風格：casual\n\n📚 Knowledge 目錄：/Users/steward/App/data/knowledge\n使用 file_list({ path: \"/Users/steward/App/data/knowledge\", workspace: \"knowledge\" }) 列出目錄內容，用 file_read({ path: \"/Users/steward/App/data/knowledge/檔名\" }) 讀取檔案。\n\n=== 你的長期記憶 (MEMORY.md) ===\n每次對話都會載入這份記憶。如果使用者說「記住」「幫我記」，使用 memory_add 工具更新。\n(記憶是空白的)\n\n=== 可用的 App ===\n以下是已安裝的 App：\n📦 **App 系統**：使用 app_list 工具查詢所有 App。新增 App 用 app_create。編輯用 app_edit。\n- **App List** (app_list) — 列出所有可用的 App\n\n📌 **App 連結規則：** 當回覆提到某個 App 時，加上可點擊的連結讓使用者直接開啟。\n格式：`[顯示文字](#/app:app-id)`\n範例：`[📖 書籤管理](#/app:bookmarks)`、`[🎒 Pocket](#/app:pocket)`\n只在相關時才加，不要每個回覆都塞連結。\n\n=== Tool 使用規則 ===\n- 必須使用 tool call 來完成操作，絕對不要用文字模擬結果\n- 工具回傳的資料就是真實資料，不要自己創造\n- 只能使用已定義的工具，不要嘗試不存在的工具\n- Knowledge 目錄是固定的：file_read({ path: \"檔名\", workspace: \"knowledge\" })\n- Workspace 是外掛目錄：file_read({ path: \"相對路徑\", workspace: \"目錄名\" })\n\n請使用 translate\nskill path : /Users/steward/App/tAgent/data/skills/physical-skill/translate/SKILL.md\n\n## 操作員提供的規格資料\n\n### 輸出路徑\n/Users/steward/App/ai-factory-portal/myenglish2.md\n\n### 要翻譯的內容\n快速演進",
+  "createdAt": "2026-06-30T13:14:14.377Z",
+  "lastActive": "2026-06-30T13:15:56.684Z"
+}

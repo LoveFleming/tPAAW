@@ -1,0 +1,20 @@
+{
+  "route": "POST /api/cron-jobs",
+  "routeId": "cron_jobs",
+  "name": "CronJobs",
+  "category": "cron",
+  "description": "POST /api/cron-jobs",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

@@ -1,0 +1,60 @@
+{
+  "id": "task-1783169309150-782yfr",
+  "contextId": "task-1783169309150-782yfr",
+  "status": {
+    "state": "input-required",
+    "timestamp": "2026-07-04T12:48:34.955Z"
+  },
+  "message": {
+    "kind": "message",
+    "role": "user",
+    "messageId": "msg-d57ebbee-730c-4806-9f2b-3f7ad6a77349",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "使用者回報：PAAW 某個功能壞了、不支援、不能用。請 HelpDesk 協助了解並回覆。"
+      }
+    ],
+    "contextId": "5a1e02af-1239-4ccf-817a-a1fce04615c0"
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "使用者回報：PAAW 某個功能壞了、不支援、不能用。請 HelpDesk 協助了解並回覆。"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "釐清問題]\n\n請問是哪個功能出了問題？為了幫你精準診斷，請提供以下資訊：\n\n1. **功能名稱**：是哪個功能不能用了？（例如：App Builder、Skill 執行、Chat Assistant、CronJob 排程、檔案上傳、A2A Protocol 等）\n2. **具體症狀**：發生了什麼事？（例如：點擊沒反應、出現錯誤訊息、結果不如預期、無法儲存等）\n3. **錯誤訊息**：如果有任何錯誤訊息，請完整貼上來\n4. **操作情境**：你在做什麼操作時發生的？（例如：新增 App 資料、執行某個 Skill、建立 Workflow 等）\n\n提供以上資訊後，我會查詢知識庫和相關檔案來協助你排查問題。"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art-1783169314955",
+      "name": "Clarification Question",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "釐清問題]\n\n請問是哪個功能出了問題？為了幫你精準診斷，請提供以下資訊：\n\n1. **功能名稱**：是哪個功能不能用了？（例如：App Builder、Skill 執行、Chat Assistant、CronJob 排程、檔案上傳、A2A Protocol 等）\n2. **具體症狀**：發生了什麼事？（例如：點擊沒反應、出現錯誤訊息、結果不如預期、無法儲存等）\n3. **錯誤訊息**：如果有任何錯誤訊息，請完整貼上來\n4. **操作情境**：你在做什麼操作時發生的？（例如：新增 App 資料、執行某個 Skill、建立 Workflow 等）\n\n提供以上資訊後，我會查詢知識庫和相關檔案來協助你排查問題。"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "toolsUsed": [],
+    "model": "paaw-helpdesk",
+    "needsInfo": true
+  }
+}

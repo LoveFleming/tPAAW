@@ -1,0 +1,24 @@
+{
+  "method": "POST",
+  "path": "/api/coding-tasks/decompose",
+  "description": "拆分 task 為子任務",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": {
+    "parentId": "TASK-001",
+    "subTasks": [
+      {
+        "title": "Sub-task 1",
+        "type": "chore"
+      },
+      {
+        "title": "Sub-task 2",
+        "type": "chore"
+      }
+    ],
+    "createdBy": "em"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

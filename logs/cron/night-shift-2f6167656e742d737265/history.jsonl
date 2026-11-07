@@ -1,0 +1,4 @@
+{"runId":"night-shift-2f6167656e742d737265-2026-08-02T10-05-11","status":"started","ts":"2026-08-02T10:05:11.010Z"}
+{"runId":"night-shift-2f6167656e742d737265-2026-08-02T10-05-11","status":"done","result":{"ok":true,"message":"Night shift started (mode: em)","startedAt":"2026-08-02T10:05:11.012Z","mode":"em"},"ts":"2026-08-02T10:05:11.132Z"}
+{"runId":"night-shift-2f6167656e742d737265-2026-08-02T10-11-18","status":"started","ts":"2026-08-02T10:11:18.373Z"}
+{"runId":"night-shift-2f6167656e742d737265-2026-08-02T10-11-18","status":"done","result":{"ok":true,"message":"Night shift started (mode: em)","startedAt":"2026-08-02T10:11:18.395Z","mode":"em"},"ts":"2026-08-02T10:11:18.492Z"}

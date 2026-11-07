@@ -1,0 +1,91 @@
+# PAAW Agent Session: pty-1783156475968-doyb
+# Engine: paaw-agent | CWD: /Users/steward/App/tPAAW | Mode: default
+# Started: 2026-07-04T09:14:35.972Z
+
+
+## User
+# System Instructions
+=== 檔案路徑 ===
+📖 Knowledge：使用 file_list({ workspace: "knowledge" }) 和 file_read({ workspace: "knowledge", path: "檔名" }) 透過 API 存取。
+
+使用者的 Workspace 目錄（可讀寫）：
+- /Users/steward/App/tPAAW
+
+# Skill 執行規則
+
+## Crew Skill 使用方式
+
+當 Crew 被分配 Skill 時，prompt 只會提供 Skill 名稱和 SKILL.md 的**絕對路徑**。
+
+### 執行步驟
+
+1. 看到 `請使用 {skill name}` + `skill path : {path}` 時
+2. 用 `file_read` 讀取該 SKILL.md 路徑（路徑是絕對路徑，直接使用）
+3. 理解 Skill 定義（Purpose、Inputs、Execution Steps、Output Contract）
+4. 按照定義執行任務
+
+### 注意事項
+
+- **不要**猜測 Skill 內容，務必先讀取
+- **路徑是絕對路徑**，不需要再加前綴或 resolve
+- 讀取後按照 SKILL.md 的 Execution Steps 執行
+- 如果 SKILL.md 有 Output Contract，輸出必須符合
+- **Output Mode**：看 SKILL.md 的 Output Contract 宣告 `file` / `display` / `both`：
+  - `file` → 一定要寫檔案
+  - `display` → 直接在回應中顯示結果
+  - `both` → 有 output_path 存檔，沒有就顯示
+- user input 會接在 prompt 最後面
+
+
+你是 PAAW Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。
+
+請使用 help-desk
+skill path : /Users/steward/App/tPAAW/data/skills/physical-skill/help-desk/SKILL.md
+
+## 操作員提供的規格資料
+
+### 你的問題
+簡單說一下什麼是PAAW?
+
+## Assistant
+根據找到的資料，我來回答這個問題。
+
+---
+
+## PAAW 是什麼？
+
+**PAAW（Personal AI Assistant Workspace）** 是一個讓你用 AI 打造個人工具與 AI 團隊的工作平台。核心理念是：
+
+> 人用 AI 自己做工具 → AI 幫你記資料 → AI 放大你記的資料 → 形成能力飛輪
+
+簡單來說，PAAW 讓知識工作者能夠：
+
+1. **組建 AI Crew（AI 團隊）** — 每個 AI 成員有自己的角色、技能和個性
+2. **定義 Skill（能力單元）** — 每個 Skill 是一個可重複執行的任務，用一份 `SKILL.md` 定義「做什麼」和「輸出什麼」，AI 負責「怎麼做」
+3. **打造 App** — 資料驅動或基於 Skill，自動產生可用的聊天工具
+4. **排程自動化** — 用 CronJob 定時執行 Skill 或 App
+5. **統一聊天介面** — 所有 App 都能在聊天視窗中使用，透過關鍵字自動路由到對應的工具
+
+### 技術架構
+
+PAAW 採用 **npm workspaces monorepo** 架構，主要包含：
+
+| 模組 | 職責 |
+|------|------|
+| `ui` | React 前端（Vite + Tailwind） |
+| `server` | HTTP + WebSocket API server |
+| `engine` | Skill / Workflow 執行引擎 |
+| `context` | Context 組裝與記憶管理 |
+| `db` | SQLite + Kysely ORM |
+
+---
+
+📚 參考來源：
+- `/Users/steward/App/tPAAW/README.md`
+
+**Confidence: high**
+
+💡 **建議的後續問題：**
+- PAAW 的 Skill 系統是怎麼運作的？
+- 怎麼建立一個 AI Crew？
+- PAAW 的 Workspace 機制是什麼？

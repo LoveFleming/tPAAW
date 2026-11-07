@@ -1,0 +1,20 @@
+{
+  "route": "POST /api/api-tester/proxy",
+  "routeId": "api_tester_proxy",
+  "name": "ApiTesterProxy",
+  "category": "api",
+  "description": "POST /api/api-tester/proxy",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

@@ -1,0 +1,53 @@
+The `write_file` tool is currently experiencing a system-level error. Since the output path `/Users/steward/App/ai-factory-portal/myenglish.md` cannot be written to at this time, I'll display the results directly here.
+
+---
+
+以下是你的翻譯學習筆記：
+
+# Translation Learning Output
+
+## 1. Original Text
+
+火熱
+
+## 2. Natural Translation
+
+Blazing Hot / Red-Hot
+
+*Depending on context, "火熱" can also be translated as "fervent," "passionate," or "trending" (e.g., 火熱話題 = trending topic).*
+
+## 3. Simple Translation
+
+Very Hot / Super Popular
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| 火熱 (huǒ rè) | Blazing hot; red-hot; fervent; trending | 這部電影最近非常火熱，票房破紀錄。 (This movie is blazing hot right now, breaking box office records.) |
+| 熱潮 (rè cháo) | Craze; boom; wave of enthusiasm | 全球掀起了一股AI學習的熱潮。 (A wave of enthusiasm for learning AI has swept the globe.) |
+| 白熱化 (bái rè huà) | Heated; intensified (to a white-hot degree) | 兩隊的競爭已進入白熱化階段。 (The competition between the two teams has entered a white-hot stage.) |
+
+## 5. Useful Sentence Pattern
+
+**Pattern:** 火熱的 + [Noun] → blazing/hot/trending + [Noun]
+
+**Example:** 火熱的話題 (blazing hot topic) / 火熱的心 (a fervent heart)
+
+## 6. Speaking Version
+
+It's on fire! / It's blowing up right now.
+
+## 7. Common Mistake
+
+**❌ Incorrect:** Translating "火熱" literally as "fire hot" in all contexts.
+
+**✅ Correct:** Use "blazing hot" for literal temperature, "trending/popular" for social media/topics, and "passionate/fervent" for emotions.
+
+## 8. One Sentence to Remember
+
+The market for this product is **red-hot** right now — you don't want to miss the wave.
+
+---
+
+⚠️ **Note:** The file could not be written to `/Users/steward/App/ai-factory-portal/myenglish.md` due to a system tool error (`write_file` unavailable). Please try again later to save the file.

@@ -1,0 +1,16 @@
+{
+  "method": "POST",
+  "path": "/api/coding-crew/chat",
+  "description": "透過 A2A domain agent 進行對話（SSE streaming）",
+  "query": {},
+  "body": {
+    "crewId": "coding.architect",
+    "message": "Review the auth module",
+    "model": "",
+    "cwd": "/Users/steward/App/tPAAW",
+    "context": {},
+    "conversationHistory": []
+  },
+  "expectedStatus": 200,
+  "notes": "SSE streaming, 長時間執行"
+}

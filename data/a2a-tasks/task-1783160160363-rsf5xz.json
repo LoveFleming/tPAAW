@@ -1,0 +1,55 @@
+{
+  "id": "task-1783160160363-rsf5xz",
+  "contextId": "task-1783160160363-rsf5xz",
+  "status": {
+    "state": "completed",
+    "timestamp": "2026-07-04T10:16:04.672Z"
+  },
+  "message": {
+    "role": "user",
+    "parts": [
+      {
+        "type": "text",
+        "text": "用中文一句話介紹 PAAW"
+      }
+    ],
+    "messageId": "t6-001",
+    "contextId": "t6-ctx"
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "text": "用中文一句話介紹 PAAW"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "text": "PAAW（Personal AI Assistant Workspace）是一個讓你用自然語言管理資料、執行技能、排程任務的個人 AI 工作空間。"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art-final-1783160164672",
+      "name": "Response",
+      "parts": [
+        {
+          "type": "text",
+          "text": "PAAW（Personal AI Assistant Workspace）是一個讓你用自然語言管理資料、執行技能、排程任務的個人 AI 工作空間。"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "toolsUsed": [],
+    "model": "paaw-default"
+  }
+}

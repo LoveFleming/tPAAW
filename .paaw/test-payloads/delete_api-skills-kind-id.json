@@ -1,0 +1,9 @@
+{
+  "method": "DELETE",
+  "path": "/api/skills/:kind/:id",
+  "description": "刪除 skill",
+  "query": null,
+  "body": null,
+  "expectedStatus": 200,
+  "notes": "⚠️ 刪除"
+}

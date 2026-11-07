@@ -1,0 +1,29 @@
+# Coding Session: pty-1783774095718-f2i2
+# CLI: shell | CWD: /Users/steward/App/agent-orchestrator | Mode: default
+# Started: 2026-07-11T12:48:15.726Z
+
+%                                                                                                                       
+ 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % npx playwright test e2e/health.spec.tsnpx playwright test e2e/health.spec.ts
+Running 9 tests using 1 worker
+
+     1 [chromium] › e2e/health.spec.ts:7:3 › Server Health › GET /health returns 200 with agent metadata
+  ✓  1 [chromium] › e2e/health.spec.ts:7:3 › Server Health › GET /health returns 200 with agent metadata (14ms)     2 [chromium] › e2e/health.spec.ts:23:3 › Server Health › health endpoint includes LLM status
+  ✓  2 [chromium] › e2e/health.spec.ts:23:3 › Server Health › health endpoint includes LLM status (2ms)     3 [chromium] › e2e/health.spec.ts:30:3 › Server Health › health endpoint includes remote agent URL
+  ✓  3 [chromium] › e2e/health.spec.ts:30:3 › Server Health › health endpoint includes remote agent URL (4ms)     4 [firefox] › e2e/health.spec.ts:7:3 › Server Health › GET /health returns 200 with agent metadata
+  ✓  4 [firefox] › e2e/health.spec.ts:7:3 › Server Health › GET /health returns 200 with agent metadata (13ms)     5 [firefox] › e2e/health.spec.ts:23:3 › Server Health › health endpoint includes LLM status
+  ✓  5 [firefox] › e2e/health.spec.ts:23:3 › Server Health › health endpoint includes LLM status (2ms)     6 [firefox] › e2e/health.spec.ts:30:3 › Server Health › health endpoint includes remote agent URL
+  ✓  6 [firefox] › e2e/health.spec.ts:30:3 › Server Health › health endpoint includes remote agent URL (3ms)     7 [webkit] › e2e/health.spec.ts:7:3 › Server Health › GET /health returns 200 with agent metadata
+  ✓  7 [webkit] › e2e/health.spec.ts:7:3 › Server Health › GET /health returns 200 with agent metadata (13ms)     8 [webkit] › e2e/health.spec.ts:23:3 › Server Health › health endpoint includes LLM status
+  ✓  8 [webkit] › e2e/health.spec.ts:23:3 › Server Health › health endpoint includes LLM status (2ms)     9 [webkit] › e2e/health.spec.ts:30:3 › Server Health › health endpoint includes remote agent URL
+  ✓  9 [webkit] › e2e/health.spec.ts:30:3 › Server Health › health endpoint includes remote agent URL (5ms)  9 passed (1.5s)
+
+To open last HTML report run:
+
+  npx playwright show-report e2e/report
+
+⠙%                                                                                                                       
+ 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % 

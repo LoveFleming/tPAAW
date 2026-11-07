@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "note": "測試檔『發現』慣例表（語言無關）。加語言 = 加 row，不改程式。",
+  "dirPatterns": [
+    "(^|/)(tests?|__tests__|spec)/",
+    "(^|/)src/test/java/",
+    "(^|/)testdata/"
+  ],
+  "filePatterns": {
+    "shared": [
+      "\\.(test|spec|e2e|integration)\\.[a-z]+$",
+      "(^|_|-)test[_-][^.]+\\.(js|mjs|cjs|jsx|ts|tsx|py|go|java|rs)$",
+      "(^|_)[^/]+_test\\.(go|py|rs|rb)$",
+      "(^|/)[^/]+_spec\\.rb$",
+      "(^|/)Test[A-Z][^/]*\\.java$",
+      "(^|/)[A-Z][^/]*Test\\.java$",
+      "(^|/)[A-Z][^/]*Tests\\.java$",
+      "(^|/)test_[^/]*\\.py$",
+      "(^|/)[^/]*_spec\\.(ts|js)$",
+      "(^|/)[^/]*\\.spec\\.(ts|js|tsx)$"
+    ]
+  },
+  "extensionToLanguage": {
+    "js": "ts", "mjs": "ts", "cjs": "ts", "jsx": "ts", "ts": "ts", "tsx": "ts",
+    "py": "py",
+    "go": "go",
+    "java": "java",
+    "rs": "rust",
+    "rb": "ruby"
+  }
+}

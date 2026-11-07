@@ -1,0 +1,20 @@
+{
+  "route": "POST /api/report-train",
+  "routeId": "report_train",
+  "name": "ReportTrain",
+  "category": "report",
+  "description": "POST /api/report-train",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

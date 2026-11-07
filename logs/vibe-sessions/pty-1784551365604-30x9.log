@@ -1,0 +1,65 @@
+# Coding Session: pty-1784551365604-30x9
+# CLI: shell | CWD: /Users/steward/App/tPAAW | Mode: default
+# Started: 2026-07-20T12:42:45.612Z
+
+%                                                                                                                                                                              
+ 
+
+steward@guowangguanjiadeMac-mini tPAAW % %                                                                                                                                                                              
+ 
+
+steward@guowangguanjiadeMac-mini tPAAW % %                                                                                                                                                                              
+ 
+
+steward@guowangguanjiadeMac-mini tPAAW % nnpmrundev
+> paaw@0.1.0 dev
+> concurrently -k -n "UI,API" -c "cyan,magenta" "npm run dev -w @paaw/ui" "npm run dev -w @paaw/server"
+
+[API] 
+[API] > @paaw/server@0.1.0 dev
+[API] > node src/paaw-server.mjs
+[API] 
+[UI] 
+[UI] > @paaw/ui@0.1.0 dev
+[UI] > vite
+[UI] 
+[API] ✅ ../lib/paaw-agent-loop.mjs: PAAW_TOOLS, callLLM, executeTool, resolveLLMConfig, runAgentLoop, runAgentLoopStream, setAgentConfig, trimMessagesToFit
+[API] ✅ ../lib/semgrep-runner.mjs: buildFullScanCommand, detectRulePacks, diagnoseSemgrep, formatCondensed, formatForAI, isSemgrepAvailable, runSemgrep
+[API] ✅ ../lib/paaw-project.mjs: PaawProject, createPaawProject
+[API] ✅ ../lib/domain-agent-registry.mjs: DOMAIN_AGENTS, buildAgentCard, buildSystemPrompt, clearCrewCache, getAgent, getAgentByCrewId, getCrewData, listAgents
+[API] ✅ ../lib/action-log.mjs: addActionLog, listActionLog, loadAgentMemory, saveAgentMemory
+[API] ✅ ../routes/shared.mjs: APPS_ROOT, APP_RULES_PATH, CONVERSATIONS_ROOT, CREWS_ROOT, CRON_CHAT_DIR, CRON_JOBS_FILE, CRON_LOGS_DIR, CRON_RESULTS_DIR, DASHBOARD_ROOT, DATA_ROOT, INPUT_PROMPT_ROOT, PAAW_CHAT_DIR, PAAW_DATA_DIR, PAAW_KNOWLEDGE_DIR, PAAW_ROOT, PAAW_USER_FILE, PAAW_WORKSPACES_FILE, PHYSICAL_SKILL_ROOT, PORT, SERVER_SRC, SKILLS_ROOT, SKILL_POOL_ROOT, UI_STATE_FILE, VIBE_SESSIONS_DIR, WORKFLOWS_ROOT, __dirname, appendFileSync, basename, buildTree, dirname, existsSync, extractHtml, getConvDir, getWorkspaceId, isAbsolute, join, json, mkdir, mkdirSync, normalizePath, projectPathHash, readBody, readFile, readFileSync, readdir, readdirSync, relative, resolve, resolveDataDir, rm, spawn, startWatcher, stat, statSync, unlink, unlinkSync, writeFile, writeFileSync, yaml
+[API] node:events:486
+[API]       throw er; // Unhandled 'error' event
+[API]       ^
+[API] 
+[API] Error: listen EADDRINUSE: address already in use 0.0.0.0:4100
+[API]     at Server.setupListenHandle [as _listen2] (node:net:2008:16)
+[API]     at listenInCluster (node:net:2065:12)
+[API]     at node:net:2274:7
+[API]     at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+[API] Emitted 'error' event on Server instance at:
+[API]     at emitErrorNT (node:net:2044:8)
+[API]     at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+[API]   code: 'EADDRINUSE',
+[API]   errno: -48,
+[API]   syscall: 'listen',
+[API]   address: '0.0.0.0',
+[API]   port: 4100
+[API] }
+[35m[API] 
+[API] Node.js v25.8.2
+[API] npm error Lifecycle script `dev` failed with error:
+[API] npm error code 1
+[API] npm error path /Users/steward/App/tPAAW/packages/server
+[API] npm error workspace @paaw/server@0.1.0
+[API] npm error location /Users/steward/App/tPAAW/packages/server
+[API] npm error command failed
+[API] npm error command sh -c node src/paaw-server.mjs
+[API] npm run dev -w @paaw/server exited with code 1
+--> Sending SIGTERM to other processes..
+[UI] npm run dev -w @paaw/ui exited with code 0
+⠙%                                                                                                                                                                              
+ 
+
+steward@guowangguanjiadeMac-mini tPAAW % 

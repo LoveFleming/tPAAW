@@ -1,0 +1,985 @@
+{
+  "issues": [
+    {
+      "id": "ISS-001",
+      "title": "Git AI Review 在 Node.js 25 上 body.on 失敗",
+      "type": "bug",
+      "status": "open",
+      "priority": "medium",
+      "severity": null,
+      "labels": [
+        "bug",
+        "nodejs"
+      ],
+      "linkedTaskIds": [],
+      "description": "在 `packages/server/src/routes/vibe-fs.mjs` 的 `/api/vibe-git/ai-comment` 端點中，`chatRes.body.on(\"data\", ...)` 在 Node.js 25 上會拋出 `chatRes.body.on is not a function`。因為 Node.js 18+ 的 `fetch()` 回傳的是 `ReadableStream`（Web API），不是 Node.js 的 `IncomingMessage` stream，所以沒有 `.on()` 方法。應該改用 `for await (const chunk of chatRes.body)` 或 `chatRes.body.getReader()`。\n\n目前 catch block 會回傳基本分析，但不會產生真正的 AI review。",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-16T15:48:30.344Z",
+      "updatedAt": "2026-07-16T15:48:30.344Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-002",
+      "title": "FAQ 缺少新 Git 功能的使用說明",
+      "type": "bug",
+      "status": "open",
+      "priority": "low",
+      "severity": null,
+      "labels": [
+        "docs",
+        "faq"
+      ],
+      "linkedTaskIds": [],
+      "description": "新增了 Git API 端點（add/commit/push/pull/changes-since）以及 UI 上的 Git 操作按鈕，但 FAQ 完全沒有相關條目。使用者可能不知道如何操作、或遇到錯誤時不知道怎麼排查。",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-16T15:48:30.345Z",
+      "updatedAt": "2026-07-16T15:48:30.345Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-003",
+      "title": "dependency-context.mjs: 跨平台路徑正規化違反標準、無快取、dead code",
+      "type": "bug",
+      "status": "open",
+      "priority": "high",
+      "severity": null,
+      "labels": [
+        "tech-debt",
+        "cross-platform",
+        "performance"
+      ],
+      "linkedTaskIds": [],
+      "description": "從架構審查 dependency-context.mjs 發現三個技術債：\n1. [P0] 路徑正規化寫死 replace(cwd + \"/\", \"\") 和 replace(/^\\//, \"\")，未使用專案標準的 split(/[\\\\/]/)，在 Windows 上可能出錯\n2. [P1] 每次 getDependencyContext 呼叫都重新讀取 4 個 JSON 檔（無 module-level cache），agent loop 內連續 edit 10 個檔案 = 40 次 I/O\n3. [P2] getImpactSummary (35行) 完全無人引用，是 dead code\n4. [P3] getAffectedTests 內的 convention-based test detection 邏輯有變數但從未加入 return set，形同 dead code",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-18T00:24:56.389Z",
+      "updatedAt": "2026-07-18T00:24:56.389Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-004",
+      "title": "coding-health.mjs reads wrong issues filename (issues.json vs ISSUES.json)",
+      "type": "bug",
+      "status": "open",
+      "priority": "high",
+      "severity": null,
+      "labels": [
+        "bug",
+        "file-naming",
+        "coding-health"
+      ],
+      "linkedTaskIds": [],
+      "description": "## Bug: Issues check always reports 0 issues\n\n**File:** `packages/server/src/routes/coding-health.mjs` line 108\n\n**Problem:** The health check reads `.paaw/issues/issues.json` (lowercase), but the actual file created by `coding-issues.mjs` is `.paaw/issues/ISSUES.json` (uppercase). On case-sensitive filesystems (Linux production servers), this means the issues check ALWAYS returns 0 issues — a false \"healthy\" signal.\n\n**Evidence:**\n- `coding-health.mjs:108` → `join(projRoot, \".paaw\", \"issues\", \"issues.json\")` ❌ lowercase\n- `coding-issues.mjs:51` → `join(projectPath, \".paaw\", \"issues\", \"ISSUES.json\")` ✅ uppercase\n- Actual file on disk: `ISSUES.json` (confirmed via `ls`)\n\n**Impact:** The health endpoint reports `issues: { total: 0, open: 0 }` even when there are real open issues. This makes the health check unreliable for monitoring. On macOS (case-insensitive HFS+) it accidentally works, but will break on Linux deployment.\n\n**Fix:** Change line 108 to use `\"ISSUES.json\"` to match the canonical filename.",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-18T14:22:37.952Z",
+      "updatedAt": "2026-07-18T14:22:37.952Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-005",
+      "title": "coding-reports.mjs: DELETE route reads request body after response sent (dead code / race condition)",
+      "type": "bug",
+      "status": "open",
+      "priority": "high",
+      "severity": null,
+      "labels": [
+        "bug",
+        "race-condition",
+        "coding-reports",
+        "night-shift"
+      ],
+      "linkedTaskIds": [],
+      "description": "## Bug: Night Shift reads body AFTER sending HTTP response\n\n**File:** `packages/server/src/routes/coding-night-shift.mjs` (POST /api/coding-night-shift/start)\n\n**Problem:** The route calls `sendJSON(res, 200, ...)` to respond immediately, THEN later calls `await readBody(req)` to read the POST body (line ~310: `let reqBody = {}; try { reqBody = JSON.parse(await readBody(req) || \"{}\"); } catch {}`).\n\nIn Node.js HTTP, once `res.end()` is called, the request stream may have already been consumed or the socket behavior becomes undefined. Reading the body AFTER sending the response is a race condition — on fast networks or small bodies, the data may already be buffered and available, but under load or with larger payloads, `readBody` may hang or return empty.\n\n**Evidence (coding-night-shift.mjs):**\n```\nsendJSON(res, 200, { ok: true, message: \"Night shift started\", ... });  // ← response sent\n// ... timeout setup ...\nlet reqBody = {};\ntry { reqBody = JSON.parse(await readBody(req) || \"{}\"); } catch {}      // ← reads body AFTER\nconst modelOverride = reqBody.model;\nconst sinceDate = reqBody.since || ...;\n```\n\nThe `modelOverride` and `sinceDate` extracted from the body are used for the async agent execution. If the body read fails/returns empty, Night Shift runs with defaults (today's date, no model override) — silently ignoring user's model selection.\n\n**Impact:**\n- User selects a specific model in UI → Night Shift may ignore it\n- User sets a custom `since` date → may be ignored, using today instead\n- Potentially hangs the async task if body read blocks\n\n**Fix:** Read the body BEFORE calling `sendJSON`. Restructure:\n```js\nconst body = await readBody(req);\nlet reqBody = {};\ntry { reqBody = JSON.parse(body || \"{}\"); } catch {}\nsendJSON(res, 200, { ok: true, ... });\n// ... use reqBody.model, reqBody.since ...\n```",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-18T14:22:37.953Z",
+      "updatedAt": "2026-07-18T14:22:37.953Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-006",
+      "title": "coding-reports.mjs: No path traversal protection on :date parameter (DELETE/GET)",
+      "type": "bug",
+      "status": "open",
+      "priority": "high",
+      "severity": null,
+      "labels": [
+        "security",
+        "path-traversal",
+        "coding-reports"
+      ],
+      "linkedTaskIds": [],
+      "description": "## Security: Path traversal risk in report date parameter\n\n**File:** `packages/server/src/routes/coding-reports.mjs`\n\n**Problem:** The `:date` parameter is extracted via regex `/\\/api\\/coding-reports\\/([\\d-]+)/` and used directly in `join(reportsDir, \\`${date}.md\\`)`. While the regex `[\\d-]` restricts to digits and hyphens (which is good!), there is no validation that the resolved path stays within `reportsDir`.\n\n**Current protection:** The regex `[\\d-]+` effectively blocks `..` and `/`, so this is currently safe. However, this is defense-by-coincidence — if someone later relaxes the regex or adds a new route with broader matching, the traversal becomes exploitable.\n\n**Recommendation (defense in depth):** After constructing `reportPath`, verify it's within `reportsDir`:\n```js\nconst reportPath = join(reportsDir, `${date}.md`);\nif (!reportPath.startsWith(reportsDir)) {\n  res.writeHead(400, ...);\n  res.end(JSON.stringify({ error: \"Invalid date\" }));\n  return true;\n}\n```\n\n**Severity:** Low immediate risk (regex protects), but worth hardening. Marking as medium because the same pattern is used for DELETE which deletes files.",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-18T14:22:37.954Z",
+      "updatedAt": "2026-07-18T14:22:37.954Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-007",
+      "title": "coding-health.mjs: issues 檔案路徑大小寫錯誤 (issues.json vs ISSUES.json)",
+      "type": "bug",
+      "status": "open",
+      "priority": "medium",
+      "severity": null,
+      "labels": [
+        "bug",
+        "health-check"
+      ],
+      "linkedTaskIds": [],
+      "description": "在 `packages/server/src/routes/coding-health.mjs` 第 108 行：\n\n```js\nconst issuesFile = join(projRoot, \".paaw\", \"issues\", \"issues.json\");\n```\n\n實際檔案名稱是大寫的 `ISSUES.json`（所有其他檔案都用大寫：coding-features.mjs:82, coding-issues.mjs:51, tools/index.mjs:730, paaw-agent-loop.mjs:1309 等等）。\n\n**影響：** Health Check 的 Issues 檢查永遠找不到檔案（`existsSync` 回傳 false），所以 `total` 和 `open` 永遠為 0。使用者看到健康檢查一切正常，但其實有 open issues 沒被計入。\n\n**修復：** 將第 108 行 `\"issues.json\"` 改為 `\"ISSUES.json\"`。\n\n**發現者：** Helpdesk Night Shift 2026-07-18",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-18T14:22:50.550Z",
+      "updatedAt": "2026-07-18T14:22:50.550Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-008",
+      "title": "coding-reports.mjs: dateMatch variable scope is confusing (code clarity)",
+      "type": "bug",
+      "status": "open",
+      "priority": "low",
+      "severity": null,
+      "labels": [
+        "code-quality",
+        "coding-reports"
+      ],
+      "linkedTaskIds": [],
+      "description": "## Bug: Uninitialized variable when no list endpoint matches\n\n**File:** `packages/server/src/routes/coding-reports.mjs` lines 77, 101, 103\n\n**Problem:** `dateMatch` is assigned on line 77 inside the GET handler block scope, but the DELETE handler on line 101 references `dateMatch` which may be out of scope or undefined.\n\nLooking more carefully at the code:\n```js\n// Line 77: defined here\nconst dateMatch = url.match(/\\/api\\/coding-reports\\/([\\d-]+)/);\nif (req.method === 'GET' && dateMatch) { ... }  // line 78\n\n// Line 101: DELETE handler\nif (req.method === 'DELETE' && dateMatch) { ... }  // ← references dateMatch\n```\n\nSince `dateMatch` is declared with `const` at line 77 (function scope), the DELETE handler CAN access it. However, the regex runs unconditionally even for the `/list` endpoint, doing unnecessary work. More importantly, if the URL is `/api/coding-reports/list`, `dateMatch` will be `null` (no digits match), which is fine, but the logic is fragile.\n\n**Actual concern:** The regex `/\\/api\\/coding-reports\\/([\\d-]+)/` will ALSO match `/api/coding-reports/list` path checking — wait, no, \"list\" has no digits so it won't match. This is actually OK.\n\n**Downgrading:** This is a code clarity issue, not a bug. The variable is accessible. Recommend adding a comment or restructuring for readability.\n\n**Severity adjusted to low.**",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-18T14:22:58.741Z",
+      "updatedAt": "2026-07-18T14:22:58.741Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-009",
+      "title": "ReportsTab: ReactMarkdown renders AI-generated content (safe, but document constraints)",
+      "type": "bug",
+      "status": "open",
+      "priority": "low",
+      "severity": null,
+      "labels": [
+        "security",
+        "xss",
+        "reports-tab",
+        "ui"
+      ],
+      "linkedTaskIds": [],
+      "description": "## Performance: ReactMarkdown renders untrusted content\n\n**File:** `packages/ui/src/components/ReportsTab.tsx`\n\n**Problem:** The Reports tab renders report content using `<ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>`. The content comes from `.paaw/overnight-reports/*.md` files which are generated by AI agents (EM, Night Shift). While ReactMarkdown is generally safe against XSS (it doesn't render raw HTML by default), there are considerations:\n\n1. **XSS via raw HTML:** ReactMarkdown v6+ does NOT render raw HTML by default (good). But if `rehype-raw` is ever added, it would be dangerous.\n2. **Prompt injection in reports:** AI-generated reports could contain markdown that tricks users (e.g., fake links, misleading formatting). This is a lower risk since reports are internal.\n\n**Current status:** Safe as implemented. ReactMarkdown sanitizes HTML by default.\n\n**Recommendation:** Document that `rehype-raw` must NEVER be added to this pipeline without sanitization. Consider adding a code comment.\n\n**Severity: low** (informational, current implementation is safe)",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-18T14:22:58.742Z",
+      "updatedAt": "2026-07-18T14:22:58.742Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-010",
+      "title": "ReportsTab: deleteReport uses stale reports array for fallback selection (works but fragile)",
+      "type": "bug",
+      "status": "open",
+      "priority": "low",
+      "severity": null,
+      "labels": [
+        "bug",
+        "ui",
+        "stale-closure",
+        "reports-tab"
+      ],
+      "linkedTaskIds": [],
+      "description": "## Bug: ReportsTab stale closure in deleteReport selection\n\n**File:** `packages/ui/src/components/ReportsTab.tsx`\n\n**Problem:** In `deleteReport`, after deleting a report, if the deleted report was selected, the code tries to select the first remaining report:\n```js\nif (selectedDate === date) {\n  setSelectedDate(reports.find(r => r.date !== date)?.date || null);\n}\n```\n\n`reports` here is the state variable from the closure, which still contains the OLD list (before deletion). The `setReports(prev => prev.filter(...))` on the previous line updates state asynchronously, but `reports` in this scope is stale.\n\n**Impact:** Usually works because `.find(r => r.date !== date)` finds the first report that isn't the deleted one — which is still valid even in the stale list. The selected date will be correct. However, there's an edge case: if there's only ONE report and you delete it, `find` returns `undefined`, and `setSelectedDate(null)` is called — which is correct.\n\n**Actual behavior:** This works correctly in practice. The stale `reports` variable still has valid data for finding an alternative selection.\n\n**Downgrading to low/informational.** The logic is correct but relies on stale closure behavior. A cleaner approach would use the functional update pattern or `useCallback` with proper deps.\n\n**Severity: low**",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-18T14:22:58.743Z",
+      "updatedAt": "2026-07-18T14:22:58.743Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-011",
+      "title": "Night Shift runs all 6 agents in parallel without concurrency control (rate limit risk)",
+      "type": "bug",
+      "status": "open",
+      "priority": "medium",
+      "severity": null,
+      "labels": [
+        "performance",
+        "night-shift",
+        "rate-limiting"
+      ],
+      "linkedTaskIds": [],
+      "description": "## Performance: Night Shift parallel agent execution without concurrency limit\n\n**File:** `packages/server/src/routes/coding-night-shift.mjs`\n\n**Problem:** Night Shift dispatches all 6 agents using `Promise.allSettled(agentRoles.map(...))`, running all agents in parallel. Each agent calls `runAgentLoop` which makes LLM API calls with up to 15 turns and 120s timeout.\n\n**Impact:**\n- 6 concurrent LLM sessions hitting the same provider simultaneously\n- Rate limiting: Some providers (e.g., Z.AI, OpenRouter) have RPM (requests per minute) limits. 6 parallel long-running sessions may trigger 429 errors.\n- Memory: Each agent loop accumulates conversation history. 6 parallel loops can use significant memory.\n- The 10-minute global timeout may be too short if agents are queued behind rate limits.\n\n**Recommendation:**\n1. Consider a concurrency limiter (e.g., p-limit) to run 2-3 agents at a time\n2. Or add jitter/staggered start (e.g., 5s delay between agent starts)\n3. Monitor for 429 errors and add backoff retry at the Night Shift level\n\n**Severity: medium** — works for now with 6 agents, but will degrade with more agents or stricter rate limits.",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-18T14:22:58.743Z",
+      "updatedAt": "2026-07-18T14:22:58.743Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-012",
+      "title": "Feature map refresh logic duplicated in 3 files (coding-night-shift, overnight-manager, coding-features)",
+      "type": "bug",
+      "status": "open",
+      "priority": "medium",
+      "severity": null,
+      "labels": [
+        "tech-debt",
+        "duplication",
+        "refactor",
+        "night-shift"
+      ],
+      "linkedTaskIds": [],
+      "description": "## Performance: Night Shift Phase 0 feature map refresh duplicates code in 3 places\n\n**File:** Multiple files\n\n**Problem:** The \"scan all source files + LLM prompt to refresh feature map\" logic is duplicated nearly verbatim across:\n\n1. `packages/server/src/routes/coding-night-shift.mjs` — Phase 0 inline (~80 lines)\n2. `packages/server/src/lib/overnight-manager.mjs` — `refreshFeatureMapping()` (~80 lines)\n3. `packages/server/src/routes/coding-features.mjs` — POST /refresh-mapping (~60 lines)\n\nAll three contain the same:\n- Platform-specific `find` command (or Windows `node -e` one-liner)\n- Same LLM prompt template (50+ lines)\n- Same JSON recovery logic (brace counting)\n- Same apply-updates loop\n\n**Impact:**\n- Maintenance burden: bug fixes must be applied in 3 places\n- Inconsistency risk: the prompt in coding-features.mjs says \"All Source Files in Codebase\" without the count, while the other two include the count\n- The commit `cea2539` (\"same 3 fixes as refresh-mapping\") demonstrates this pain — a fix had to be applied repeatedly\n\n**Recommendation:** Extract to a shared function in `feature-map-validator.mjs` or a new `feature-map-refresher.mjs`:\n```js\nexport async function refreshFeatureMapping(projRoot, modelOverride) {\n  // single implementation\n}\n```\n\n**Severity: medium** — tech debt, not a bug, but high ROI refactor.",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-18T14:23:14.409Z",
+      "updatedAt": "2026-07-18T14:23:14.409Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-013",
+      "title": "UI components access err.message without type narrowing (TypeScript strict mode)",
+      "type": "bug",
+      "status": "open",
+      "priority": "low",
+      "severity": null,
+      "labels": [
+        "typescript",
+        "error-handling",
+        "ui"
+      ],
+      "linkedTaskIds": [],
+      "description": "## Bug: NightShiftPanel uses `err.message` in alert without type narrowing\n\n**File:** `packages/ui/src/components/NightShiftPanel.tsx` line 93\n\n**Problem:**\n```tsx\n} catch (err) {\n  alert(\"Failed to start: \" + err.message);\n}\n```\n\n`err` is typed as `unknown` in TypeScript strict mode (which this project likely uses based on React/Next.js stack). Accessing `err.message` directly will cause a TypeScript error in strict mode.\n\n**Same pattern in:** `packages/ui/src/components/ReportsTab.tsx` (multiple catch blocks use `err: any` and access `err.message`)\n\n**Evidence:**\n- `ReportsTab.tsx` uses `catch (err: any)` which silences the error but is not type-safe\n- `NightShiftPanel.tsx` uses bare `catch (err)` then accesses `err.message` — will fail type check\n\n**Fix:** Use proper type narrowing:\n```tsx\n} catch (err) {\n  const msg = err instanceof Error ? err.message : String(err);\n  alert(\"Failed to start: \" + msg);\n}\n```\n\n**Severity: low** — TypeScript strict mode issue, runtime works fine.",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-18T14:23:14.410Z",
+      "updatedAt": "2026-07-18T14:23:14.410Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-014",
+      "title": "Inconsistent path query parameter fallback across route files",
+      "type": "bug",
+      "status": "open",
+      "priority": "low",
+      "severity": null,
+      "labels": [
+        "code-quality",
+        "consistency",
+        "api"
+      ],
+      "linkedTaskIds": [],
+      "description": "## Code Quality: Inconsistent `path` query parameter handling across routes\n\n**File:** Multiple route files\n\n**Problem:** The `path` query parameter (project root) is resolved differently across routes:\n\n1. **coding-health.mjs:** `url.searchParams.get(\"path\") || PAAW_ROOT` — uses `PAAW_ROOT` constant ✓\n2. **coding-night-shift.mjs:** `urlObj.searchParams.get(\"path\") || PAAW_ROOT` — uses `PAAW_ROOT` constant ✓\n3. **coding-reports.mjs:** `urlObj.searchParams.get(\"path\") || process.env.PAAW_ROOT || process.cwd()` — uses `process.env` + `cwd()` fallback ⚠️\n4. **coding-features.mjs:** Requires `path` param, returns 400 if missing ✓ (strictest)\n\n**Impact:**\n- `coding-reports.mjs` falls back to `process.cwd()` which may not be the project root if the server is started from a different directory\n- Inconsistent behavior: some routes have PAAW_ROOT fallback, others use cwd, others require it\n\n**Recommendation:** Standardize on the pattern in coding-health.mjs. All routes should use:\n```js\nconst projRoot = parseQuery(req).path || PAAW_ROOT;\n```\nAnd ideally validate that the path is within an allowed root to prevent cross-project access.\n\n**Severity: low** — works in practice but inconsistent.",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-18T14:23:14.411Z",
+      "updatedAt": "2026-07-18T14:23:14.411Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-015",
+      "title": "Critical: Health endpoint reads issues.json (lowercase) instead of ISSUES.json",
+      "type": "bug",
+      "status": "open",
+      "priority": "high",
+      "severity": null,
+      "labels": [
+        "bug",
+        "health-check",
+        "case-sensitivity"
+      ],
+      "linkedTaskIds": [],
+      "description": "## Bug: Case-sensitivity mismatch in coding-health.mjs\n\n**File:** `packages/server/src/routes/coding-health.mjs` (line 108)\n\n**Problem:** The health endpoint reads `.paaw/issues/issues.json` (lowercase), but every other module in the codebase writes/reads `.paaw/issues/ISSUES.json` (uppercase). This was confirmed by grep:\n- `coding-issues.mjs`: uses `ISSUES.json`\n- `coding-features.mjs`: uses `ISSUES.json`\n- `paaw-agent-loop.mjs`: uses `ISSUES.json` (4 occurrences)\n- `tools/index.mjs`: uses `ISSUES.json`\n- `coding-health.mjs`: uses `issues.json` ← **WRONG**\n\n**Impact:** On case-sensitive filesystems (Linux, CI environments), the health check always reports `total: 0, open: 0` because it reads from a non-existent file. This means the health check shows a false \"ok\" status for issues, masking real problems. On macOS (default case-insensitive), it works by accident.\n\n**Fix:** Change line 108 from `join(projRoot, \".paaw\", \"issues\", \"issues.json\")` to `join(projRoot, \".paaw\", \"issues\", \"ISSUES.json\")`.\n\n**Severity:** High — health checks are used by Night Shift and EM for decision-making; wrong issue data can lead to missed work items.",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-18T14:23:16.561Z",
+      "updatedAt": "2026-07-18T14:23:16.561Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-016",
+      "title": "Tech Debt: Duplicated feature-map refresh logic in 3 locations",
+      "type": "bug",
+      "status": "open",
+      "priority": "medium",
+      "severity": null,
+      "labels": [
+        "tech-debt",
+        "DRY",
+        "refactor"
+      ],
+      "linkedTaskIds": [],
+      "description": "## DRY Violation: Feature map refresh + JSON recovery logic duplicated\n\n**Files affected:**\n1. `packages/server/src/lib/overnight-manager.mjs` — `refreshFeatureMapping()` function\n2. `packages/server/src/routes/coding-night-shift.mjs` — inline Phase 0 refresh (lines ~155-230)\n3. `packages/server/src/routes/coding-features.mjs` — `/refresh-mapping` endpoint\n\n**Problem:** All three contain nearly identical code:\n- The same LLM prompt (~30 lines) for feature mapping refresh\n- The same source-file scanning command (with Windows/macOS branching)\n- The same JSON truncation recovery logic (~20 lines of brace-counting)\n- The same update application loop\n\n**Impact:**\n- Maintenance burden: any change (e.g., prompt improvement, new file type) must be applied in 3 places\n- Risk of divergence: the 3 copies are already slightly different (overnight-manager passes `modelOverride`, night-shift uses `PAAW_ROOT` for LLM config, features route uses inline `fetch`)\n\n**Recommendation:** Extract a shared `refreshFeatureMapping(projectRoot, { modelOverride, providersFile })` function into `feature-map-validator.mjs` or a new `feature-map-refresher.mjs` module. Both overnight-manager and night-shift should call it. The coding-features route should also call it (replacing its inline implementation).\n\nThis is architecture-level — please assign to Developer (Priya) for refactoring.",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-18T14:23:16.562Z",
+      "updatedAt": "2026-07-18T14:23:16.562Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-017",
+      "title": "Race condition: Force reset 與 async Night Shift run 的 status.json 競態",
+      "type": "bug",
+      "status": "resolved",
+      "priority": "high",
+      "severity": null,
+      "labels": [
+        "bug",
+        "race-condition",
+        "night-shift"
+      ],
+      "linkedTaskIds": [],
+      "description": "在 coding-night-shift.mjs 中，當使用者點擊 Force Reset 按鈕將 status 設為 \"interrupted\" 後，背景 async run 的 sendSSE callback 和 10-min timeout handler 仍然會繼續寫入 status.json，可能蓋回 \"running\" 或 \"failed\"。\n\n修復方向：在 sendSSE callback 和 timeout handler 中，寫入 status.json 前先檢查 currentStatus.status 是否仍為 \"running\"，若不是則直接 return。\n\n詳見 QA Code Review 2026-07-19 報告。",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [
+        {
+          "text": "Fixed in commit d8e5d73: Introduced updateStatusFile() atomic write helper that centralizes all status.json writes. All progress updates now check for \"interrupted\" state and refuse to clobber it. The /reset endpoint is respected.",
+          "date": "2026-07-19T02:45:49.085Z"
+        }
+      ],
+      "createdAt": "2026-07-19T01:56:25.812Z",
+      "updatedAt": "2026-07-19T02:45:49.085Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-018",
+      "title": "Legacy route /api/coding-crew/overnight-report 仍指向已不寫入的 .paaw/overnight-reports/",
+      "type": "bug",
+      "status": "resolved",
+      "priority": "high",
+      "severity": null,
+      "labels": [
+        "bug",
+        "regression",
+        "night-shift"
+      ],
+      "linkedTaskIds": [],
+      "description": "coding.mjs 第 839 行的 GET /api/coding-crew/overnight-report 路由仍然讀取 .paaw/overnight-reports/，但重構後的 night-shift-shared.mjs 已移除所有 backward compat 程式碼，報告統一寫入 .paaw/night-shift/reports/。\n\n影響：所有呼叫舊 API 的程式（如 EMDashboard 的 onOpenReportTab）都會返回 { exists: false }。\n\n修復方向：將此路由指向新的 .paaw/night-shift/reports/ 路徑，或移除該路由並導向 /api/coding-night-shift/report。",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [
+        {
+          "text": "Fixed in commit 9441c67: Removed dead legacy route /api/coding-crew/overnight-report from coding.mjs. It referenced non-existent .paaw/overnight-reports/ directory and called undefined sendJSON function. Frontend had zero references to this endpoint.",
+          "date": "2026-07-19T02:45:49.086Z"
+        }
+      ],
+      "createdAt": "2026-07-19T01:56:25.814Z",
+      "updatedAt": "2026-07-19T02:45:49.086Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-019",
+      "title": "EMDashboard 的 Night Shift polling 讀取不存在的 sd.results",
+      "type": "bug",
+      "status": "open",
+      "priority": "medium",
+      "severity": null,
+      "labels": [
+        "bug",
+        "ui",
+        "night-shift"
+      ],
+      "linkedTaskIds": [],
+      "description": "EMDashboard.tsx 第 123 行使用 sd.results 來顯示 agent 執行結果，但 status.json 的結構是 { agents: { architect: {...}, ... } }，沒有 results 欄位。sd.results 永遠是 undefined，導致聊天視窗中不會顯示每個 agent 的執行結果。\n\n修復方向：改為讀取 sd.agents 物件並轉換為陣列。",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-19T01:56:25.814Z",
+      "updatedAt": "2026-07-19T01:56:25.814Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-020",
+      "title": "overnight-manager.mjs 反向依賴 route 層 (getPromptsFile)",
+      "type": "bug",
+      "status": "in-progress",
+      "priority": "high",
+      "severity": null,
+      "labels": [
+        "tech-debt",
+        "architecture",
+        "night-shift"
+      ],
+      "linkedTaskIds": [],
+      "description": "overnight-manager.mjs:354 動態 import ../routes/coding-night-shift-prompts.mjs 的 getPromptsFile，造成 lib→route 反向依賴，違反分層原則。\n\n修正方向：將 getPromptsFile 下沉到 night-shift-shared.mjs 或獨立的 lib/night-shift-prompts.mjs。\n\nADR: ADR-010",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [
+        {
+          "text": "App 已建立，等待使用者填入資料",
+          "date": "2026-07-19T11:21:29.247Z"
+        }
+      ],
+      "createdAt": "2026-07-19T02:57:56.953Z",
+      "updatedAt": "2026-07-19T11:21:29.247Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-021",
+      "title": "coding.mjs legacy /api/coding-crew/em-run 繞過統一入口",
+      "type": "bug",
+      "status": "open",
+      "priority": "medium",
+      "severity": null,
+      "labels": [
+        "tech-debt",
+        "architecture",
+        "night-shift"
+      ],
+      "linkedTaskIds": [],
+      "description": "coding.mjs:787 的 /api/coding-crew/em-run 直接呼叫 runEMSession，繞過 coding-night-shift.mjs 統一入口。導致：無 status.json 追蹤、無 timeout 保護、無 atomic status 寫入的 race condition 防護。\n\n修正方向：deprecate 此 endpoint，redirect 到 /api/coding-night-shift/start。\n\nADR: ADR-010",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-19T02:57:56.954Z",
+      "updatedAt": "2026-07-19T02:57:56.954Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-022",
+      "title": "callWithFallback 在 overnight-manager 和 night-shift-shared 重複",
+      "type": "bug",
+      "status": "open",
+      "priority": "low",
+      "severity": null,
+      "labels": [
+        "tech-debt",
+        "DRY",
+        "night-shift"
+      ],
+      "linkedTaskIds": [],
+      "description": "overnight-manager.mjs:95-126 和 night-shift-shared.mjs:164-195 各有一份幾乎完全相同的 callWithFallback inner function。維護時容易不同步。\n\n修正方向：抽取到 llm-utils.mjs 作為 callLLMWithModelFallback() 共用函式。\n\nADR: ADR-010",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-19T02:57:56.955Z",
+      "updatedAt": "2026-07-19T02:57:56.955Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-023",
+      "title": "🎯 建立 demo-prep App",
+      "type": "bug",
+      "status": "open",
+      "priority": "high",
+      "severity": null,
+      "labels": [
+        "feature"
+      ],
+      "linkedTaskIds": [],
+      "description": "建立 demo-prep app 來管理 demo 預演 checklist 和相關連結",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-19T11:21:29.240Z",
+      "updatedAt": "2026-07-19T11:21:29.240Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-024",
+      "title": "📋 填入 demo checklist",
+      "type": "bug",
+      "status": "open",
+      "priority": "medium",
+      "severity": null,
+      "labels": [
+        "feature"
+      ],
+      "linkedTaskIds": [],
+      "description": "在 demo-prep app 中新增 demo checklist 項目（e.g. 檢查麥克風、投影片、網路等）",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-19T11:21:29.241Z",
+      "updatedAt": "2026-07-19T11:21:29.241Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-025",
+      "title": "🔗 填入 demo 相關連結",
+      "type": "bug",
+      "status": "open",
+      "priority": "medium",
+      "severity": null,
+      "labels": [
+        "feature"
+      ],
+      "linkedTaskIds": [],
+      "description": "在 demo-prep app 中新增 demo 相關的連結（如 demo 用的工具、參考資料等）",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-19T11:21:29.241Z",
+      "updatedAt": "2026-07-19T11:21:29.241Z",
+      "resolvedAt": null,
+      "createdBy": "agent"
+    },
+    {
+      "id": "ISS-026",
+      "title": "XSS vulnerability in user input",
+      "type": "security",
+      "status": "open",
+      "priority": "high",
+      "severity": "critical",
+      "labels": [],
+      "linkedTaskIds": [
+        "TASK-038"
+      ],
+      "description": "User input is not sanitized before rendering",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "notes": [],
+      "createdAt": "2026-07-22T13:32:10.526Z",
+      "updatedAt": "2026-07-22T13:32:19.572Z",
+      "resolvedAt": null,
+      "createdBy": "user"
+    },
+    {
+      "id": "ISS-027",
+      "title": "gatherContext() uses undefined `projectRoot` — all git commands silently fail",
+      "priority": "critical",
+      "status": "open",
+      "labels": [
+        "bug",
+        "night-shift",
+        "gatherContext"
+      ],
+      "description": "## Bug Report\n\n**File:** `packages/server/src/lib/night-shift-shared.mjs`, function `gatherContext(rootDir, sinceDate)`\n\n**Problem:** The function parameter is `rootDir`, but all `shellExecSync` calls use `cwd: projectRoot` — a variable that is **never defined** in scope.\n\n```js\nexport async function gatherContext(rootDir, sinceDate) {\n  // ...\n  ctx.gitStatus = shellExecSync(`git status --short`, { cwd: projectRoot, ... }).trim();\n  //                                      undefined ^^^^^^^^^^^\n```\n\nThis causes a `ReferenceError: projectRoot is not defined` on every git command, caught by the surrounding try/catch blocks, resulting in all git fields silently falling back to empty defaults.\n\n**Impact:**\n- `gatherContext()` never actually collects real git data — gitStatus, gitLog, commitCount, changedFiles, diffStat, and unpushed are always empty/default\n- Night Shift reports based on this data are inaccurate\n- 6 unit tests in `night-shift-shared.test.mjs` fail because of this\n\n**Fix:** Replace all instances of `projectRoot` with `rootDir` in `gatherContext()`.\n\n**Lines to fix:** 38, 43, 49, 59, 67, 75 in `night-shift-shared.mjs`",
+      "featureId": null,
+      "createdAt": "2026-08-01T07:58:23.372Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-028",
+      "title": "Pre-existing test failures: repair-loop (8) + auto-dispatch-shared (2) — npm test 非 F-007 原因不全綠",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "pre-existing",
+        "test-failure",
+        "TASK-041"
+      ],
+      "description": "TASK-041 R2 驗證時發現 npm test 有 10 個 pre-existing failures（stash R1 變更後重跑 baseline 仍失敗，確認與 F-007 測試無關）：\n\n1. tests/unit/repair-loop.test.mjs — 8 失敗：`TypeError: applyRepairLoopRule is not a function`（tests/unit/repair-loop.test.mjs:86）。測試 import 的 applyRepairLoopRule 在目標模組中不存在或未 export。\n2. tests/unit/auto-dispatch-shared.test.mjs — 2 失敗：`should parse commitCount as integer from git log count`、`should limit commitCount to 50 for HEAD~N diff commands`（gatherContext 相關）。\n\n影響：npm test 無法全綠，阻塞所有以「npm test 全數通過」為驗收標準的任務。\n建議：developer 確認 repair-loop 的 export 狀態與 auto-dispatch-shared 的 git 環境依賴。",
+      "featureId": "F-015",
+      "createdAt": "2026-10-01T15:48:22.223Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-029",
+      "title": "createDb() 拋 TypeError：SqlJsDialect 不符合 Kysely 0.29.2 Dialect 介面",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "bug",
+        "found-by:TASK-042",
+        "severity:high"
+      ],
+      "description": "## 問題\n`packages/db/src/connection.ts` 的 `SqlJsDialect` 類只實作了 `createAdapter()` 回傳 `{query, run}` 物件，不符合 kysely 0.29.2 的 `Dialect` 介面（需 `createDriver()` / `createQueryCompiler()` / `createIntrospector()`，且 `createAdapter()` 需回傳 `DialectAdapter`）。\n\n## 實證（TASK-042 測試過程，2026-10-01）\n`await createDb(path)` 立即拋出：\n```\nTypeError: dialect.createDriver is not a function\n```\n重現：`npx tsx` 下 `new Kysely({ dialect: new SqlJsDialect(db) })`。\n\n## 影響\n- `createDb` / `getDb` / `closeDb` 全部不可用（F-003 connection 層是 dead code）\n- 三個 repository（RunsRepo/ChatsRepo/DataStoreRepo）無法經由正式入口取得 Kysely instance；目前 server 端僅 code-intelligence.mjs 參考到 `@paaw/db` 名稱，未實際使用 createDb\n\n## 建議修法\n實作完整 `Dialect` 介面（driver 的 `acquireConnection` 回傳帶 `executeQuery(compiledQuery)` 的 connection，query compiler 用 `SqliteQueryCompiler`，adapter 用 `SqliteAdapter`，introspector 用 `SqliteIntrospector`）。TASK-042 的 `tests/unit/db-repositories.test.ts` 內已有可直接參考的正確 harness 實作。\n\n## 測試標記\n`tests/unit/db-repositories.test.ts` 有 `test.todo` 記錄修復後應補的契約（createDb 回傳可查詢 instance、getDb 單例、closeDb 持久化）。",
+      "featureId": "F-003",
+      "createdAt": "2026-10-01T16:01:20.863Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-030",
+      "title": "ChatsRepo.addMessage 用 db.fn(\"message_count + 1\") 產生非法 SQL：訊息落庫但統計永不更新",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "bug",
+        "found-by:TASK-042",
+        "severity:high"
+      ],
+      "description": "## 問題\n`packages/db/src/repositories/chats.ts` 的 `addMessage()` 使用：\n```ts\nmessage_count: this.db.fn(\"message_count + 1\"),\n```\n`Kysely.fn` 是 `FunctionModule` 物件（提供 `fn.count()`、`fn.sum()` 等），不是 callable，且此用法會讓 raw 字串進入 query compiler，產生非法 SQL：\n```sql\nupdate \"conversations\" set \"message_count\" = message_count + 1 ...\n```\n實際編譯結果語法錯誤（near \"(\" syntax error）。\n\n## 實證（TASK-042 測試過程，2026-10-01，in-memory sql.js + 正確 Kysely dialect harness）\n- `addMessage()` 拋出 `Error: near \"(\": syntax error`\n- **部分寫入**：`chat_messages` 的 INSERT 先成功落庫，`conversations` 的 UPDATE 失敗 → `message_count` 與 `last_message_at`/`updated_at` 永不更新，且呼叫端看到的是 reject（訊息是否存在不一致）\n\n## 建議修法\n```ts\nimport { sql } from \"kysely\";\nmessage_count: sql`message_count + 1`,\n```\n\n## 測試標記\n`tests/unit/db-repositories.test.ts` 的 ChatsRepo 區塊有 characterization test 固定現狀（addMessage rejects + 訊息已落庫 + message_count 不變），修復時請將該測試改回正向斷言（addMessage 成功、回傳 msg_ id、message_count 遞增、last_message_at 更新）。",
+      "featureId": "F-003",
+      "createdAt": "2026-10-01T16:01:20.865Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-031",
+      "title": "migrate.ts 頂層 migrate() 呼叫造成 import 副作用；getProjectRoot 從 root 執行時解析到專案外",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "found-by:TASK-042",
+        "severity:medium"
+      ],
+      "description": "## 問題\n`packages/db/src/migrate.ts` 檔尾：\n```ts\n// Run if called directly\nmigrate().catch(console.error);\n```\n沒有「是否直接執行」的判斷 — 任何 `import` 都會立即觸發一次完整 migrate。\n\n## 實證（TASK-042 測試過程，2026-10-01）\n- 在 repo root 以 tsx 動態 import migrate.ts，即對 `/Users/steward/data/db/paaw.sqlite`（**專案目錄外**）執行寫檔\n- 原因鏈：`getProjectRoot()` 無條件回傳 `resolve(process.cwd(), \"../../\")`（註解寫「From root (fallback), . = root」但程式碼未實作 fallback）；從 repo root 執行時解析到專案上一層之外的 `/Users/steward/data/db/`\n\n## 影響\n- 測試與任何 library 消費者 import 模組即產生檔案系統副作用（測試已被迫 vi.mock paths.ts 隔離）\n- 可能覆寫開發環境資料庫檔案（migrate 本身 CREATE IF NOT EXISTS 不毀資料，但 mtime 與檔案內容 export 回寫有風險）\n\n## 建議修法\n1. migrate.ts 頂層呼叫改為直接執行判斷（如比較 `import.meta.url` 與 `process.argv[1]`，或改由 package.json script 顯式呼叫）\n2. `getProjectRoot()` 修正：偵測 cwd 是否已為專案 root（例如檢查 `packages/db` 是否存在），是則回傳 cwd 本身\n\n## 測試對應\n`tests/unit/db-migrate.test.ts` 以 `vi.mock(\"../../packages/db/src/paths.ts\")` 隔離此副作用；修復後可移除 mock 改測真實路徑計算。",
+      "featureId": "F-003",
+      "createdAt": "2026-10-01T16:01:20.867Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-032",
+      "title": "[F20261016-001] Next.js 16 async params 範本：notFound 未 return + XSS 示範反模式（code review 發現）",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "review",
+        "quality",
+        "skill-template",
+        "nextjs16",
+        "security"
+      ],
+      "description": "TASK-044 code review 發現 data/skills/physical-skill/nextjs-backend-best-practices/templates/app-router-async-params.tsx 品質問題（核心 Next.js 16 非同步 API 用法正確，可參考；以下為可複製性/安全性缺陷）。\n\nBLOCKER-1 (L32-37): `if (!post) { notFound() }` 缺 return，且 `post` 型別未收窄（r.json() 為 any）→ runtime 有崩潰風險。修正：`return notFound()`。\n\nMAJOR-2 (L41): `dangerouslySetInnerHTML={{ __html: post.content }}` 示範未 sanitize 的 HTML 注入（XSS 反模式），與安全性基線衝突。修正：改 `<p>{post.content}</p>` 或加 sanitize 註記。\n\nMAJOR-3 (L156): `import type { Metadata } from 'next'` 置於檔案中段 → 複製 Example 1-5 片段時漏 import。修正：移至檔頭。\n\nMAJOR-4 (L186-236): 同一 .tsx 混雜 page/layout/route 三種檔案內容（`export function GET` in page 檔編譯失敗），非「可複製即用完整範例」。修正：以註解包起或明確標示檔名。\n\nMINOR: fetch 無 .catch/r.ok 檢查不一致(L71,166,197,222)；post 欄位無型別(L171-176)；與 route-handler-api.ts 路由範例重複(L186-236)；檔頭缺範例索引。\n\n建議由 Developer(Priya) 修 blocker+major 後 re-review。此為範本誤導風險，非重做實作。",
+      "featureId": "F20261016-001",
+      "createdAt": "2026-10-17T00:02:13.574Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-033",
+      "title": "[F20261016-030] GET /report 的 readSync 在 try 外，讀檔失敗會冒泡成 500",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "release-retrofit",
+        "auto-dispatch",
+        "error-handling"
+      ],
+      "description": "packages/server/src/routes/coding-auto-dispatch.mjs 的 GET /api/coding-auto-dispatch/report 端點，readSync(reportFile) 未以 try/catch 包裹。當檔案存在但讀取失敗（權限、編碼、競態刪除）時異常會冒泡到 paaw-server.mjs 的 route 迴圈，回 {error:\"Internal server error\"} 500，破壞與其他端點一致的 JSON envelope。建議：整段包 try/catch，失敗回 200 {report:\"\"} 或 500 JSON。來源 QA 記錄 qr-20261017-013308-rfgq。",
+      "featureId": "F20261016-030",
+      "createdAt": "2026-10-17T01:33:19.896Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-034",
+      "title": "[F20261016-030] status.json 寫入非原子 + _activeRuns 與檔案雙真相來源競態",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "release-retrofit",
+        "auto-dispatch",
+        "concurrency",
+        "persistence"
+      ],
+      "description": "updateStatusFile / start / reset 皆以 writeFileSync 直接覆寫 status.json，無 tmp+rename 原子寫；崩潰會留下半截 JSON。並行防護 _activeRuns（記憶體 Set）與 status.json（磁碟）是兩個真相來源，start 只查 Set、stop/reset 只查 Set 再改檔，跨進程（多實例/重啟殘留）無防護，stop 期間 start 的 TOCTOU 仍在。建議：統一原子寫（寫 tmp 再 rename）、以檔案旗標為單一真相並加鎖，start 檢查與 add 用 same-tick 原子化。來源 qr-20261017-013308-rfgq。",
+      "featureId": "F20261016-030",
+      "createdAt": "2026-10-17T01:33:19.897Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-035",
+      "title": "[F20261016-030] path 參數無授權/白名單驗證 + CORS * （本機 CSRF 可寫任意路徑）",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "release-retrofit",
+        "auto-dispatch",
+        "security"
+      ],
+      "description": "projRoot 來自 ?path= 或 body.cwd，未經驗證是否在允許 workspace 內（未過 safeResolve/白名單）。paaw-server 綁 127.0.0.1 且 CORS Access-Control-Allow-Origin: *，任何本機程序或瀏覽器頁面皆可觸發 start/stop/reset，寫入任意 path 的 .paaw/auto-dispatch/status.json。建議：path 走 safeResolve 白名單；CORS 收斂為已知來源或加本機 token。來源 qr-20261017-013308-rfgq。",
+      "featureId": "F20261016-030",
+      "createdAt": "2026-10-17T01:33:19.898Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-036",
+      "title": "[F20261016-030] stop 協作式中斷可能卡死 + start try/finally 巢狀易洩漏 guard",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "release-retrofit",
+        "auto-dispatch",
+        "reliability"
+      ],
+      "description": "(1) _stopRequested 只在 task 之間檢查；當前 task 若因 a2aCallAgent timeout=0（無 HTTP timeout）永久卡住，stopRequested 永遠等不到中斷點，stop 形同虛設。(2) start handler 兩個 try/finally 巢狀、_activeRuns.delete 出現在多處，容易在早退點洩漏 guard。建議：a2aCallAgent 設上限；start 收斂為單一 finally。來源 qr-20261017-013308-rfgq。",
+      "featureId": "F20261016-030",
+      "createdAt": "2026-10-17T01:33:19.900Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-037",
+      "title": "[F20261016-030] last-run 報告時間字串比較 bug + 回應格式不一致 + status catch 回 200",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "release-retrofit",
+        "auto-dispatch",
+        "consistency"
+      ],
+      "description": "(1) last-run 用 new Date(fileDate+'T23:59:59').toISOString() 產生的字串與 ns.completedAt 做字串比較 `reportTime > lastRunAt`，跨格式/時區不可靠，可能位移一天。(2) 回應 envelope 不一致：多數 {ok,...}，reset 失敗 {error}、status catch {status:'error',message}、report 回 text/markdown。(3) status catch 回 HTTP 200 帶錯誤語意，status code 與語意不符。建議統一 envelope、改用 Date 物件比較、錯誤回 5xx。來源 qr-20261017-013308-rfgq。",
+      "featureId": "F20261016-030",
+      "createdAt": "2026-10-17T01:33:19.901Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-038",
+      "title": "F-002 資料契約檔（schemas/index.ts）零消費端 + payload 契約力薄弱",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "release-retrofit",
+        "data-contract",
+        "schema",
+        "typebox"
+      ],
+      "description": "Reviewer: QA (Da'an Wu) / TASK-091。檔案 packages/shared/src/schemas/index.ts。\n\n**背景**：F-002 宣稱是「整個 PAAW 的資料契約單一真相來源」，檔頭註解寫「Every API has a TypeBox schema here. This IS the data contract.」。看碼結果：契約存在但未生效。\n\n**問題清單（看碼，附行號）**：\n1. [major] **零消費端（dead contract）**：全 repo 無任何檔案 import 這些 schema 值（SkillDefinition/AppDefinition/CronDefinition/ChatMessage/Conversation/ApiOkResponse 等）。grep 全 packages/ 只看到 @paaw/shared 的 utils/types 被 import，schemas 完全沒被消費。宣告與實作脫節。\n2. [medium] **payload 契約力薄弱**：多處 Type.Record(Type.String(), Type.Any())（L64 config、L99 output.properties、L120 SkillRunRequest.input、L133 ui、L196 ...）＝任意鍵 + Any，無型別約束，違反契約本意。\n3. [medium] **分頁與信封未整合**：PaginationQuery（L11）定義了無人引用；PaginatedResponse（L16）與 ApiOkResponse（L27）各自獨立，消費端無法用單一 schema 驗證「帶分頁的成功回應」。\n4. [medium] **DRY 違反**：ApiOkResponse.meta（L31-35）與 ApiErrorResponse.meta（L47-51）結構完全重複；ErrorResponse.details 用 Type.Any（L44）。\n5. [medium] **enum 雙軌**：schemas 內 inline union（SkillRunResponse.status L137、Conversation.type L205）與 packages/shared/src/types/index.ts 的 RunStatus/ConversationType 字串集合不一致且互不引用，易漂移。\n6. [low] visibility（private/team/public）同檔重複三次（L113、L162）未抽共用 enum。\n7. [low] schema const 與 Static<> type 同名（L81/L218）可讀性差。\n\n**建議修法**：先決策契約是否要真正落地（若否，降級為型別定義、移除 schemas 或加註 deprecate）；若採納，抽公用 Visibility/Meta/Status enum、把 PaginatedResponse 包進 ApiOkResponse、收斂 Any→具體 schema。\n**驗收**：typecheck 通過；至少一個消費端或明確 deprecate 註記。\n\n⚠️ 寫碼/修 schema 不在 QA 範圍 → 交 Developer (Priya)。",
+      "featureId": null,
+      "createdAt": "2026-10-17T02:28:04.958Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-039",
+      "title": "GitDiffView CommitDetailView 選取以 index 計，展開 RU 檔時選錯檔（H1）",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "bug",
+        "ui",
+        "git",
+        "retrofit",
+        "F20261016-056"
+      ],
+      "description": "TASK-099 review 發現。檔案 packages/ui/src/components/git/GitDiffView.tsx:314,341-360。CommitDetailView 以全量 files 的 index 作選取（sel / files.indexOf），但左欄可見清單會依 ruOpen 動態過濾（codeFiles vs code+ru），兩者座標系不一致 → 展開/收合 RU data 或 code/ru 交錯的 commit 會高亮/顯示到錯誤檔案。復現：開一 commit，預設列 code 檔，展開「📦 RU data」，RU 檔絕對索引與已選 code 檔相同時即選錯。影響：審查者看錯檔，污染 review 證據。修法：改用 path 作穩定選取識別（selPath state + files.find），active 用 path 比對。屬邏輯修改，交 Developer。",
+      "featureId": "F20261016-056",
+      "createdAt": "2026-10-17T02:43:01.327Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-040",
+      "title": "GitDiffView 提交清單 key={hash} 非唯一致 React duplicate key（H2）",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "ui",
+        "git",
+        "retrofit",
+        "F20261016-056"
+      ],
+      "description": "TASK-099 review 發現。檔案 packages/ui/src/components/git/GitDiffView.tsx:214。gitLog.slice(0,15).map key={c.hash}，若來源含跨 ref 同 commit 或後端 hash 為 short，React 會 duplicate key warning 並可能錯置 DOM。修法：key={`${c.hash}-${i}`}（清單 15 筆、順序穩定）。屬邏輯微修，交 Developer。",
+      "featureId": "F20261016-056",
+      "createdAt": "2026-10-17T02:43:01.329Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-041",
+      "title": "GitDiffView 分類解析脆弱：檔名含空白/引號被誤歸 Other（M3）＋ 三處 diff parser 重複（o1）",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "refactor",
+        "ui",
+        "git",
+        "retrofit",
+        "F20261016-056"
+      ],
+      "description": "TASK-099 review 發現。檔案 packages/ui/src/components/git/GitDiffView.tsx:62-76 splitDiffByCategory。regex /^diff --git a\\/(.+?) b\\/(.+)$/ 對含空白或 core.quotePath 引號的檔名會截斷 → classifyGitFile 落 other，code 檔被歸錯組。另 splitDiffByCategory / splitDiffByFiles / DiffViewer.parseUnifiedDiff 三處各自 split diff --git（DRY 技術債），且本檔 categoryConfig 未重用 git-helpers GROUP_CONFIG（emoji/label 漂移）。M3 修法：改用容忍引號的 regex 並以 +++ b/ 行二次校正；o1 建議抽共用 parser（較大，登錄追蹤）。屬邏輯 + 重構，交 Developer，o1 可另開 dev task。",
+      "featureId": "F20261016-056",
+      "createdAt": "2026-10-17T02:43:01.330Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-042",
+      "title": "[TAASK-049/C1+C2] server-actions-form.tsx Example 5 subscribe 違反 React 19 action 契約（TS2769 @ L434、TS2322 @ L415）",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "typescript",
+        "react19",
+        "skill-template",
+        "found-by:TASK-049",
+        "TASK-049"
+      ],
+      "description": "## 缺陷描述（tester R5 於 TASK-049 型別驗證階段發現，TASK-167 修復範圍未涵蓋）\n\n`data/skills/physical-skill/nextjs-backend-best-practices/templates/server-actions-form.tsx` Example 5（Subscribe）存在 2 個 React 19 契約違規，TypeScript TS API 權威驗證（react-dom stub + tsc）判定為型別錯誤：\n\n### C1 (major) — L434\n```tsx\nconst [state, formAction] = useActionState(subscribe, null)\n```\n`subscribe` 簽章為 `subscribe(formData: FormData): Promise<{success, message}>`，不符合 React 19 `useActionState` 的 `(state, payload) => state` 契約 → TS2769（Overload 不匹配）。\n\n### C2 (major) — L415\n```tsx\n<form action={subscribe}>\n```\n`<form action>` 要求回傳 `void | Promise<void>`，`subscribe` 回傳 `Promise<{success, message}>` → TS2322。\n\n## 佐證\n- 測試 `tests/unit/server-actions-form-compile.test.mjs` 以紅燈斷言登錄（C1/C2 各 1 test + 契約精確性 1 test），現況 41/41 綠 = 缺陷仍在範本中。\n- 修復方向：仿 EnhancedSubscribeForm 模式 — `subscribe` 改為 `(prevState, formData)` 雙參數簽章（Server Component form 直接用原 action 可另拆 wrapper），或 form 端改傳 wrapper。修復後紅燈斷言自動轉綠（斷言寫法為 expect(diag).toBeDefined()）。\n- 注意：測試以行號斷言（L415/L434），修復時若增刪行須同步更新測試行號。\n\n## 來源\nTASK-049（F20261016-006 品質補強）docs 階段核查時確認無追蹤單，補開。",
+      "featureId": "F20261016-006",
+      "createdAt": "2026-10-17T15:36:38.381Z",
+      "notes": [],
+      "updatedAt": "2026-10-17T15:37:17.144Z"
+    },
+    {
+      "id": "ISS-043",
+      "title": "[TAASK-049 docs 發現] server-action-form.tsx（單數檔）仍用 React 19 已移除的 useFormState — 與技能包宣稱環境不符",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "react19",
+        "skill-template",
+        "found-by:TASK-049",
+        "docs-consistency"
+      ],
+      "description": "## 問題描述（TASK-049 docs 階段核查時順帶發現）\n\n`data/skills/physical-skill/nextjs-backend-best-practices/templates/server-action-form.tsx`（單數檔，屬 F20261016-074 data-seed 素材）L103/L116 仍使用：\n\n```tsx\nimport { useFormState, useFormStatus } from 'react-dom'\nconst [state, formAction] = useFormState(createPost, null)\n```\n\n`useFormState` 在 React 19 已移除，此代碼在技能包宣稱支援的環境（Next.js 16.2 + React 19.2，見 SKILL.md metadata）下無法執行。同技能包的複數檔 `server-actions-form.tsx` 已在 TASK-167 修復同類問題（改用 `useActionState` from 'react'），單數檔未同步。\n\n## 影響\nAI agent 或開發者複製此範本會得到 runtime error（`useFormState is not a function`）。\n\n## 修復方向\n仿 TASK-167 修法：`import { useActionState } from 'react'`，hook 呼叫同步更名。\n\n## 範圍界定\n本檔隸屬 F20261016-074（隨 data-seed 出貨的教學素材），非 TASK-049 對象（F20261016-006 複數檔），故僅開單追蹤不代修。",
+      "featureId": "F20261016-074",
+      "createdAt": "2026-10-17T15:36:38.383Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-044",
+      "title": "log-retention runLogPurge：otherDeleted 用 const 宣告後 += 重賦值 → POST /api/logs/purge 必 500",
+      "priority": "high",
+      "status": "open",
+      "labels": [],
+      "description": "位置：packages/server/src/routes/log-retention.mjs L147-150（runLogPurge）\n\n```js\nconst otherDeleted = await purgeOtherLogs(cfg.otherDays);\notherDeleted += await purgeAssetOtherLogs(cfg.otherDays);  // ❌ Assignment to constant variable\n```\n\n影響：\n1. POST /api/logs/purge 必定 500（TypeError）— 使用者從 UI 觸發的日誌清理全壞。\n2. 每日 cron system-daily-log-purge 打同一條 API → 排程清理自 1a81633d（log 目錄統一重構）起 silently 失效。\n3. llm/agent 兩類在 throw 前已刪、other 類統計永遠回不來 — 端點行為不可預期。\n\n修法（一行）：`let otherDeleted = await purgeOtherLogs(...)`。\n\n發現方式：TASK-053 test 鞏固 — tests/unit/agent-logs.test.mjs 以 it.fails 釘住（POST /api/logs/purge 期望 200 + detail 統計），修復後移除 it.fails 即轉綠。與 QA R4 已立的 M1（0=永不刪不可達）不同案，此為新發現。",
+      "featureId": "F20261016-010",
+      "createdAt": "2026-10-17T20:49:03.830Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-045",
+      "title": "[F20261016-010] 日誌保留政策矛盾：「0=永不刪」經 API 不可達 + purge 可繞過資產政策",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "bug",
+        "retention-policy",
+        "api",
+        "found-by:TASK-053"
+      ],
+      "description": "[R4 review qr-20261017-202024-ru79 M1，QA 2026-10-18 親驗仍在]\n\n**位置**：packages/server/src/routes/log-retention.mjs L175（PUT 驗證 `n < 1` 拒收 0）＋ packages/server/src/routes/agent-logs.mjs POST /api/agent-logs/purge（接受任意 days）\n\n**問題鏈**：\n1. 政策文檔（檔頭註解 + DEFAULTS）定義「0 = 永不刪（成本核算資產）」，預設即 llmDays:0/agentDays:0。但 PUT /api/logs/retention 驗證 `n < 1` 拒收 0 → 使用者一旦設過天數，經 API 無法回到永不刪。\n2. agent-logs.mjs purge 註解（L210-216）引導「設 0 走設定端」，但設定端不收 0 — 指引自相矛盾。\n3. POST /api/agent-logs/purge 可傳任意 days 繞過資產政策刪 agent 記錄（與「永不刪」政策衝突）。\n\n**復現**：`PUT /api/logs/retention` body `{\"llmDays\":0}` → 400 `llmDays must be 1-3650`。\n\n**建議**：PUT 允許 llmDays/agentDays=0（其他 otherDays 維持 1-3650），或 purge 要求顯式 confirm 參數。",
+      "featureId": "F20261016-010",
+      "createdAt": "2026-10-17T21:10:56.324Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-046",
+      "title": "[F20261016-010] _updateIndex 讀取失敗靜默歸零 — 損毀 index 觸發資料遺失（任務摘要+成本歷史）",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "bug",
+        "data-loss",
+        "index",
+        "found-by:TASK-053"
+      ],
+      "description": "[R4 review qr-20261017-202024-ru79 M2，QA 2026-10-18 親驗仍在]\n\n**位置**：packages/server/src/lib/agent-exec-logger.mjs L224-233（_updateIndex 讀取+parse 包單一 catch{}）\n\n**問題**：_updateIndex 讀 index.json 失敗（檔案損毀/半檔）時靜默歸零 entries=[]，隨後 writeFile 覆寫 → 斷電半檔後第一個任務結束即把整份 index 覆寫成 1 筆，且被丟棄條目未經 _accumulateRuCostHistory 累計 → 任務摘要與成本資產同時遺失。writeFile 非原子（無 temp+rename）加劇風險。\n\n與前輪已修的 route 層 readIndexEntries corrupt 保護同型，寫入端漏修。\n\n**復現**：手動將 data/agent-logs/index.json 寫成 `{\"corrupted\":`（半截 JSON）→ 跑任一 agent 任務至結束 → index.json 只剩該任務 1 筆，原數百筆摘要遺失、ru-cost-history 未累計。\n\n**建議**：read/parse 分開 catch 並在 corrupt 時保存 entries 至備份檔（不覆寫）；writeFile 改 temp+rename 原子寫。",
+      "featureId": "F20261016-010",
+      "createdAt": "2026-10-17T21:11:02.984Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-047",
+      "title": "[F20261016-010] log-retention 500 回應仍洩漏 err.message（含絕對路徑）— 同型已修漏修",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "security",
+        "error-handling",
+        "found-by:TASK-053"
+      ],
+      "description": "[R4 review qr-20261017-202024-ru79 M3，QA 2026-10-18 親驗仍在]\n\n**位置**：packages/server/src/routes/log-retention.mjs L181（PUT catch）、L205（POST purge catch）、L196（janitor catch）— 三處 `jsonOut(500, { error: err.message })`\n\n**問題**：log-retention 的 500 回應仍直接外洩 err.message（CONFIG_FILE 錯誤訊息含絕對路徑 /Users/...）。同 feature 的 agent-logs.mjs 已改用 INTERNAL_ERROR_MSG 常數遮罩（前輪已修），本檔同型漏修 — 同一 feature 內標準不一致。\n\n**復現**：使 CONFIG_FILE 寫入失敗（如將 data/config/log-retention.json 設為目錄）→ PUT /api/logs/retention → 500 回應 error 欄含絕對路徑 `ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/config/log-retention.json'`。\n\n**建議**：比照 agent-logs.mjs 導入 INTERNAL_ERROR_MSG（細節只進 server log）。",
+      "featureId": "F20261016-010",
+      "createdAt": "2026-10-17T21:11:09.063Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-048",
+      "title": "[F20261016-010] agent+status 同時過濾時 status 靜默失效（三元互斥）— UI 狀態過濾無效",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "api",
+        "filter",
+        "ui",
+        "found-by:TASK-053"
+      ],
+      "description": "[R4 review qr-20261017-202024-ru7904 M4，QA 2026-10-18 親驗仍在（agent-logs.mjs L70）]\n\n**位置**：packages/server/src/routes/agent-logs.mjs L70：`listAgentTasks(limit, agentId ? { agentId } : status ? { status } : {})`\n\n**問題**：三元互斥 — 使用者同時帶 agent+status 查詢參數時，status 靜默失效（只套 agentId 過濾）。UI 端 AgentLogs.tsx L114-116 兩 filter 同送，因此 UI 的狀態過濾在選了 agent 後即無效。資料正確性受損：使用者以為在過濾 status，實際未過濾。\n\n**復現**：\n1. `GET /api/agent-logs?agent=developer&status=error` → 回傳該 agent 全部任務（含非 error）\n2. UI：Agent 面板選 agent + 狀態 error → 清單含非 error 任務\n\n**建議**：改為物件合併 `{ ...(agentId && { agentId }), ...(status && { status }) }`，listAgentTasks 已支援逐欄過濾，route 層組裝時合併即可。",
+      "featureId": "F20261016-010",
+      "createdAt": "2026-10-17T21:11:18.029Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-049",
+      "title": "[F20261016-010] R4 minor 品質債彙總：corrupt 偵測缺口 / limit 邊界 / purgeLlmBefore 驗證 / cleanup 判準不一致",
+      "priority": "low",
+      "status": "open",
+      "labels": [
+        "tech-debt",
+        "quality-debt",
+        "found-by:TASK-053"
+      ],
+      "description": "[R4 review qr-20261017-202024-ru79 m1/m2/m5/m7 minors，QA 2026-10-18 親驗仍在，彙總一單]\n\n**(1) readIndexEntries corrupt 偵測缺口** — agent-logs.mjs L35：index.json 為合法 JSON 但非陣列（如 `{}`）時 entries=[]/corrupt=false → DELETE ru 仍會覆寫成空陣列。復現：寫 index.json 為 `{}` → DELETE /api/agent-logs/ru?ru=X → 回 ok 但整份 index 歸零。\n\n**(2) limit 無下限/NaN 驗證** — agent-logs.mjs L67：`limit=-5` → slice(0,-5) 回「去尾」結果（總數-5 筆）；`limit=abc` → parseInt NaN → slice(0,NaN) 回空陣列。復現：`GET /api/agent-logs?limit=-5`。\n\n**(3) purgeLlmBefore 只驗 regex** — log-retention.mjs L103-115,L188：`before` 未來日期（如 2099-01-01）即刪除全部 llm 日誌且不受政策限制；無效日期（2020-13-45）可通過 regex。復現：`POST /api/logs/purge {\"before\":\"2099-01-01\"}` → llm 日誌全刪。\n\n**(4) cleanup 判準不一致** — agent-exec-logger.mjs L324-361：檔案刪除用 mtime、index 清理用 startTime，超長任務（時長>retentionDays，如掛 40 天的任務）產生永久孤兒 jsonl（mtime 新不刪，startTime 舊被清出 index）。復現：觀察 data/agent-logs/ 下孤兒檔累積。\n\n四項均 minor：不阻擋上線，列入品質債。",
+      "featureId": "F20261016-010",
+      "createdAt": "2026-10-17T21:11:25.194Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-050",
+      "title": "categories.mjs slug() 空值 fallback bug — 無 id 時 id 永遠是 cat-xxx 而非 slug(name)",
+      "priority": "medium",
+      "status": "open",
+      "labels": [],
+      "description": "installed-apps/secret/server/routes/categories.mjs L24 的 slug 函式：\n`const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, \"-\").replace(/^-|-$/g, \"\") || \\`cat${Date.now().toString(36)}\\``\n\nL75-76 使用方式：\n```\nlet id = slug(String(body.id || \"\"));  // 無 id → slug(\"\") → \"cat${ts}\"（非空！）\nif (!id) id = slug(name);              // 永遠不成立\n```\n\n問題：slug(\"\") 的 `|| \\`cat${ts}\\`` fallback 使空字串永遠不回空，導致 `if (!id)` 永遠 false。使用者傳 name 但不傳 id 時，id 變成 `catmvcxk3oc`（timestamp 亂碼），而非 slug(name) 的有意義值（如 \"project-management\"）。\n\n影響：動態新增分類的 id 不可讀、不可預測，agentId = `secret.catmvcxk3oc` 也無語意。\n\n修復建議：slug 不加 fallback（回空讓呼叫端處理），或 L75 改為 `let id = body.id ? slug(String(body.id)) : \"\"; if (!id) id = slug(name); if (!id) id = \\`cat-${...}\\``。\n\n由 tester 在 TASK-055 品質補強時發現，已以斷言釘住（tests/unit/secretary-routes.test.mjs DEFECT-CAT-SLUG-FALLBACK）。",
+      "featureId": "F20261016-012",
+      "createdAt": "2026-10-17T21:56:11.388Z",
+      "notes": []
+    }
+  ],
+  "updatedAt": "2026-07-22T13:37:37.561Z",
+  "nextId": 51
+}

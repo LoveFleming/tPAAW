@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/vibe-fs/read",
+  "routeId": "vibe_fs_read",
+  "name": "VibeFsRead",
+  "category": "vibe",
+  "description": "GET /api/vibe-fs/read",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

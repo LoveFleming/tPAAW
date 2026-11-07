@@ -1,0 +1,20 @@
+{
+  "route": "POST /api/skill-test/run",
+  "routeId": "skill_test_run",
+  "name": "SkillTestRun",
+  "category": "skill",
+  "description": "POST /api/skill-test/run",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

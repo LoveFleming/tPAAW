@@ -1,0 +1,11 @@
+{
+  "method": "GET",
+  "path": "/api/coding-features/validate",
+  "description": "Layer 3 feature map 驗證",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}

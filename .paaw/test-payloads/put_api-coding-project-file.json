@@ -1,0 +1,14 @@
+{
+  "method": "PUT",
+  "path": "/api/coding-project/file",
+  "description": "寫入任意 .paaw/ 檔案",
+  "query": {
+    "path": "/Users/steward/App/tPAAW",
+    "file": "PROJECT.md"
+  },
+  "body": {
+    "content": "# My Project\n\n..."
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

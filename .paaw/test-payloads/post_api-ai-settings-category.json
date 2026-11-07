@@ -1,0 +1,12 @@
+{
+  "method": "POST",
+  "path": "/api/ai-settings/:category",
+  "description": "建立新檔案",
+  "query": null,
+  "body": {
+    "file": "new-prompt.md",
+    "content": "# New Prompt\n\n..."
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

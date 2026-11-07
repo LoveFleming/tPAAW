@@ -1,8 +1,0 @@
-{
-  "name": "Skill Counting Report",
-  "description": "統計 Definition Skills 和 Physical Skills 的數量與分佈",
-  "template": "dashboard",
-  "skillId": "",
-  "generatedAt": "2026-06-01T17:45:00.000Z",
-  "status": "published"
-}

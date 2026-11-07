@@ -1,0 +1,38 @@
+# Quality Policy
+# Defines gates and thresholds for code quality
+
+gates:
+  compile:
+    enabled: true
+    command: "node --check"
+    failOn: error
+    
+  lint:
+    enabled: false
+    command: "eslint"
+    failOn: error
+    
+  semgrep:
+    enabled: true
+    failOn: [ERROR]
+    warnOn: [WARNING]
+    
+  unitTest:
+    enabled: false
+    command: "npm test"
+    failOn: any_failure
+    
+  coverage:
+    enabled: false
+    minThreshold: 60
+    failBelow: true
+
+# Architecture rules
+architecture:
+  noCircularDeps: true
+  noCrossPackageImports: false
+  
+# Change tracking
+changes:
+  requireChangeLog: false
+  requireTests: false

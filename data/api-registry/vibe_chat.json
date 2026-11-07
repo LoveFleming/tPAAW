@@ -1,0 +1,20 @@
+{
+  "route": "DELETE /api/vibe-chat",
+  "routeId": "vibe_chat",
+  "name": "VibeChat",
+  "category": "vibe",
+  "description": "DELETE /api/vibe-chat",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

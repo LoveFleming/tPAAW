@@ -1,0 +1,14 @@
+{
+  "method": "POST",
+  "path": "/api/coding-issues/:id/notes",
+  "description": "新增 issue note",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": {
+    "content": "Root cause identified: missing polyfill",
+    "by": "developer"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

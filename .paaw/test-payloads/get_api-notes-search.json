@@ -1,0 +1,11 @@
+{
+  "method": "GET",
+  "path": "/api/notes/search",
+  "description": "全文搜尋筆記",
+  "query": {
+    "q": "important"
+  },
+  "body": null,
+  "expectedStatus": 200,
+  "notes": ""
+}

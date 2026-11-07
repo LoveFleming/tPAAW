@@ -1,0 +1,20 @@
+{
+  "route": "POST /api/vibe-sessions",
+  "routeId": "vibe_sessions",
+  "name": "VibeSessions",
+  "category": "vibe",
+  "description": "POST /api/vibe-sessions",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

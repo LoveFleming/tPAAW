@@ -1,0 +1,10 @@
+{
+  "id": "pty-1782298775270-hfga",
+  "cli": "qwen",
+  "model": "glm-5.1",
+  "cwd": null,
+  "approvalMode": "yolo",
+  "systemPrompt": null,
+  "createdAt": "2026-06-24T10:59:35.303Z",
+  "lastActive": "2026-06-24T10:59:36.782Z"
+}

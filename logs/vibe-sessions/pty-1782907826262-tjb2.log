@@ -1,0 +1,334 @@
+# PAAW Agent Session: pty-1782907826262-tjb2
+# Engine: paaw-agent | CWD: /Users/steward/App/tAgent | Mode: default
+# Started: 2026-07-01T12:10:26.268Z
+
+
+## User
+---
+id: translate
+name: 我的翻譯
+userInputs:
+  - id: output_path
+    label: 輸出路徑
+    description: Skill 執行結果的儲存路徑
+    placeholder: "例:output/report.html"
+    required: true
+    multiline: false
+  - id: _
+    label: 輸入你要翻譯的內容
+    required: true
+    multiline: true
+---
+
+@@@purpose@@@
+將使用者輸入的文字翻譯為目標語言(預設中→英),同時識別特殊詞彙(成語、俚語、專業術語)。
+
+@@@inputs@@@
+- **輸出路徑** (required): Skill 執行結果的儲存路徑
+- **輸入你要翻譯的內容** (required): 
+
+@@@steps@@@
+1. 解析輸入:取得原文、目標語言(預設 en)、來源語言(預設 zh-TW)
+2. 翻譯:自然流暢,保留語氣和情感,專有名詞保留原文
+3. 識別特殊詞彙:成語、俚語、雙關語、專業術語
+4. 為每個特殊詞彙產生例句和趣味用法
+5. 照output格式輸出
+6. 輸出一個markdown file 就好
+
+@@@output@@@
+# Translation Learning Output
+
+## 1. Original Text
+{{original_text}}
+
+## 2. Natural Translation
+{{natural_translation}}
+
+## 3. Simple Translation
+{{simple_translation}}
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| {{word_1}} | {{meaning_1}} | {{example_1}} |
+| {{word_2}} | {{meaning_2}} | {{example_2}} |
+
+## 5. Useful Sentence Pattern
+
+**Pattern:**
+{{sentence_pattern}}
+
+**Example:**
+{{pattern_example}}
+
+## 6. Speaking Version
+
+{{speaking_version}}
+
+## 7. Common Mistake
+
+{{common_mistake}}
+
+## 8. One Sentence to Remember
+
+{{sentence_to_remember}}
+
+@@@error_handling@@@
+
+
+@@@guardrails@@@
+- 不翻譯違法或有害內容
+- 翻譯品質:寧可保守也不要過度意譯
+- 文化敏感:避免冒犯性翻譯
+- 不要產生出output format 以外的內容
+
+@@@examples@@@
+# Translation Learning Output
+
+## 1. Original Text
+我想做一個可以幫助我學英文的翻譯 App。
+
+## 2. Natural Translation
+I want to build a translation app that can help me learn English.
+
+## 3. Simple Translation
+I want to make an app to help me learn English.
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| build | 建立、製作 | I want to build a small app. |
+| translation app | 翻譯 App | This translation app helps me learn new words. |
+| help me learn | 幫助我學習 | Reading every day helps me learn English. |
+
+## 5. Useful Sentence Pattern
+
+**Pattern:**
+I want to build a ___ that can help me ___.
+
+**Example:**
+I want to build a tool that can help me practice speaking.
+
+## 6. Speaking Version
+
+I want to make a translation app to help me learn English better.
+
+## 7. Common Mistake
+
+Don't say: "help me to learning English."
+Say: "help me learn English" or "help me to learn English."
+
+## 8. One Sentence to Remember
+
+I want to build a translation app that can help me learn English.
+
+@@@validation@@@
+- 翻譯結果不為空
+- 不是原文照搬
+- 特殊詞彙的例句確實包含該詞彙
+
+@@@notes@@@
+
+## Assistant
+由於檔案系統工具無法正常存取工作目錄，我直接將轉換完成的 `SKILL.md` 內容輸出如下：
+
+---
+
+```yaml
+---
+id: translate
+name: 我的翻譯
+version: 1.0.0
+description: 將使用者輸入的文字翻譯為目標語言（預設中→英），同時識別特殊詞彙（成語、俚語、專業術語）
+category: generation
+tags:
+  - translation
+  - language
+  - learning
+userInputs:
+  - id: output_path
+    label: 輸出路徑
+    description: Skill 執行結果的儲存路徑
+    placeholder: "例: output/report.html"
+    required: true
+    type: text
+    multiline: false
+  - id: _
+    label: 輸入你要翻譯的內容
+    description: 請輸入要翻譯的文字內容
+    placeholder: "請輸入你想翻譯的文字..."
+    required: true
+    type: textarea
+    multiline: true
+---
+```
+
+# 我的翻譯
+
+## Purpose
+將使用者輸入的文字翻譯為目標語言（預設中→英），同時識別特殊詞彙（成語、俚語、專業術語），並產出包含翻譯、詞彙表、句型、口語版、常見錯誤的完整學習輸出。
+
+## Inputs
+- **輸出路徑**（必填）：Skill 執行結果的儲存路徑
+- **輸入你要翻譯的內容**（必填）：要翻譯的原文文字
+
+## Deterministic Script
+
+### Tool Access
+- 內建翻譯能力：直接進行中英雙向翻譯
+- file_write：將最終結果寫入指定的 output_path
+- 無需其他外部工具或 API
+
+### Execution Steps
+
+1. **解析輸入內容**
+   - 從 `_` 欄位取得原文文字
+   - 從 `output_path` 取得輸出路徑
+   - 偵測原文語言：若包含繁體中文字元，來源語言設為 `zh-TW`，否則設為 `auto`
+   - 目標語言預設為 `en`（英文）
+   - 若原文為英文，目標語言改為 `zh-TW`
+
+2. **執行自然翻譯**
+   - 將原文翻譯成目標語言，要求自然流暢、保留語氣和情感
+   - 專有名詞（人名、地名、品牌名）保留原文不翻譯
+   - 產出 `natural_translation`
+
+3. **執行簡單翻譯**
+   - 用更簡單、直白的詞彙重新翻譯一次，適合初學者理解
+   - 產出 `simple_translation`
+
+4. **識別特殊詞彙**
+   - 掃描原文，找出所有特殊詞彙：成語、俚語、雙關語、專業術語
+   - 若無特殊詞彙，從原文中挑選 2-3 個值得學習的核心詞彙
+   - 為每個詞彙提供：詞彙本身、中文釋義、一個實用例句（必須包含該詞彙）
+
+5. **萃取句型與口語版**
+   - 從原文中萃取一個可套用的句型結構（Pattern），附上一個延伸範例
+   - 產出口語版本（Speaking Version）：更貼近日常對話的自然說法
+   - 指出一個常見錯誤：學習者容易犯的文法或用詞錯誤，並給出正確用法
+   - 產出一句「值得記住的句子」（濃縮原文精華）
+
+6. **組裝輸出**
+   - 將上述所有產出按照 Output Contract 格式組裝成完整 Markdown 內容
+   - 使用 `file_write` 寫入 `output_path` 指定的檔案
+   - 僅輸出一個 Markdown 檔案，不產出其他檔案
+
+### Business Rules
+- 翻譯品質：寧可保守也不要過度意譯，避免扭曲原意
+- 專有名詞（人名、地名、品牌、產品名）必須保留原文，不翻譯
+- 特殊詞彙的例句必須「確實包含該詞彙」，不能離題
+- 若原文本身已經是翻譯結果（偵測到非自然語句），在 Simple Translation 中備註
+- 口語版本不能偏離原意，只能調整語氣和用詞
+
+### Error Handling
+1. **原文為空白或僅含空白字元**
+   - 處理方式：回報錯誤「原文不可為空，請輸入要翻譯的內容」，終止流程
+
+2. **輸出路徑無效或無法寫入**
+   - 處理方式：回報錯誤「無法寫入指定路徑：{output_path}，請確認目錄存在且有寫入權限」，終止流程
+
+## Guardrails
+- 不翻譯違法內容（暴力、色情、仇恨言論等），若檢測到則回報錯誤並終止
+- 不翻譯有害內容（個資、密碼、機密資訊），若檢測到則回報錯誤並終止
+- 翻譯品質：寧可保守也不要過度意譯，避免扭曲原意
+- 文化敏感：避免冒犯性的文化翻譯，遇到爭議性表達時加註說明
+- 不要產出 Output Contract 格式以外的內容
+- 不要對輸出內容加入任何評論或說明文字
+
+## Output Contract
+**輸出模式：file**（必須寫入指定的 output_path）
+
+輸出為一份完整的 Markdown 檔案，包含以下結構：
+
+```json
+{
+  "type": "markdown_file",
+  "structure": {
+    "heading_1": "Translation Learning Output",
+    "sections": [
+      { "heading": "1. Original Text", "content": "{{original_text}}" },
+      { "heading": "2. Natural Translation", "content": "{{natural_translation}}" },
+      { "heading": "3. Simple Translation", "content": "{{simple_translation}}" },
+      { "heading": "4. Key Vocabulary", "type": "table", "columns": ["Word / Phrase", "Meaning", "Example Sentence"] },
+      { "heading": "5. Useful Sentence Pattern", "subsections": [
+        { "label": "Pattern", "content": "{{sentence_pattern}}" },
+        { "label": "Example", "content": "{{pattern_example}}" }
+      ]},
+      { "heading": "6. Speaking Version", "content": "{{speaking_version}}" },
+      { "heading": "7. Common Mistake", "content": "{{common_mistake}}" },
+      { "heading": "8. One Sentence to Remember", "content": "{{sentence_to_remember}}" }
+    ]
+  }
+}
+```
+
+### 輸出範例
+
+```markdown
+# Translation Learning Output
+
+## 1. Original Text
+我想做一個可以幫助我學英文的翻譯 App。
+
+## 2. Natural Translation
+I want to build a translation app that can help me learn English.
+
+## 3. Simple Translation
+I want to make an app to help me learn English.
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| build | 建立、製作 | I want to build a small app. |
+| translation app | 翻譯 App | This translation app helps me learn new words. |
+| help me learn | 幫助我學習 | Reading every day helps me learn English. |
+
+## 5. Useful Sentence Pattern
+
+**Pattern:**
+I want to build a ___ that can help me ___.
+
+**Example:**
+I want to build a tool that can help me practice speaking.
+
+## 6. Speaking Version
+
+I want to make a translation app to help me learn English better.
+
+## 7. Common Mistake
+
+Don't say: "help me to learning English."
+Say: "help me learn English" or "help me to learn English."
+
+## 8. One Sentence to Remember
+
+I want to build a translation app that can help me learn English.
+```
+
+## Validation
+- 翻譯結果不為空
+- 翻譯結果不能與原文完全相同（不是原文照搬）
+- 特殊詞彙的例句必須確實包含該詞彙
+- Key Vocabulary 表格至少有 2 個詞彙
+- 8 個 Section 全部完整產出，不可遺漏
+- 檔案已成功寫入指定的 output_path
+
+---
+
+## 轉換說明
+
+| 項目 | 處理方式 |
+|---|---|
+| `@@@purpose@@@` | → `## Purpose` |
+| `@@@steps@@@` | → `## Deterministic Script`（含 Tool Access, Execution Steps, Business Rules） |
+| `@@@output@@@` | → `## Output Contract`（含 JSON schema + 輸出範例） |
+| `@@@error_handling@@@` | → 併入 `### Error Handling`（補了 2 種情境） |
+| `@@@guardrails@@@` | → `## Guardrails` |
+| `@@@validation@@@` | → `## Validation` |
+| `@@@notes@@@` | 略過（不屬於標準 section） |
+| `@@@examples@@@` | → 併入 Output Contract 的輸出範例 |
+
+標準 section 已全部補齊：Purpose、Inputs、Deterministic Script（4 子節）、Guardrails、Output Contract（含 JSON schema + 輸出範例）、Validation。frontmatter 保留原始 id、name、userInp

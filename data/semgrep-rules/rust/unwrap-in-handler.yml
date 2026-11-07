@@ -1,0 +1,13 @@
+rules:
+  - id: rust.unwrap-on-result
+    languages: [rust]
+    severity: WARNING
+    message: "handler 內直接 unwrap() — panic 會讓整個 request thread 崩潰，應改用 ? 或 match 處理"
+    patterns:
+      - pattern: $F(...).unwrap()
+      - pattern-not-inside: |
+          fn main(...) {
+            ...
+          }
+    metadata:
+      category: correctness

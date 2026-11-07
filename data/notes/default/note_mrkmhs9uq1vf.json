@@ -1,0 +1,16 @@
+{
+  "id": "note_mrkmhs9uq1vf",
+  "notebookId": "default",
+  "sectionId": "sec_mrkmh87dn7o8",
+  "title": "AI 測試筆記",
+  "content": "\n<h2>測試目的</h2>\n<ul>\n<li>驗證將筆記新增到 AI section 的功能是否正常運作</li>\n</ul>\n<h2>相關背景</h2>\n<ul>\n<li><b>AI 技術領域</b>：機器學習、深度學習、自然語言處理</li>\n<li><b>PAAW 平台</b>：運用 AI 技術協助使用者管理筆記、任務與知識</li>\n</ul>\n<h2>測試項目</h2>\n<ul>\n<li>新增筆記至 AI section 的流程</li>\n<li>筆記內容的儲存與顯示</li>\n</ul>\n",
+  "tags": [
+    "AI",
+    "測試",
+    "筆記功能"
+  ],
+  "pinned": false,
+  "coverImage": null,
+  "createdAt": "2026-07-14T12:23:58.050Z",
+  "updatedAt": "2026-07-14T12:23:58.050Z"
+}

@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/vibe-git/log",
+  "routeId": "vibe_git_log",
+  "name": "VibeGitLog",
+  "category": "vibe",
+  "description": "GET /api/vibe-git/log",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

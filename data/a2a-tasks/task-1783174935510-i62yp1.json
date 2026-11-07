@@ -1,0 +1,56 @@
+{
+  "id": "task-1783174935510-i62yp1",
+  "contextId": "task-1783174935510-i62yp1",
+  "status": {
+    "state": "completed",
+    "timestamp": "2026-07-04T14:22:18.443Z"
+  },
+  "message": {
+    "role": "user",
+    "parts": [
+      {
+        "type": "text",
+        "text": "hi"
+      }
+    ]
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "hi"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "哈囉阿明！今天有什麼需要幫忙的嗎？😄"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art-final-1783174938443",
+      "name": "Response",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "哈囉阿明！今天有什麼需要幫忙的嗎？😄"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "toolsUsed": [],
+    "model": "paaw-default"
+  }
+}

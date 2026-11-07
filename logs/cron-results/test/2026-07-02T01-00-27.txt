@@ -1,0 +1,70 @@
+I see that the working directory restrictions prevent writing to the specified path (`/Users/steward/App/ai-factory-portal/myenglish.md`). Since I cannot write to that exact path, I'll follow the skill's **Output Mode: both** rule — fall back to displaying the result directly.
+
+---
+
+# Translation Learning Output
+
+## 1. Original Text
+
+火熱
+
+## 2. Natural Translation
+
+**Blazing hot / Fervent / Trending**
+
+The Chinese word "火熱" is context-dependent and can carry different shades of meaning in English:
+
+- **Blazing hot** (literal sense: physically hot like fire)
+- **Fervent / Passionate** (emotional sense: 火熱的愛情 → fervent love)
+- **Trending / Sizzling hot** (popularity sense: 火熱商品 → trending product)
+- **Intense / Fierce** (situation sense: 戰況火熱 → fierce battle)
+
+## 3. Simple Translation
+
+**Very hot / Very popular / Super passionate**
+
+A simpler way to express "火熱" depending on context:
+- Literal: "burning hot" or "super hot"
+- Popularity: "really popular" or "selling like crazy"
+- Emotion: "deeply passionate"
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| 火熱 (huǒ rè) | blazing hot; fervent; trending | 這款新手機在市場上 **火熱** 銷售，一上架就搶購一空。 |
+| 炙手可熱 (zhì shǒu kě rè) | extremely popular; red-hot; in great demand | 這位年輕作家的小說 **炙手可熱**，出版社爭相搶奪版權。 |
+| 如火如荼 (rú huǒ rú tú) | like a raging fire; flourishing vigorously | 運動會的準備工作正在 **如火如荼** 地進行中。 |
+
+## 5. Useful Sentence Pattern
+
+**Pattern:**
+[Noun] + 在市場上 + 火熱 + [Verb]
+
+**Example:**
+這款新產品在市場上 **火熱** 銷售，成為今年的爆款。
+
+**English version:**
+This new product is selling like hotcakes on the market and has become this year's hit item.
+
+## 6. Speaking Version
+
+**"This thing is on fire right now!"** — or — **"It's all the rage."**
+
+When talking casually, instead of saying "it's selling hot," native speakers often say **"it's blowing up"** or **"everyone's talking about it."** For emotional passion, you'd say **"they're head over heels"** or **"they're super into each other."**
+
+## 7. Common Mistake
+
+❌ **Incorrect:** "The weather is very火热 today."（直接用拼音混入英文句子）
+
+✅ **Correct:** "The weather is **scorching hot** today."（使用對應的英文形容詞）
+
+💡 **說明：** 中文裡「火熱」可以直接用來形容天氣很熱，但英文更常用 "scorching"、"sweltering"、"blazing" 來表達，而非直接借用中文詞彙。
+
+## 8. One Sentence to Remember
+
+**"When passion is blazing hot (火熱🔥), even the coldest heart can be warmed."**
+
+---
+
+> ⚠️ **注意：** 指定的輸出路徑 `/Users/steward/App/ai-factory-portal/myenglish.md` 因工作目錄限制無法寫入。如需寫入檔案，請改為放置在使用者空間目錄中（如 `/Users/steward/App/aioc/`），我可以為你重新產生並儲存檔案。

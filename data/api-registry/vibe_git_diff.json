@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/vibe-git/diff",
+  "routeId": "vibe_git_diff",
+  "name": "VibeGitDiff",
+  "category": "vibe",
+  "description": "GET /api/vibe-git/diff",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

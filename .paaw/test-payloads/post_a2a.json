@@ -1,0 +1,23 @@
+{
+  "method": "POST",
+  "path": "/a2a",
+  "description": "A2A JSON-RPC endpoint (message/send, message/stream, tasks/*)",
+  "query": null,
+  "body": {
+    "jsonrpc": "2.0",
+    "method": "message/send",
+    "params": {
+      "message": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Hello, what can PAAW do?"
+          }
+        ]
+      }
+    },
+    "id": "test-001"
+  },
+  "expectedStatus": 200,
+  "notes": ""
+}

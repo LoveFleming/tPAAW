@@ -1,0 +1,31 @@
+{
+  "method": "POST",
+  "path": "/api/coding-features",
+  "description": "建立 feature",
+  "query": {
+    "path": "/Users/steward/App/tPAAW"
+  },
+  "body": {
+    "name": "User Authentication",
+    "description": "Login/logout with OAuth",
+    "codeFiles": [
+      "packages/ui/src/Login.tsx"
+    ],
+    "apis": [
+      {
+        "method": "POST",
+        "path": "/api/auth/login",
+        "file": "packages/server/src/auth.mjs"
+      }
+    ],
+    "tests": [
+      "packages/ui/src/Login.test.tsx"
+    ],
+    "tags": [
+      "auth",
+      "security"
+    ]
+  },
+  "expectedStatus": 201,
+  "notes": ""
+}

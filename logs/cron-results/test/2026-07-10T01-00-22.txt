@@ -1,0 +1,42 @@
+The working directory is `/Users/steward/App/tPAAW/data/skills/physical-skill/translate`, and the output path is outside of it. Let me check if there's a way to write to the absolute path.
+
+I'll provide the output directly in the response, as per the Output Contract (both mode — display when file write isn't possible).
+
+以下是你的翻譯學習筆記：
+
+# Translation Learning Output
+
+## 1. Original Text
+火熱
+
+## 2. Natural Translation
+Fervent / Passionate / Intense
+
+## 3. Simple Translation
+Hot / Burning
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| 火熱 (huǒ rè) | 形容溫度極高或情感極度熱烈；Passionate, fervent, intense | 他對音樂有著**火熱**的熱情，從不間斷練習。 |
+| passionate | 熱情的、熱烈的，指強烈的情感投入 | She is **passionate** about her work and never gives up. |
+| fervent | 強烈的、熱切的，通常指情感或信念 | He expressed his **fervent** hope for a better future. |
+
+## 5. Useful Sentence Pattern
+**Pattern:** 對……有著火熱的……
+**Example:** 他對夢想有著火熱的追求。(He has a passionate pursuit of his dreams.)
+
+## 6. Speaking Version
+He's really into it / She's all fired up about it
+
+## 7. Common Mistake
+**❌ 錯誤：** "I have a fire heart."（直接逐字翻譯「火熱」→ "fire hot"，文法不通）
+**✅ 修正：** "I have a passionate heart." 或 "My heart burns with passion."
+
+## 8. One Sentence to Remember
+Keep your passion burning — 保持你的熱情如火，持續燃燒。
+
+---
+
+**附註：** 指定輸出路徑 `/Users/steward/App/ai-factory-portal/myenglish.md` 不在當前工作目錄範圍內（工作目錄：`/Users/steward/App/tPAAW/data/skills/physical-skill/translate`），無法直接寫入。如需寫入檔案，請指定工作目錄下的路徑或確認目錄掛載情況。

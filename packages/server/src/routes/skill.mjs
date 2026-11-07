@@ -1,0 +1,319 @@
+/**
+ * Skill routes — CRUD for skills (pool, input-prompt, physical-skill)
+ */
+import { readdir, readFile, writeFile, mkdir, rm, rename, stat } from "fs/promises";
+import { join, resolve } from "path";
+import { PATHS, readBody, json, urlPath, parseSkillFrontmatter } from "./context.mjs";
+
+const ROOTS = [PATHS.INPUT_PROMPT_ROOT, PATHS.PHYSICAL_SKILL_ROOT, PATHS.SKILL_POOL_ROOT];
+const ROOT_KINDS = ["input-prompt", "physical-skill", "skill-pool"];
+
+/**
+ * Validate a skill/app/phase/file path segment before it is joined onto a root.
+ * The route regexes allow ".." (dots are permitted in skill names), so we must
+ * explicitly reject any segment that could escape its parent directory.
+ * @returns {string|null} the segment if safe, otherwise null
+ */
+function safeSegment(seg) {
+  if (typeof seg !== "string" || seg.length === 0) return null;
+  if (seg === "." || seg === "..") return null;
+  if (seg.includes("..")) return null;
+  if (/[\/]/.test(seg)) return null;
+  return seg;
+}
+
+// Recursive copy directory
+async function copyDir(src, dest) {
+  await mkdir(dest, { recursive: true });
+  const entries = await readdir(src, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.name === "test-output") continue; // skip test output
+    const srcPath = join(src, entry.name);
+    const destPath = join(dest, entry.name);
+    if (entry.isDirectory()) {
+      await copyDir(srcPath, destPath);
+    } else {
+      const content = await readFile(srcPath);
+      await writeFile(destPath, content);
+    }
+  }
+}
+
+// List all files in a directory (relative paths)
+async function listFiles(dir, prefix = "") {
+  const results = [];
+  try {
+    const entries = await readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        results.push(...await listFiles(join(dir, entry.name), rel));
+      } else {
+        results.push(rel);
+      }
+    }
+  } catch {}
+  return results;
+}
+
+async function scanSkillsDir(root, kind) {
+  const skills = [];
+  let dirs;
+  try { dirs = await readdir(root); } catch { return skills; }
+  for (const dir of dirs) {
+    try {
+      const { stat } = await import("fs/promises");
+      const s = await stat(join(root, dir));
+      if (!s.isDirectory()) continue;
+      let raw, parsed;
+      try {
+        raw = await readFile(join(root, dir, "SKILL.md"), "utf-8");
+        parsed = parseSkillFrontmatter(raw);
+      } catch {
+        // No SKILL.md — try inputs.json fallback (input-prompt dir)
+        const inputsRaw = await readFile(join(root, dir, "inputs.json"), "utf-8");
+        const inputsData = JSON.parse(inputsRaw);
+        parsed = { name: dir, description: "", body: "", userInputs: inputsData.userInputs || [] };
+        raw = JSON.stringify(parsed, null, 2);
+      }
+      skills.push({
+        id: dir, kind,
+        name: parsed.name || dir, description: parsed.description || "",
+        version: parsed.version || "1.0.0", category: parsed.category || "",
+        skillPrompt: parsed.body || "",
+        useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [],
+        usePhysicalSkills: Array.isArray(parsed.usePhysicalSkills) ? parsed.usePhysicalSkills : [],
+        userInputs: Array.isArray(parsed.userInputs) ? parsed.userInputs : [],
+        fullContent: raw,
+      });
+    } catch { /* skip */ }
+  }
+  return skills;
+}
+
+export default async function skillRoutes(req, res) {
+  const path = urlPath(req);
+
+  // GET /api/skills — list all
+  if (req.method === "GET" && path.match(/^\/api\/skills(?:\?.*)?$/)) {
+    try {
+      const allSkills = [];
+      for (let i = 0; i < ROOTS.length; i++) {
+        allSkills.push(...await scanSkillsDir(ROOTS[i], ROOT_KINDS[i]));
+      }
+      // Dedup by skill id — merge userInputs
+      const seen = new Map();
+      const skills = [];
+      for (const sk of allSkills) {
+        const existing = seen.get(sk.id);
+        if (existing) {
+          if (existing.userInputs.length === 0 && sk.userInputs.length > 0) existing.userInputs = sk.userInputs;
+          if (!existing.hasApp && sk.hasApp) existing.hasApp = true;
+          if (sk.kind === "physical-skill") existing.kind = "physical-skill";
+        } else {
+          seen.set(sk.id, sk);
+          skills.push(sk);
+        }
+      }
+      for (const sk of skills) {
+        const base = ROOT_KINDS.indexOf(sk.kind);
+        try { const { access } = await import("fs/promises"); await access(join(ROOTS[base >= 0 ? base : 0], sk.id, "app.html")); sk.hasApp = true; } catch { sk.hasApp = false; }
+      }
+      json(res, skills);
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
+  // GET /api/skills/:id — get single (userInputs from input-prompt/inputs.json)
+  const getMatch = req.method === "GET" && path.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/);
+  if (getMatch) {
+    const skillId = safeSegment(getMatch[1]);
+    if (!skillId) { json(res, { error: "Invalid skill id" }, 400); return true; }
+    try {
+      // 1. Read userInputs from input-prompt/{skillId}/inputs.json
+      let inputsData = null;
+      try {
+        inputsData = JSON.parse(await readFile(join(PATHS.INPUT_PROMPT_ROOT, skillId, "inputs.json"), "utf-8"));
+      } catch {}
+      if (inputsData) {
+        json(res, { id: skillId, kind: "input-prompt", name: inputsData.name || skillId, description: inputsData.description || "", version: "1.0.0", userInputs: Array.isArray(inputsData.userInputs) ? inputsData.userInputs : [] });
+        return true;
+      }
+      // 2. Fallback: scan ROOTS for SKILL.md
+      for (let i = 0; i < ROOTS.length; i++) {
+        const skillPath = join(ROOTS[i], skillId, "SKILL.md");
+        try {
+          const raw = await readFile(skillPath, "utf-8");
+          const parsed = parseSkillFrontmatter(raw);
+          json(res, { id: skillId, kind: ROOT_KINDS[i], name: parsed.name || skillId, description: parsed.description || "", version: parsed.version || "1.0.0", category: parsed.category || "", skillPrompt: parsed.body || "", useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [], usePhysicalSkills: Array.isArray(parsed.usePhysicalSkills) ? parsed.usePhysicalSkills : [], userInputs: Array.isArray(parsed.userInputs) ? parsed.userInputs : [], fullContent: raw });
+          return true;
+        } catch {}
+      }
+      json(res, { error: "Skill not found" }, 404);
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
+  // PUT /api/skills/:id — create or update
+  const putMatch = req.method === "PUT" && path.match(/^\/api\/skills\/([\w.-]+)$/);
+  if (putMatch) {
+    const skillId = safeSegment(putMatch[1]);
+    if (!skillId) { json(res, { error: "Invalid skill id" }, 400); return true; }
+    try {
+      const { kind = "input-prompt", content } = JSON.parse(await readBody(req));
+      if (!content || !skillId) { json(res, { error: "Missing content or skillId" }, 400); return true; }
+      const baseRoot = kind === "physical-skill" ? PATHS.PHYSICAL_SKILL_ROOT : kind === "skill-pool" ? PATHS.SKILL_POOL_ROOT : PATHS.INPUT_PROMPT_ROOT;
+      const skillDir = join(baseRoot, skillId);
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(join(skillDir, "SKILL.md"), content, "utf-8");
+      json(res, { ok: true, id: skillId, kind });
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
+  // DELETE /api/skills/:id
+  const delMatch = req.method === "DELETE" && path.match(/^\/api\/skills\/([\w.-]+)$/);
+  if (delMatch) {
+    const skillId = safeSegment(delMatch[1]);
+    if (!skillId) { json(res, { error: "Invalid skill id" }, 400); return true; }
+    try {
+      let deleted = false;
+      for (const root of ROOTS) {
+        const skillDir = join(root, skillId);
+        try { await rm(skillDir, { recursive: true, force: true }); deleted = true; } catch {}
+      }
+      json(res, deleted ? { ok: true } : { error: "Not found" }, deleted ? 200 : 404);
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
+  // POST /api/skills/:id/publish — copy package/ from building/ to physical-skill/
+  const pubMatch = req.method === "POST" && path.match(/^\/api\/skills\/([\w.-]+)\/publish$/);
+  if (pubMatch) {
+    const skillId = safeSegment(pubMatch[1]);
+    if (!skillId) { json(res, { error: "Invalid skill id" }, 400); return true; }
+    try {
+      const { target = "physical-skill" } = JSON.parse(await readBody(req));
+      const srcDir = join(PATHS.BUILDING_ROOT, skillId);
+      const pkgDir = join(srcDir, "package");
+      const targetRoot = target === "input-prompt" ? PATHS.INPUT_PROMPT_ROOT
+        : target === "skill-pool" ? PATHS.SKILL_POOL_ROOT
+        : PATHS.PHYSICAL_SKILL_ROOT;
+      const destDir = join(targetRoot, skillId);
+
+      // Check package/ exists
+      try { await readFile(join(pkgDir, "SKILL.md"), "utf-8"); }
+      catch { json(res, { error: `Package not found: building/${skillId}/package/SKILL.md` }, 404); return true; }
+
+      // Copy package/ contents → physical-skill/{id}/
+      await mkdir(destDir, { recursive: true });
+      await copyDir(pkgDir, destDir);
+
+      // Extract userInputs from skill-source.md → write to input-prompt/ (interface definition)
+      const sourceMd = await readFile(join(srcDir, "skill-source.md"), "utf-8");
+      const parsed = parseSkillFrontmatter(sourceMd);
+      if (parsed.userInputs && parsed.userInputs.length > 0) {
+        const inputPromptDir = join(PATHS.INPUT_PROMPT_ROOT, skillId);
+        await mkdir(inputPromptDir, { recursive: true });
+        await writeFile(
+          join(inputPromptDir, "inputs.json"),
+          JSON.stringify({ skillId, userInputs: parsed.userInputs }, null, 2),
+          "utf-8"
+        );
+      }
+
+      // skill-source.md stays in building/ for re-builds, but clean up test-output
+      try {
+        const testOutDir = join(srcDir, "test-output");
+        await rm(testOutDir, { recursive: true, force: true });
+      } catch {}
+
+      json(res, {
+        ok: true, id: skillId, kind: target,
+        path: destDir, sourcePath: srcDir,
+        files: await listFiles(destDir),
+      });
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
+  // GET /api/paaw/skills/:appId/:skillId/inputs — get skill userInputs
+  const inputsMatch = path.match(/^\/api\/paaw\/skills\/([^/]+)\/([^/]+)\/inputs$/);
+  if (req.method === "GET" && inputsMatch) {
+    try {
+      const appId = safeSegment(inputsMatch[1]);
+      const skillId = safeSegment(inputsMatch[2]);
+      if (!appId || !skillId) { json(res, { error: "Invalid id" }, 400); return true; }
+      let content;
+      try { content = await readFile(join(PATHS.APPS_ROOT, appId, "skills", skillId, "SKILL.md"), "utf-8"); }
+      catch { try { content = await readFile(join(PATHS.SKILL_POOL_ROOT, skillId, "SKILL.md"), "utf-8"); } catch { json(res, { error: "Skill not found" }, 404); return true; } }
+      const parsed = parseSkillFrontmatter(content);
+      json(res, { skillId, appId, userInputs: parsed.userInputs || [] });
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
+  // GET /api/contexts/skill-builder/:phase/:file — get AI settings for skill builder (phase=build|test)
+  const ctxMatch = req.method === "GET" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)\/([\w.-]+)$/);
+  if (ctxMatch) {
+    const phase = safeSegment(ctxMatch[1]);
+    const fileName = safeSegment(ctxMatch[2]);
+    if (!phase || !fileName) { json(res, { error: "Invalid path" }, 400); return true; }
+    const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", phase);
+    try {
+      const content = await readFile(join(contextRoot, fileName), "utf-8");
+      json(res, { content });
+    } catch {
+      json(res, { content: "" }, 404);
+    }
+    return true;
+  }
+  // Legacy: GET /api/contexts/skill-builder/:file (no phase, defaults to build)
+  const ctxLegacyMatch = req.method === "GET" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)$/);
+  if (ctxLegacyMatch) {
+    const fileName = safeSegment(ctxLegacyMatch[1]);
+    if (!fileName) { json(res, { error: "Invalid path" }, 400); return true; }
+    const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", "build");
+    try {
+      const content = await readFile(join(contextRoot, fileName), "utf-8");
+      json(res, { content });
+    } catch {
+      json(res, { content: "" }, 404);
+    }
+    return true;
+  }
+
+  // PUT /api/contexts/skill-builder/:phase/:file — update AI settings (phase=build|test)
+  const ctxPutMatch = req.method === "PUT" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)\/([\w.-]+)$/);
+  if (ctxPutMatch) {
+    const phase = safeSegment(ctxPutMatch[1]);
+    const fileName = safeSegment(ctxPutMatch[2]);
+    if (!phase || !fileName) { json(res, { error: "Invalid path" }, 400); return true; }
+    const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", phase);
+    try {
+      const { content } = JSON.parse(await readBody(req));
+      if (!content) { json(res, { error: "Missing content" }, 400); return true; }
+      await mkdir(contextRoot, { recursive: true });
+      await writeFile(join(contextRoot, fileName), content, "utf-8");
+      json(res, { ok: true });
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+  // Legacy: PUT /api/contexts/skill-builder/:file (no phase, defaults to build)
+  const ctxPutLegacyMatch = req.method === "PUT" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)$/);
+  if (ctxPutLegacyMatch) {
+    const fileName = safeSegment(ctxPutLegacyMatch[1]);
+    if (!fileName) { json(res, { error: "Invalid path" }, 400); return true; }
+    const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", "build");
+    try {
+      const { content } = JSON.parse(await readBody(req));
+      if (!content) { json(res, { error: "Missing content" }, 400); return true; }
+      await mkdir(contextRoot, { recursive: true });
+      await writeFile(join(contextRoot, fileName), content, "utf-8");
+      json(res, { ok: true });
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
+  return false;
+}

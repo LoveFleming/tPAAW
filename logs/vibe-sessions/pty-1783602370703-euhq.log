@@ -1,0 +1,93 @@
+# Coding Session: pty-1783602370703-euhq
+# CLI: shell | CWD: /Users/steward/App/agent-orchestrator | Mode: default
+# Started: 2026-07-09T13:06:10.710Z
+
+%                                                                                                                       
+ 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % nnpmrundev
+> agent-orchestrator@1.0.0 dev
+> tsx watch src/server.ts
+
+[provider-config] searching candidates: [
+  '/Users/steward/App/agent-orchestrator/data/config/providers.json',
+  '/Users/steward/App/agent-orchestrator/data/config/providers.json',
+  '/Users/steward/App/data/config/providers.json',
+  '/Users/steward/data/config/providers.json'
+]
+[provider-config] loaded: /Users/steward/App/agent-orchestrator/data/config/providers.json
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::4100
+    at Server.setupListenHandle [as _listen2] (node:net:2008:16)
+    at listenInCluster (node:net:2065:12)
+    at Server.listen (node:net:2170:7)
+    at app.listen (/Users/steward/App/agent-orchestrator/node_modules/express/lib/application.js:635:24)
+    at <anonymous> (/Users/steward/App/agent-orchestrator/src/server.ts:908:24)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:2044:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 4100
+}
+
+Node.js v25.8.2
+^C⠙%                                                                                                                       
+ 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % 
+
+steward@guowangguanjiadeMac-mini agent-orchestrator % npm run dev
+> agent-orchestrator@1.0.0 dev
+> tsx watch src/server.ts
+
+[provider-config] searching candidates: [
+  '/Users/steward/App/agent-orchestrator/data/config/providers.json',
+  '/Users/steward/App/agent-orchestrator/data/config/providers.json',
+  '/Users/steward/App/data/config/providers.json',
+  '/Users/steward/data/config/providers.json'
+]
+[provider-config] loaded: /Users/steward/App/agent-orchestrator/data/config/providers.json
+
+🚀 Agent Orchestrator 已啟動
+   UI         : http://localhost:4100
+   Agent Card : http://localhost:4100/.well-known/agent-card.json
+   JSON-RPC   : http://localhost:4100/a2a/jsonrpc
+   Webhook    : http://localhost:4100/a2a/webhook
+   Health     : http://localhost:4100/health
+   LLM        : openrouter/deepseek/deepseek-v4-flash
+   Remote     : http://localhost:4097
+[Discovery] PAAW Agent has 1 skills:
+  - paaw-helpdesk: PAAW HelpDesk (helpdesk, support, faq, customer-service, agent-to-agent)
+[Mode] Switched to async
+[Mode] Switched to async
+zsh: warning: 1 jobs SIGHUPed

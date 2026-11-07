@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/skill-test/file-content",
+  "routeId": "skill_test_file_content",
+  "name": "SkillTestFileContent",
+  "category": "skill",
+  "description": "GET /api/skill-test/file-content",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

@@ -1,0 +1,1113 @@
+/**
+ * Crew CRUD, Conversations, Saved Inputs, Work Log, Skill Test, CLI Run,
+ * File Browser / Tree, Project Content, Project Dashboard, FS Watch SSE
+ */
+
+import { readdir, readFile, writeFile, mkdir, unlink, rm, stat } from "fs/promises";
+import { readFileSync, writeFileSync, existsSync as _exists } from "fs";
+import { LOG_HOME } from "../data-home.mjs";
+import { existsSync } from "fs";
+import {
+  join, resolve, dirname,
+} from "path";
+import {
+  PAAW_ROOT, CONVERSATIONS_ROOT, CREWS_ROOT,
+  projectPathHash, getConvDir, readBody, resolveDataDir, getWorkspaceId, buildTree, startWatcher,
+} from "./shared.mjs";
+import { json } from "./context.mjs";
+import { runAgentLoop } from "../lib/paaw-agent-loop.mjs";
+import { DATA_HOME } from "../data-home.mjs";
+import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
+import { listModules, listModuleCrews, getModuleCrew, isFirmwareCrew } from "../lib/module-registry.mjs";
+
+// ── 使用者偏好層（2026-10-09：外觀/語氣偏好 — data/crew-preferences.json，firmware 蓋不到）──
+// 實作移到 module-registry.mjs（applyCrewPrefs）— coding app / project-crew 共用同一份疊加
+import { applyCrewPrefs as _applyPrefs, loadCrewPrefs as _loadPrefs, saveCrewPrefs as _savePrefs } from "../lib/module-registry.mjs";
+
+export default async function crewRoute(req, res) {
+  const url = new URL(req.url, "http://localhost");
+  const path = url.pathname;
+
+  // ── GET /api/paaw/skill-config ── (deprecated — redirects to agent-config)
+  if (req.method === "GET" && path === "/api/paaw/skill-config") {
+    const { loadAgentConfig } = await import("./context.mjs");
+    const cfg = await loadAgentConfig();
+    json(res, { testTimeout: cfg.timeoutSeconds, maxToolCalls: cfg.maxTurns });
+    return true;
+  }
+
+  // ── POST /api/paaw/skill-config ── (deprecated — redirects to agent-config)
+  if (req.method === "POST" && path === "/api/paaw/skill-config") {
+    try {
+      const body = JSON.parse(await readBody(req));
+      // Merge into agent-config
+      const { loadAgentConfig } = await import("./context.mjs");
+      const { writeFile: wf, mkdir } = await import("fs/promises");
+      const cfgPath = resolve(DATA_HOME, "ai-settings/agent-config.json");
+      const current = await loadAgentConfig();
+      if (body.testTimeout) current.timeoutSeconds = body.testTimeout;
+      if (body.maxToolCalls) current.maxTurns = body.maxToolCalls;
+      await wf(cfgPath, JSON.stringify(current, null, 2), "utf-8");
+      json(res, { ok: true });
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
+  // ── POST /api/skill-test/run — PAAW Agent Loop test ──
+  if (req.method === "POST" && req.url === "/api/skill-test/run") {
+    const body = JSON.parse(await readBody(req));
+    const { loadAgentConfig } = await import("./context.mjs");
+    const agentCfg = await loadAgentConfig();
+    const { skillId, prompt, cwd, timeout, maxToolCalls, model: modelOverride } = body;
+    const effectiveTimeout = timeout || agentCfg.timeoutSeconds;
+    const effectiveMaxTurns = maxToolCalls || agentCfg.maxTurns;
+    const relTestDir = `data/skills/building/${skillId || "unknown"}/test-output`;
+    const testDir = resolve(PAAW_ROOT, relTestDir);
+    try { await rm(testDir, { recursive: true, force: true }); } catch {}
+    await mkdir(testDir, { recursive: true });
+    // If cwd is provided (isolated build dir), ensure it exists
+    if (cwd) { try { await mkdir(cwd, { recursive: true }); } catch {} }
+
+    // Build full system context via contextEngine (skill-builder rules + knowledge + workspace)
+    let systemPrompt = "";
+    try {
+      const { contextEngine } = await import("../context-engine.mjs");
+      const ctx = await contextEngine.build({ target: "skill-builder", phase: "test" });
+      systemPrompt = ctx.systemPrompt || "";
+    } catch {}
+
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" });
+    const sendEvent = (obj) => { try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch {} };
+
+    const hasOutputPath = /輸出路徑|output_path|輸出目錄|請將.*輸出/i.test(prompt);
+    const fullPrompt = hasOutputPath
+      ? prompt
+      : `${prompt}\n\n### 輸出目錄\n請將所有輸出檔案放到這個目錄：${relTestDir}\n如果有多個輸出，分別存成不同檔案（JSON、Markdown、HTML 等都可以）。`;
+
+    const agentCwd = cwd || testDir;
+    sendEvent({ type: "debug", engine: "paaw-agent-loop", cwd: agentCwd, testDir: relTestDir });
+    console.log(`[skill-test] running via PAAW Agent Loop, skillId=${skillId}, testDir=${testDir}, model=${modelOverride || "(default)"}`);
+
+    const heartbeat = setInterval(() => sendEvent({ type: "heartbeat" }), 5000);
+    try {
+      const agentResult = await runAgentLoop({
+        prompt: fullPrompt,
+        cwd: agentCwd,
+        systemPrompt: systemPrompt || undefined,
+        model: modelOverride,
+        maxTurns: effectiveMaxTurns,
+        timeout: effectiveTimeout,
+        rootDir: PAAW_ROOT,
+        agentId: "skill-test",
+        onEvent: (evt) => {
+          if (evt.type === "tool_start") sendEvent({ type: "stdout", data: `🔧 ${evt.name}...\n` });
+          if (evt.type === "tool_end") sendEvent({ type: "stdout", data: `✅ ${evt.name}: ${evt.result || ""}\n` });
+          if (evt.type === "assistant_thinking") sendEvent({ type: "stdout", data: `💭 ${evt.content}\n` });
+        },
+      });
+      clearInterval(heartbeat);
+
+      const files = [];
+      const scanDirs = [testDir];
+      const outputPathMatch = prompt.match(/輸出路徑:\s*(.+)/);
+      if (outputPathMatch) {
+        const userPath = outputPathMatch[1].trim();
+        const userDir = resolve(PAAW_ROOT, userPath);
+        if (!scanDirs.includes(userDir)) scanDirs.unshift(userDir);
+      }
+      for (const scanDir of scanDirs) {
+        try {
+          const entries = await readdir(scanDir);
+          for (const name of entries) {
+            if (name === "_prompt.txt") continue;
+            const fp = join(scanDir, name);
+            const s = await stat(fp);
+            if (s.isFile()) {
+              const ext = name.split(".").pop()?.toLowerCase() || "";
+              let type = "text";
+              if (["json", "jsonl"].includes(ext)) type = "json";
+              else if (["html", "htm"].includes(ext)) type = "html";
+              else if (["md", "markdown"].includes(ext)) type = "markdown";
+              else if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) type = "image";
+              else if (["csv"].includes(ext)) type = "csv";
+              else if (["yaml", "yml"].includes(ext)) type = "yaml";
+              files.push({ name, path: fp, size: s.size, type, ext });
+            }
+          }
+        } catch {}
+      }
+
+      if (files.length === 0 && agentResult.content.trim()) {
+        const fallbackFile = join(testDir, "output.md");
+        await writeFile(fallbackFile, agentResult.content, "utf-8");
+        files.push({ name: "output.md", path: fallbackFile, size: Buffer.byteLength(agentResult.content), type: "markdown", ext: "md" });
+      }
+
+      sendEvent({ type: "done", exitCode: agentResult.success ? 0 : 1, testDir, files, stdout: agentResult.content.slice(-2000), stderr: "", debug: `Agent Loop: ${agentResult.turns} turns, ${agentResult.toolCalls.length} tool calls, ${agentResult.durationMs}ms` });
+      try { res.end(); } catch {}
+    } catch (err) {
+      clearInterval(heartbeat);
+      console.error(`[skill-test] error:`, err);
+      sendEvent({ type: "error", message: `Agent Loop 執行失敗: ${err.message}` });
+      try { res.end(); } catch {}
+    }
+    return true;
+  }
+
+  // ── GET /api/skill-test/file-content ──
+  if (req.method === "GET" && req.url?.startsWith("/api/skill-test/file-content")) {
+    try {
+      const qs = new URL(req.url, "http://localhost").searchParams;
+      const filePath = qs.get("path");
+      if (!filePath) { res.writeHead(400); res.end(JSON.stringify({ error: "Missing path" })); return true; }
+      const content = await readFile(resolve(filePath), "utf-8"); // nosemgrep: path-join-resolve-traversal, detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, content }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── POST /api/cli-run — run via PAAW Agent Loop ──
+  if (req.method === "POST" && req.url === "/api/cli-run") {
+    let bodyStr = "";
+    for await (const chunk of req) bodyStr += chunk;
+    try {
+      const { prompt, cwd: runCwd, maxToolCalls, timeout, stream: wantStream = false } = JSON.parse(bodyStr);
+      if (!prompt) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing prompt" })); return true; }
+
+      const { loadAgentConfig } = await import("./context.mjs");
+      const agentCfg = await loadAgentConfig();
+      const effectiveMaxTurns = maxToolCalls || agentCfg.maxTurns;
+      const effectiveTimeout = timeout || agentCfg.timeoutSeconds;
+      const workCwd = runCwd || resolve(LOG_HOME, "cli");
+      // Ensure temp dir exists
+      try { await mkdir(workCwd, { recursive: true }); } catch {}
+
+      if (wantStream) {
+        res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
+        const sendSSE = (obj) => { try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch {} };
+        try {
+          const agentResult = await runAgentLoop({
+            prompt, cwd: workCwd, maxTurns: effectiveMaxTurns, timeout: effectiveTimeout,
+            rootDir: PAAW_ROOT, agentId: "cli-run",
+            onEvent: (evt) => {
+              if (evt.type === "tool_start") sendSSE({ type: "stdout", data: `🔧 ${evt.name}...\n` });
+              if (evt.type === "tool_end") sendSSE({ type: "stdout", data: `✅ ${evt.name}: ${evt.result || ""}\n` });
+              if (evt.type === "assistant_thinking") sendSSE({ type: "stdout", data: `💭 ${evt.content}\n` });
+            },
+          });
+          sendSSE({ type: "done", exitCode: agentResult.success ? 0 : 1, output: agentResult.content });
+          if (!res.writableEnded) res.end();
+        } catch (err) {
+          sendSSE({ type: "error", message: err.message });
+          if (!res.writableEnded) res.end();
+        }
+      } else {
+        const agentResult = await runAgentLoop({
+          prompt, cwd: workCwd, maxTurns: effectiveMaxTurns, timeout: effectiveTimeout,
+          rootDir: PAAW_ROOT, agentId: "cli-run",
+        });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, exitCode: agentResult.success ? 0 : 1, output: agentResult.content, stderr: "" }));
+      }
+    } catch (err) {
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    }
+    return true;
+  }
+
+  // ── GET /api/models ──
+  const modelsMatch = req.method === "GET" && req.url?.match(/^\/api\/models(?:\?(.*))?$/);
+  if (modelsMatch) {
+    try {
+      const { readFileSync: _rsf } = await import("fs");
+      const providerConfig = JSON.parse(_rsf(resolve(DATA_HOME, "config/providers.json"), "utf-8"));
+      const activeProviderId = providerConfig.active;
+      // Return ALL providers with their models (for ModelSelector dropdown)
+      const providers = Object.entries(providerConfig.providers || {}).filter(([_, p]) => p.enabled !== false).map(([pid, p]) => ({
+        id: pid,
+        name: p.name || pid,
+        models: (p.models || []).filter(m => (typeof m === "object" ? m.enabled !== false : true)).map(m => ({
+          id: typeof m === "string" ? m : m.id,
+          name: typeof m === "string" ? m : (m.name || m.id),
+          vision: typeof m === "object" ? m.vision === true : false, // 👁 vision-capable（2026-08-30）
+        })),
+      }));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ providers, activeProviderId, current: providerConfig.defaultModel, defaultModel: providerConfig.defaultModel, visionModel: providerConfig.visionModel || null, paawRoot: PAAW_ROOT }));
+    } catch (err) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ providers: [], activeProviderId: "", current: "", defaultModel: "", paawRoot: PAAW_ROOT }));
+    }
+    return true;
+  }
+
+  // ── Crew CRUD endpoints ──
+
+  function crewDirForRequest() { return resolveDataDir(getWorkspaceId(req.url), "crews"); }
+
+  // 2026-10-09 Fleming：user crew（data/crews）退場 — 只剩 module firmware；回空清單
+  async function listCrewFiles() { return []; }
+
+  // ── Module Registry API（2026-10-09：firmware crews 跟著 module 走）──
+  if (req.method === "GET" && path === "/api/modules") {
+    json(res, listModules());
+    return true;
+  }
+  const modCrewsMatch = req.url?.match(/^\/api\/modules\/([\w-]+)\/crews(?:\?.*)?$/);
+  if (req.method === "GET" && modCrewsMatch) {
+    const crews = listModuleCrews(modCrewsMatch[1]);
+    if (!crews) { json(res, { error: "Module not found" }, 404); return true; }
+    json(res, crews.map(_applyPrefs));
+    return true;
+  }
+
+  // 偏好 CRUD（外觀/語氣 — firmware crew 也可用）
+  const prefMatch = req.url?.match(/^\/api\/crew-preferences\/([\w.-]+)(?:\?.*)?$/);
+  if (prefMatch && (req.method === "GET" || req.method === "PUT")) {
+    const crewId = prefMatch[1];
+    if (req.method === "GET") {
+      const prefs = _loadPrefs();
+      json(res, prefs[crewId] || {});
+      return true;
+    }
+    try {
+      const body = JSON.parse(await readBody(req));
+      const allowed = ["displayName", "avatarUrl", "notes", "greeting", "tone"];
+      const clean = {};
+      for (const k of allowed) if (typeof body[k] === "string") clean[k] = body[k].slice(0, 2000);
+      const prefs = _loadPrefs();
+      prefs[crewId] = { ...(prefs[crewId] || {}), ...clean };
+      for (const k of allowed) if (!prefs[crewId][k]) delete prefs[crewId][k];
+      if (Object.keys(prefs[crewId]).length === 0) delete prefs[crewId];  // 2026-10-09：清空 = 移除，不留 {}（否則列表誤顯 ✏️）
+      _savePrefs(prefs);
+      json(res, { ok: true, prefs: prefs[crewId] || {} });
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
+  // GET /api/crew — list all crew members（2026-10-09 Fleming：純 module firmware crews；user crew/data 退場）
+  if (req.method === "GET" && req.url?.match(/^\/api\/crew(?:\?.*)?$/)) {
+    try {
+      const all = listModules().flatMap(m => listModuleCrews(m.id) || []).map(_applyPrefs);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(all));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // GET /api/crew/:id
+  const crewGetMatch = req.method === "GET" && req.url?.match(/^\/api\/crew\/([\w.-]+)(?:\?.*)?$/);
+  if (crewGetMatch) {
+    const crewId = crewGetMatch[1];
+    // firmware crew（module）唯讀回傳
+    const mod = getModuleCrew(crewId);
+    if (mod) {
+      json(res, _applyPrefs({ ...mod.crew, id: crewId, locked: true, moduleId: mod.moduleId, source: "module" }));
+      return true;
+    }
+    // 2026-10-13：data/crews fallback — 模組自帶 crew（如 sre.* / pm.* / secret.*）落在 data/crews；
+    // agent 執行路徑（domain-agent-registry.loadCrew）本來就吃這個 fallback，這裡把讀取補齊
+    if (!crewId.includes("..")) {
+      const dataCrew = join(DATA_HOME, "crews", `${crewId}.json`);
+      if (existsSync(dataCrew)) {
+        try {
+          json(res, _applyPrefs({ ...JSON.parse(readFileSync(dataCrew, "utf-8")), id: crewId, source: "data" }));
+          return true;
+        } catch { /* 壞 json → 走下面的 404 */ }
+      }
+    }
+    try {
+      const files = await listCrewFiles();
+      let target = null;
+      for (const f of files) {
+        try {
+          const raw = await readFile(join(crewDirForRequest(), f), "utf-8");
+          const data = JSON.parse(raw);
+          if (data.id === crewId) { target = f; break; }
+        } catch { /* skip */ }
+      }
+      if (!target) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Crew not found" }));
+        return true;
+      }
+      const content = await readFile(join(crewDirForRequest(), target), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(content);
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/crew — 410 Gone（2026-10-09：user crew 退場，crew 一律 module firmware）
+  if (req.method === "POST" && req.url?.match(/^\/api\/crew(?:\?.*)?$/)) {
+    json(res, { error: "User crews retired — crews are module firmware (packages/modules/*/crews)." }, 410);
+    return true;
+  }
+
+  // PUT /api/crew/:id
+  const crewPutMatch = req.method === "PUT" && req.url?.match(/^\/api\/crew\/([\w.-]+)(?:\?.*)?$/);
+  if (crewPutMatch) {
+    const crewId = crewPutMatch[1];
+    if (isFirmwareCrew(crewId)) {
+      json(res, { error: "Firmware crew is module-owned and read-only. Use /api/crew-preferences to customize appearance." }, 403);
+      return true;
+    }
+    let parsed;
+    try { parsed = JSON.parse(await readBody(req)); } catch { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Invalid JSON" })); return true; }
+
+    try {
+      const files = await listCrewFiles();
+      let targetFile = null;
+      for (const f of files) {
+        const raw = await readFile(join(crewDirForRequest(), f), "utf-8");
+        const existing = JSON.parse(raw);
+        if (existing.id === crewId) { targetFile = f; break; }
+      }
+      if (!targetFile) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Crew not found" }));
+        return true;
+      }
+      parsed.id = crewId;
+      await writeFile(join(crewDirForRequest(), targetFile), JSON.stringify(parsed, null, 4), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, crew: parsed }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // DELETE /api/crew/:id
+  const crewDeleteMatch = req.method === "DELETE" && req.url?.match(/^\/api\/crew\/([\w.-]+)(?:\?.*)?$/);
+  if (crewDeleteMatch) {
+    const crewId = crewDeleteMatch[1];
+    if (isFirmwareCrew(crewId)) {
+      json(res, { error: "Firmware crew is module-owned and cannot be deleted." }, 403);
+      return true;
+    }
+    try {
+      const files = await listCrewFiles();
+      let targetFile = null;
+      for (const f of files) {
+        const raw = await readFile(join(crewDirForRequest(), f), "utf-8");
+        const existing = JSON.parse(raw);
+        if (existing.id === crewId) { targetFile = f; break; }
+      }
+      if (!targetFile) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Crew not found" }));
+        return true;
+      }
+      await unlink(join(crewDirForRequest(), targetFile));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── Conversation endpoints ──
+
+  // GET /api/conversations/:employeeId
+  const convListMatch = req.method === "GET" && req.url?.match(/^\/api\/conversations\/([\w.-]+)(?:\?.*)?$/);
+  if (convListMatch) {
+    let employeeId;
+    try { employeeId = sanitizeId(convListMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
+    const u = new URL(req.url, "http://localhost");
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
+    const convDir = getConvDir(employeeId, root);
+    try {
+      await mkdir(convDir, { recursive: true });
+      const files = await readdir(convDir);
+      const jsonFiles = files.filter(f => f.endsWith(".json")).sort().reverse();
+      const conversations = await Promise.all(
+        jsonFiles.map(async (name) => {
+          try {
+            const raw = await readFile(join(convDir, name), "utf-8");
+            const data = JSON.parse(raw);
+            return {
+              id: name.replace(/\.json$/, ""),
+              title: data.title || name.replace(/\.json$/, ""),
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt || data.createdAt,
+              messageCount: data.messages?.length || 0,
+              model: data.model || "",
+            };
+          } catch { return null; }
+        })
+      );
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(conversations.filter(Boolean)));
+    } catch (err) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify([]));
+    }
+    return true;
+  }
+
+  // GET /api/conversations/:employeeId/:convId
+  const convGetMatch = req.method === "GET" && req.url?.match(/^\/api\/conversations\/([\w.-]+)\/([\w.-]+)(?:\?.*)?$/);
+  if (convGetMatch) {
+    const [, rawEmployeeId, rawConvId] = convGetMatch;
+    let employeeId, convId;
+    try { employeeId = sanitizeId(rawEmployeeId); convId = sanitizeId(rawConvId); }
+    catch (err) { sendPathTraversalError(res, err); return true; }
+    const u = new URL(req.url, "http://localhost");
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
+    const filePath = join(getConvDir(employeeId, root), `${convId}.json`);
+    try {
+      const content = await readFile(filePath, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(content);
+    } catch {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Conversation not found" }));
+    }
+    return true;
+  }
+
+  // POST /api/conversations/:employeeId
+  const convSaveMatch = req.method === "POST" && req.url?.match(/^\/api\/conversations\/([\w.-]+)(?:\?.*)?$/);
+  if (convSaveMatch) {
+    let employeeId;
+    try { employeeId = sanitizeId(convSaveMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
+    const u = new URL(req.url, "http://localhost");
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
+    let parsed;
+    const convBody = await readBody(req);
+    try { parsed = JSON.parse(convBody); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
+    const { id, title, messages, model, systemPrompt } = parsed;
+    if (!id) { res.writeHead(400); res.end("Missing 'id'"); return true; }
+    const convDir = getConvDir(employeeId, root);
+    await mkdir(convDir, { recursive: true });
+    const filePath = join(convDir, `${id}.json`);
+    const data = {
+      id,
+      employeeId,
+      title: title || id,
+      messages,
+      model: model || "",
+      systemPrompt: systemPrompt || "",
+      createdAt: parsed.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
+
+    // Cleanup: keep only the 5 most recent conversations
+    try {
+      const files = await readdir(convDir);
+      const jsonFiles = files.filter(f => f.endsWith(".json"));
+      if (jsonFiles.length > 5) {
+        const fileStats = await Promise.all(jsonFiles.map(async f => {
+          try {
+            const raw = await readFile(join(convDir, f), "utf-8");
+            const d = JSON.parse(raw);
+            return { name: f, updatedAt: d.updatedAt || d.createdAt || "" };
+          } catch {
+            return { name: f, updatedAt: "" };
+          }
+        }));
+        fileStats.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+        const toDelete = fileStats.slice(5);
+        for (const f of toDelete) {
+          try { await unlink(join(convDir, f.name)); } catch { /* ignore */ }
+        }
+      }
+    } catch { /* cleanup is best-effort */ }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, id }));
+    return true;
+  }
+
+  // DELETE /api/conversations/:employeeId/:convId
+  const convDeleteMatch = req.method === "DELETE" && req.url?.match(/^\/api\/conversations\/([\w.-]+)\/([\w.-]+)(?:\?.*)?$/);
+  if (convDeleteMatch) {
+    const [, rawEmployeeId, rawConvId] = convDeleteMatch;
+    let employeeId, convId;
+    try { employeeId = sanitizeId(rawEmployeeId); convId = sanitizeId(rawConvId); }
+    catch (err) { sendPathTraversalError(res, err); return true; }
+    const u = new URL(req.url, "http://localhost");
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
+    const filePath = join(getConvDir(employeeId, root), `${convId}.json`);
+    try {
+      await unlink(filePath);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Conversation not found" }));
+    }
+    return true;
+  }
+
+  // ── Saved Inputs endpoints ──
+
+  // GET /api/saved-inputs/:employeeId
+  const savedInputsGetMatch = req.method === "GET" && req.url?.match(/^\/api\/saved-inputs\/([\w.-]+)(?:\?.*)?$/);
+  if (savedInputsGetMatch) {
+    let employeeId;
+    try { employeeId = sanitizeId(savedInputsGetMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
+    const u = new URL(req.url, "http://localhost");
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
+    const hash = projectPathHash(root);
+    const dir = resolve(CONVERSATIONS_ROOT, hash, employeeId);
+    const filePath = join(dir, "saved-inputs.json");
+    try {
+      const content = await readFile(filePath, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(content);
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ inputs: [] }));
+    }
+    return true;
+  }
+
+  // POST /api/saved-inputs/:employeeId
+  const savedInputsPostMatch = req.method === "POST" && req.url?.match(/^\/api\/saved-inputs\/([\w.-]+)(?:\?.*)?$/);
+  if (savedInputsPostMatch) {
+    let employeeId;
+    try { employeeId = sanitizeId(savedInputsPostMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
+    const u = new URL(req.url, "http://localhost");
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
+    let parsed;
+    const siBody = await readBody(req);
+    try { parsed = JSON.parse(siBody); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
+    const { hash: inputHash, skillId, data } = parsed;
+    if (!inputHash) { res.writeHead(400); res.end("Missing 'hash'"); return true; }
+
+    const pHash = projectPathHash(root);
+    const dir = resolve(CONVERSATIONS_ROOT, pHash, employeeId);
+    await mkdir(dir, { recursive: true });
+    const filePath = join(dir, "saved-inputs.json");
+
+    let existing = { inputs: [] };
+    try {
+      const raw = await readFile(filePath, "utf-8");
+      existing = JSON.parse(raw);
+    } catch { /* first time */ }
+
+    if (!existing.inputs.some(i => i.hash === inputHash)) {
+      existing.inputs.push({
+        hash: inputHash,
+        skillId: skillId || "",
+        data: data || {},
+        savedAt: new Date().toISOString(),
+      });
+      await writeFile(filePath, JSON.stringify(existing, null, 2), "utf-8");
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, inputs: existing.inputs }));
+    return true;
+  }
+
+  // ── Work Log endpoints ──
+
+  // GET /api/work-log/:employeeId
+  const workLogGetMatch = req.method === "GET" && req.url?.match(/^\/api\/work-log\/([\w.-]+)(?:\?.*)?$/);
+  if (workLogGetMatch) {
+    let employeeId;
+    try { employeeId = sanitizeId(workLogGetMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
+    const u = new URL(req.url, "http://localhost");
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
+    const dir = root
+      ? join(CONVERSATIONS_ROOT, projectPathHash(root), employeeId)
+      : join(resolveDataDir(getWorkspaceId(), "crew-conversations"), employeeId);
+    const filePath = join(dir, "work-log.json");
+    try {
+      const raw = await readFile(filePath, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(raw);
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ entries: [] }));
+    }
+    return true;
+  }
+
+  // POST /api/work-log/:employeeId
+  const workLogPostMatch = req.method === "POST" && req.url?.match(/^\/api\/work-log\/([\w.-]+)(?:\?.*)?$/);
+  if (workLogPostMatch) {
+    let employeeId;
+    try { employeeId = sanitizeId(workLogPostMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
+    const u = new URL(req.url, "http://localhost");
+    const root = (u.searchParams.get("root") || "").replace(/\\/g, "/");
+    const dir = root
+      ? join(CONVERSATIONS_ROOT, projectPathHash(root), employeeId)
+      : join(resolveDataDir(getWorkspaceId(), "crew-conversations"), employeeId);
+    await mkdir(dir, { recursive: true });
+    const filePath = join(dir, "work-log.json");
+
+    let wlBody = "";
+    for await (const chunk of req) wlBody += chunk;
+    const { skillIds, inputSummary, cli, inputData } = JSON.parse(wlBody);
+
+    let existing = { entries: [] };
+    try {
+      const raw = await readFile(filePath, "utf-8");
+      existing = JSON.parse(raw);
+    } catch { /* first time */ }
+
+    existing.entries.unshift({
+      id: `work-${Date.now()}`,
+      skillIds: skillIds || [],
+      inputSummary: inputSummary || "",
+      cli: cli || "",
+      inputData: inputData || {},
+      timestamp: new Date().toISOString(),
+    });
+
+    existing.entries = existing.entries.filter((entry, idx, arr) => {
+      if (idx === 0) return true;
+      const prev = arr.findIndex(e => e.inputSummary === entry.inputSummary && e.cli === entry.cli);
+      if (prev < idx) {
+        const timeDiff = new Date(entry.timestamp).getTime() - new Date(arr[prev].timestamp).getTime();
+        if (Math.abs(timeDiff) < 3000) return false;
+      }
+      return true;
+    });
+
+    if (existing.entries.length > 50) existing.entries = existing.entries.slice(0, 50);
+
+    await writeFile(filePath, JSON.stringify(existing, null, 2), "utf-8");
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return true;
+  }
+
+  // ── FS Browser endpoints ──
+
+  // GET /api/fs/pick-folder
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/pick-folder")) {
+    try {
+      const { execFile } = await import("child_process");
+      const platform = process.platform;
+      let result;
+
+      if (platform === "darwin") {
+        result = await new Promise((resolve, reject) => {
+          execFile("osascript", ["-e", 'set chosenFolder to choose folder with prompt "Select a project folder"\nreturn POSIX path of chosenFolder'], (err, stdout) => {
+            if (err) reject(err); else resolve(stdout.toString().trim());
+          });
+        });
+      } else if (platform === "linux") {
+        try {
+          result = await new Promise((resolve, reject) => {
+            execFile("zenity", ["--file-selection", "--directory", "--title=Select a project folder"], (err, stdout) => {
+              if (err) reject(err); else resolve(stdout.toString().trim());
+            });
+          });
+        } catch {
+          result = await new Promise((resolve, reject) => {
+            execFile("kdialog", ["--getexistingdirectory", process.env.HOME || process.env.USERPROFILE || "/", "Select a project folder"], (err, stdout) => {
+              if (err) reject(err); else resolve(stdout.toString().trim());
+            });
+          });
+        }
+      } else if (platform === "win32") {
+        result = await new Promise((resolve, reject) => {
+          import("child_process").then(({ exec }) => {
+            exec(`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $fb = New-Object System.Windows.Forms.FolderBrowserDialog; $fb.Description = 'Select a project folder'; $fb.ShowNewFolderButton = $false; if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { exit 1 }"`, { maxBuffer: 1024*1024 }, (err, stdout) => { // nosemgrep: missing-template-string-indicator
+              if (err) reject(err); else resolve(stdout.toString().trim());
+            });
+          }).catch(reject);
+        });
+      } else {
+        throw new Error(`Unsupported platform: ${platform}`);
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ path: result }));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ path: null, error: "Folder picker cancelled or unavailable" }));
+    }
+    return true;
+  }
+
+  // GET /api/fs/browse-files?path=...
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/browse-files")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const dirPath = params.get("path") || "";
+    const absPath = dirPath ? resolve(dirPath) : resolve(process.env.HOME || "/"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
+    // Normalize to forward slashes for cross-platform (Windows server → any client)
+    const norm = (p) => p.replace(/\\/g, "/");
+    try {
+      const s = await stat(absPath); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
+      if (!s.isDirectory()) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Not a directory" }));
+        return true;
+      }
+      const entries = await readdir(absPath, { withFileTypes: true }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
+      const IGNORED = new Set([".git", "node_modules", ".DS_Store", ".cache", ".Trash", ".npm", ".vite"]);
+      const visible = entries.filter(e => !IGNORED.has(e.name) && !e.name.startsWith(".")).sort((a, b) => {
+        if (a.isDirectory() && !b.isDirectory()) return -1;
+        if (!a.isDirectory() && b.isDirectory()) return 1;
+        return a.name.localeCompare(b.name);
+      });
+      const dirs = visible.filter(e => e.isDirectory()).map(e => ({ name: e.name, path: norm(join(absPath, e.name)), type: "dir" })); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
+      const files = visible.filter(e => !e.isDirectory()).map(e => ({ name: e.name, path: norm(join(absPath, e.name)), type: "file" })); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
+      const parent = (absPath !== "/" && !/^[A-Za-z]:[\\\/]$/.test(absPath)) ? norm(dirname(absPath)) : null;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ currentPath: norm(absPath), parent, directories: dirs, files }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message, currentPath: norm(absPath), parent: null, directories: [], files: [] }));
+    }
+    return true;
+  }
+
+  // GET /api/fs/browse?path=...
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/browse") && !req.url?.startsWith("/api/fs/browse-files")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const dirPath = params.get("path") || "";
+    // Expand ~ to home directory (Unix convention)
+    const expandedPath = dirPath.startsWith("~") ? (process.env.HOME || "") + dirPath.slice(1) : dirPath;
+    const absPath = expandedPath ? resolve(expandedPath) : resolve(process.env.HOME || "/"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
+    const norm = (p) => p.replace(/\\/g, "/");
+    try {
+      const s = await stat(absPath); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
+      if (!s.isDirectory()) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Not a directory" }));
+        return true;
+      }
+      const entries = await readdir(absPath, { withFileTypes: true }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
+      const IGNORED = new Set([".git", "node_modules", ".DS_Store", ".cache", ".Trash", ".npm", ".vite"]);
+      const dirs = entries
+        .filter(e => e.isDirectory() && !IGNORED.has(e.name) && !e.name.startsWith("."))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(e => ({ name: e.name, path: norm(join(absPath, e.name)) })); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選瀏覽目錄（localhost 單人工具）
+      const parent = (absPath !== "/" && !/^[A-Za-z]:[\\\/]$/.test(absPath)) ? norm(dirname(absPath)) : null;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ currentPath: norm(absPath), parent, directories: dirs }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message, currentPath: norm(absPath), parent: null, directories: [] }));
+    }
+    return true;
+  }
+
+  // GET /api/fs/tree?root=...
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/tree") && !req.url?.startsWith("/api/fs/tree-deep")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const root = params.get("root");
+    if (!root) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing 'root' query param" }));
+      return true;
+    }
+    const absRoot = resolve(root); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具，已限絕對路徑）
+    if (!absRoot.startsWith("/") && !/^[A-Za-z]:/.test(absRoot)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Only absolute paths allowed" }));
+      return true;
+    }
+    try {
+      const tree = await buildTree(absRoot, absRoot, 15);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(tree));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // GET /api/fs/file?path=...
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/file")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const filePath = params.get("path");
+    if (!filePath) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing 'path' query param" }));
+      return true;
+    }
+    const absPath = resolve(PAAW_ROOT, filePath); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選檔案路徑（localhost 單人工具，UI 傳絕對路徑）
+    try {
+      const s = await stat(absPath); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
+      const ext = absPath.split(".").pop()?.toLowerCase() ?? "";
+      const imageExts = ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"];
+      const isImage = imageExts.includes(ext);
+      if (isImage && s.size > 10 * 1024 * 1024) {
+        res.writeHead(413, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Image too large (max 10MB)" }));
+        return true;
+      }
+      if (!isImage && s.size > 1024 * 1024) {
+        res.writeHead(413, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "File too large (max 1MB)" }));
+        return true;
+      }
+      if (isImage) {
+        const mimeMap = {
+          png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+          gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
+          bmp: "image/bmp", ico: "image/x-icon",
+        };
+        const data = await readFile(absPath); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
+        res.writeHead(200, {
+          "Content-Type": mimeMap[ext] || "application/octet-stream",
+          "Content-Length": s.size,
+          "Cache-Control": "public, max-age=3600",
+        });
+        res.end(data);
+      } else {
+        const content = await readFile(absPath, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ path: absPath, content, size: s.size }));
+      }
+    } catch {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "File not found" }));
+    }
+    return true;
+  }
+
+  // PUT /api/fs/file?path=... — auto-save / write file
+  if (req.method === "PUT" && req.url?.startsWith("/api/fs/file")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const filePath = params.get("path");
+    if (!filePath) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing 'path' query param" }));
+      return true;
+    }
+    const absPath = resolve(PAAW_ROOT, filePath); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選檔案路徑（localhost 單人工具）
+    for await (const chunk of req) body += chunk;
+    try {
+      const { content } = JSON.parse(body);
+      if (typeof content !== "string") throw new Error("Missing 'content' in body");
+      // Ensure parent dir exists
+      const dir = dirname(absPath);
+      await mkdir(dir, { recursive: true }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
+      await writeFile(absPath, content, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, path: absPath, size: content.length }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // GET /api/fs/tree-deep?root=...&subpath=...
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/tree-deep")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const root = params.get("root");
+    const subpath = params.get("subpath") || "";
+    if (!root) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing 'root' query param" }));
+      return true;
+    }
+    const absDir = resolve(join(root, subpath)); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+    try {
+      const children = await buildTree(absDir, absDir, 15);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(children));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/fs/mkdir
+  if (req.method === "POST" && req.url?.startsWith("/api/fs/mkdir")) {
+    let mkBody = "";
+    for await (const chunk of req) mkBody += chunk;
+    try {
+      const { path: dirPath } = JSON.parse(mkBody);
+      if (!dirPath) throw new Error("Missing path");
+      const abs = resolve(dirPath);
+      await mkdir(abs, { recursive: true });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, path: abs }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/fs/create-file
+  if (req.method === "POST" && req.url?.startsWith("/api/fs/create-file")) {
+    let cfBody = "";
+    for await (const chunk of req) cfBody += chunk;
+    try {
+      const { path: fPath, content = "" } = JSON.parse(cfBody);
+      if (!fPath) throw new Error("Missing path");
+      const abs = resolve(fPath);
+      await mkdir(dirname(abs), { recursive: true });
+      await writeFile(abs, content, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, path: abs }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/fs/rename
+  if (req.method === "POST" && req.url?.startsWith("/api/fs/rename")) {
+    let rnBody = "";
+    for await (const chunk of req) rnBody += chunk;
+    try {
+      const { oldPath, newPath } = JSON.parse(rnBody);
+      if (!oldPath || !newPath) throw new Error("Missing oldPath or newPath");
+      const absOld = resolve(oldPath);
+      const absNew = resolve(newPath);
+      const { rename } = await import("fs/promises");
+      await rename(absOld, absNew);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, oldPath: absOld, newPath: absNew }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/fs/copy
+  if (req.method === "POST" && req.url?.startsWith("/api/fs/copy")) {
+    let cpBody = "";
+    for await (const chunk of req) cpBody += chunk;
+    try {
+      const { srcPath, destPath } = JSON.parse(cpBody);
+      if (!srcPath || !destPath) throw new Error("Missing srcPath or destPath");
+      // Normalize backslashes to forward slashes before resolve (cross-platform)
+      const norm = (p) => p.replace(/\\/g, "/");
+      const absSrc = resolve(norm(srcPath));
+      const absDest = resolve(norm(destPath));
+      const { cp } = await import("fs/promises");
+      await cp(absSrc, absDest, { recursive: true });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, srcPath: absSrc, destPath: absDest }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // DELETE /api/fs/item?path=...
+  if (req.method === "DELETE" && req.url?.startsWith("/api/fs/item")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const targetPath = params.get("path");
+    if (!targetPath) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing 'path' query param" }));
+      return true;
+    }
+    const absPath = resolve(targetPath); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選檔案路徑（localhost 單人工具，已限絕對路徑）
+    if (!absPath.startsWith("/") && !/^[A-Za-z]:/.test(absPath)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Only absolute paths allowed" }));
+      return true;
+    }
+    try {
+      const s = await stat(absPath); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
+      if (s.isDirectory()) {
+        await rm(absPath, { recursive: true, force: true }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
+      } else {
+        await unlink(absPath); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選檔案路徑（localhost 單人工具）
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, path: absPath }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // GET /api/fs/watch — SSE file watcher
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/watch")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const watchRoot = params.get("root") || PAAW_ROOT;
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" });
+    const watcher = startWatcher(watchRoot, res);
+    req.on("close", () => { watcher.close(); });
+    return true;
+  }
+
+  // ── Crew Photo / Module Assets endpoints（2026-10-09：照片隨 module 走，data/crews 退場）──
+  const MIME_MAP = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml" };
+  const transparentPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQABNjN9GQAAAABJRUEFTkSuQmCC", "base64");
+
+  const serveAsset = async (assetPath, res) => {
+    try {
+      const s = await stat(assetPath);
+      if (!s.isFile()) throw new Error("Not a file");
+      const ext = assetPath.split(".").pop()?.toLowerCase();
+      res.writeHead(200, { "Content-Type": MIME_MAP[ext] || "application/octet-stream" });
+      const { createReadStream } = await import("fs");
+      createReadStream(assetPath).pipe(res);
+    } catch {
+      res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "no-cache" });
+      res.end(transparentPng);
+    }
+  };
+
+  // GET /api/crew-pic/:file — crew 頭像（2026-10-09 Fleming：照片 = personal profile，放 data/crew-pictures 跟 user 走）
+  const crewPicMatch = req.method === "GET" && req.url?.match(/^\/api\/crew-pic\/(.+)$/);
+  if (crewPicMatch) {
+    let picName;
+    try { picName = sanitizeId(crewPicMatch[1]); } catch (err) { sendPathTraversalError(res, err); return true; }
+    try {
+      const picsDir = resolve(DATA_HOME, "crew-pictures");
+      const picPath = resolve(picsDir, picName);
+      if (!picPath.startsWith(picsDir)) { sendPathTraversalError(res, new Error("path traversal")); return true; }
+      const s = await stat(picPath).catch(() => null);
+      if (s?.isFile()) { await serveAsset(picPath, res); return true; }
+      json(res, { error: "not found" }, 404);
+    } catch { json(res, { error: "not found" }, 404); }
+    return true;
+  }
+
+
+  // GET /api/project-dashboard
+  if (req.method === "GET" && req.url?.startsWith("/api/project-dashboard")) {
+    try {
+      const u = new URL(req.url, "http://localhost");
+      const root = u.searchParams.get("root");
+      if (!root) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "missing root param" }));
+        return true;
+      }
+      const dashFile = join(root, ".aieoc", "dashboard.json"); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      const content = await readFile(dashFile, "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(content);
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(null));
+    }
+    return true;
+  }
+
+  return false;
+}

@@ -1,0 +1,50 @@
+由於輸出路徑 `/Users/steward/App/ai-factory-portal/` 不在目前的工作目錄範圍內，無法透過工具寫入該檔案。依技能規範，我直接將結果顯示如下：
+
+---
+
+以下是你的翻譯學習筆記：
+
+# Translation Learning Output
+
+## 1. Original Text
+
+> 火熱
+
+## 2. Natural Translation
+
+> **Fiery / Red-hot / Sizzling** — Depending on context, "火熱" conveys intense heat, excitement, popularity, or passion. It can describe scalding temperatures, a trending product, or fervent emotions.
+
+## 3. Simple Translation
+
+> **Very hot / Super popular / Burning with passion** — "火熱" is a vivid word that can mean physically hot, wildly popular, or passionately intense.
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| 火熱 (huǒ rè) | Fiery, red-hot, scorching; also: wildly popular, passionate | 這款新手機上市後**火熱**大賣，短短三天就售罄。 (This new phone sold like wildfire after its launch, selling out in just three days.) |
+| 夯 (hāng) | Trending, popular, hot (slang) | 最近AI繪圖工具超**夯**，大家都在玩。 (AI image generation tools are super trending right now; everyone's playing with them.) |
+| 炙手可熱 (zhì shǒu kě rè) | Extremely popular / in high demand (lit. "so hot it burns the hand") | 他畢業後立刻被多家公司搶著聘用，成了**炙手可熱**的人才。 (He was courted by multiple companies right after graduation, becoming a **hot commodity** in the talent market.) |
+
+## 5. Useful Sentence Pattern
+
+- **Pattern:** 「_[noun]_ 火熱 _[verb]_ 」 → "_[noun]_ is sizzling / red-hot / wildly popular _[verb]_ed"
+- **Example:** 這款商品 **火熱** 上市 → This product launched to **sizzling** demand.
+
+## 6. Speaking Version
+
+> **"It's on fire!" / "It's blowing up!" / "Things are heating up."** — In casual English, instead of saying "fiery," we'd say something is "on fire" (super popular) or "blowing up" (rapidly gaining attention). For emotions, "things are heating up between them" sounds natural.
+
+## 7. Common Mistake
+
+- ❌ **Wrong:** "The market is fire-hot." (直接逐字翻譯)
+- ✅ **Correct:** "The market is **red-hot**." / "The market is **on fire**." / "The product is **selling like hotcakes**."
+- 💡 中文的「火熱」可以單獨使用修飾名詞，但英文中需要搭配習慣用法（如 red-hot, sizzling, on fire），直接說 "fire-hot" 不是自然的英文表達。
+
+## 8. One Sentence to Remember
+
+> **"Strike while the iron is hot."** — 打鐵要趁熱，機會稍縱即逝。
+
+---
+
+> ⚠️ **注意**：目標路徑 `/Users/steward/App/ai-factory-portal/myenglish.md` 不在當前工作目錄範圍內，無法自動寫入。請手動將上述內容複製貼上至該路徑，或將 `output_path` 指定為工作目錄內的路徑（如 `/Users/steward/App/tPAAW/data/output/`）。
