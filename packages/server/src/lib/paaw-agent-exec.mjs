@@ -2985,4 +2985,4 @@ const TOOL_RESULT_CONTEXT_SHARE = 0.3;
  * Auto-compaction (LLM summarization) is handled separately in the agent loop.
  */
 
-export { executeTool, toolExecTimeoutMs, raceAbortTool, setAgentConfig, _agentCfg, _agentCfgDefaults, APPROVAL_WAIT_BUDGET_MS, runShell, _nativeGlob, _nativeGrep, _buildTestCommand, _parseTestResult, _findConventionTests, LOG };
+export { TOOL_GROUP_MAP, CORE_READ_TOOLS, AGENT_FALLBACK_GROUPS, _crewDenyCache, CONTEXT_SAFETY_MARGIN, LLM_CALL_TIMEOUT_MS, executeTool, toolExecTimeoutMs, raceAbortTool, setAgentConfig, _agentCfg, _agentCfgDefaults, APPROVAL_WAIT_BUDGET_MS, runShell, _nativeGlob, _nativeGrep, _buildTestCommand, _parseTestResult, _findConventionTests, LOG };
