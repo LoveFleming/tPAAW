@@ -386,6 +386,71 @@ async function backfillApiTests(root) {
 }
 
 
+/**
+ * 多語言 manifest 摘要（2026-11-07）— CU prompt context 用，不只 package.json
+ * 偵測：package.json / go.mod / Cargo.toml / pom.xml / build.gradle* / requirements.txt / pyproject.toml
+ * @param {string} root
+ * @returns {string} "Language: ...\nPackage: ...\nDependencies: ..."（偵測不到回空字串）
+ */
+function _buildManifestContext(root) {
+  const parts = [];
+  // Node/JS
+  try {
+    const pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8"));
+    parts.push(`Language: JavaScript/TypeScript (package.json)`, `Package: ${pkg.name || "unknown"}`);
+    const deps = Object.keys(pkg.dependencies || {});
+    if (deps.length) parts.push(`Dependencies: ${deps.slice(0, 40).join(", ")}${deps.length > 40 ? " …" : ""}`);
+  } catch {}
+  // Go
+  try {
+    const gomod = readSync(join(root, "go.mod"), "utf-8");
+    const module = (gomod.match(/^module\s+(\S+)/m) || [])[1] || "unknown";
+    const reqs = (gomod.match(/^\t[^\s()]+/gm) || []).map((s) => s.trim()).filter((s) => !s.startsWith("go "));
+    parts.push(`Language: Go (go.mod)`, `Module: ${module}`);
+    if (reqs.length) parts.push(`Requires: ${reqs.slice(0, 40).join(", ")}${reqs.length > 40 ? " …" : ""}`);
+  } catch {}
+  // Rust
+  try {
+    const cargo = readSync(join(root, "Cargo.toml"), "utf-8");
+    const cname = (cargo.match(/^name\s*=\s*"([^"]+)"/m) || [])[1] || "unknown";
+    const cdeps = [...cargo.matchAll(/^([\w-]+)\s*=/gm)].map((m) => m[1]).filter((k) => !["package", "name", "version", "edition", "authors", "description", "license", "workspace", "members"].includes(k));
+    parts.push(`Language: Rust (Cargo.toml)`, `Crate: ${cname}`);
+    if (cdeps.length) parts.push(`Dependencies: ${cdeps.slice(0, 40).join(", ")}${cdeps.length > 40 ? " …" : ""}`);
+  } catch {}
+  // Java (Maven)
+  try {
+    const pom = readSync(join(root, "pom.xml"), "utf-8");
+    const artifact = (pom.match(/<artifactId>([^<]+)<\/artifactId>/) || [])[1] || "unknown";
+    parts.push(`Language: Java (Maven)`, `Artifact: ${artifact}`);
+    const deps = [...pom.matchAll(/<dependency>\s*<groupId>[^<]+<\/groupId>\s*<artifactId>([^<]+)<\/artifactId>/g)].map((m) => m[1]);
+    if (deps.length) parts.push(`Dependencies: ${deps.slice(0, 40).join(", ")}${deps.length > 40 ? " …" : ""}`);
+  } catch {}
+  // Java (Gradle)
+  try {
+    const g = readdirSync(root).find((f) => /^build\.gradle/.test(f));
+    if (g && !parts.some((p) => p.startsWith("Language:"))) {
+      const txt = readSync(join(root, g), "utf-8");
+      parts.push(`Language: Java (Gradle, ${g})`);
+      const ideps = [...txt.matchAll(/implementation\s+["']([^"']+)/g)].map((m) => m[1]);
+      if (ideps.length) parts.push(`Dependencies: ${ideps.slice(0, 40).join(", ")}${ideps.length > 40 ? " …" : ""}`);
+    }
+  } catch {}
+  // Python
+  try {
+    const req = readSync(join(root, "requirements.txt"), "utf-8");
+    const pydeps = req.split("\n").map((l) => l.trim().split(/[=<>~!]/)[0]).filter((l) => l && !l.startsWith("#"));
+    if (pydeps.length) parts.push(`Language: Python (requirements.txt)`, `Dependencies: ${pydeps.slice(0, 40).join(", ")}${pydeps.length > 40 ? " …" : ""}`);
+  } catch {}
+  try {
+    const py = readSync(join(root, "pyproject.toml"), "utf-8");
+    if (!parts.some((p) => p.startsWith("Language:"))) {
+      const pname = (py.match(/^name\s*=\s*"([^"]+)"/m) || [])[1] || "unknown";
+      parts.push(`Language: Python (pyproject.toml)`, `Package: ${pname}`);
+    }
+  } catch {}
+  return parts.join("\n");
+}
+
 export default async function projectRoute(req, res) {
   const method = req.method;
   const rawUrl = req.url || "";
@@ -3280,10 +3345,10 @@ export default async function projectRoute(req, res) {
         try { const cuBody = JSON.parse(await readBody(req) || "{}"); cuModelOverride = cuBody.model || null; } catch {}
 
         // Gather project info for context
+        // 2026-11-07 多語言：不只 package.json — go.mod / Cargo.toml / pom.xml / build.gradle / requirements.txt / pyproject.toml
         let projectContext = `Project root: ${root}\n`;
         try {
-          const pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8"));
-          projectContext += `Package: ${pkg.name || "unknown"}\nDependencies: ${Object.keys(pkg.dependencies || {}).join(", ")}\n`; // nosemgrep: missing-template-string-indicator
+          projectContext += _buildManifestContext(root);
         } catch {}
 
         // Get file tree
