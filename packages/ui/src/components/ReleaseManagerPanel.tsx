@@ -143,6 +143,18 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   };
 
   // ▶ 執行測試：POST 背景跑 → 輪詢到結束 → 重抓 readiness（真實數字）
+    // 2026-11-07 Fleming 大 feature：E2E 測試盤點（deterministic 抽取測試名/URL ↔ API 雙向關聯，孤兒=黑盒缺口）
+  const [e2eInv, setE2eInv] = useState<any | null>(null);
+  const [e2eInvBusy, setE2eInvBusy] = useState(false);
+  const loadE2eInv = async () => {
+    if (!rootPath || e2eInvBusy) return;
+    setE2eInvBusy(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-releases/e2e-inventory?path=${encodeURIComponent(rootPath)}`).then(r => r.json());
+      if (r.ok) setE2eInv(r); else setToast({ ok: false, text: String(r.error || r.detail || "failed") });
+    } catch (e: any) { setToast({ ok: false, text: e.message }); }
+    finally { setE2eInvBusy(false); }
+  };
     // 2026-11-03 Fleming：一鍵 API 現況（按鈕才算 — 不自動燒）
   const loadApiStatus = async () => {
     if (!rootPath || apiBusy) return;
@@ -294,6 +306,14 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
               </button>
             )}
             {readiness && (
+              <button onClick={loadE2eInv} disabled={e2eInvBusy}
+                className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
+                style={{ backgroundColor: "#0f766e" }} data-testid="rm-e2e-inv">
+                {e2eInvBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
+                {t("rm.e2eInvBtn")}
+              </button>
+            )}
+            {readiness && (
               <button onClick={loadApiStatus} disabled={apiBusy}
                 className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
                 style={{ backgroundColor: "#0369a1" }} data-testid="rm-api-status">
@@ -317,6 +337,54 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
           <div className="px-5 pt-4" data-testid="rm-readiness">
             <div className="rounded-xl border overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
               {/* Header */}
+              {/* ══ E2E 測試盤點（2026-11-07 Fleming 大 feature：deterministic 抽取 + 雙向關聯 + 孤兒可見化）══ */}
+              {e2eInv && (
+                <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight, background: "#f0fdfa" }} data-testid="rm-e2e-inv-block">
+                  <div className="flex items-center gap-2 flex-wrap mb-2">
+                    <span className="text-xs font-bold text-stone-700">{t("rm.e2eInvTitle")}</span>
+                    <button onClick={() => setE2eInv(null)} className="ml-auto text-stone-400 hover:text-stone-600 text-xs">✕</button>
+                  </div>
+                  <div className="flex gap-2 flex-wrap text-[10px] font-bold mb-2">
+                    <span className="px-2 py-1 rounded-lg bg-white border" style={{ borderColor: tk.borderLight }}>{t("rm.e2eInvFiles")} <span className="font-mono text-teal-700 text-xs">{e2eInv.summary.testFiles}</span></span>
+                    <span className="px-2 py-1 rounded-lg bg-white border" style={{ borderColor: tk.borderLight }}>{t("rm.e2eInvTests")} <span className="font-mono text-teal-700 text-xs">{e2eInv.summary.totalTests}</span></span>
+                    <span className="px-1.5 py-1 rounded bg-teal-50 text-teal-700">{t("rm.e2eInvCovered")} {e2eInv.summary.coveredApis}/{e2eInv.summary.apiTotal}</span>
+                    <span className="px-1.5 py-1 rounded bg-stone-100 text-stone-500">{t("rm.e2eInvLinked")} {e2eInv.summary.linkedUrls}/{e2eInv.summary.totalUrls}</span>
+                    <span className="px-1.5 py-1 rounded bg-amber-50 text-amber-700">{t("rm.e2eInvOrphan")} {e2eInv.summary.orphanTestFiles}</span>
+                  </div>
+                  <div className="max-h-72 overflow-auto rounded-lg border bg-white text-[10px]" style={{ borderColor: tk.borderLight }}>
+                    <table className="w-full">
+                      <thead className="sticky top-0 bg-stone-50 text-stone-500">
+                        <tr>
+                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.e2eColFile")}</th>
+                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.e2eColTests")}</th>
+                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.e2eColUrl")}</th>
+                          <th className="text-left px-2 py-1.5 font-bold">API</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {e2eInv.files.slice(0, 200).map((f: any, i: number) => {
+                          const linked = f.urls.find((u: any) => u.apis.length);
+                          return (
+                            <tr key={i} className="border-t hover:bg-teal-50/40" style={{ borderColor: tk.borderLight }}>
+                              <td className="px-2 py-1 font-mono text-stone-600 max-w-[220px] truncate" title={f.file}>{f.file}</td>
+                              <td className="px-2 py-1 text-center text-stone-600">{f.testCount}</td>
+                              <td className="px-2 py-1 font-mono text-stone-700 max-w-[180px] truncate" title={f.urls.map((u: any) => u.url).join("\n")}>
+                                {linked ? linked.url : f.urls[0]?.url || "—"}
+                              </td>
+                              <td className="px-2 py-1">
+                                {linked
+                                  ? <span className="text-teal-700 font-mono">{linked.apis.slice(0, 2).map((a: string) => a.length > 40 ? a.slice(0, 40) + "…" : a).join(", ")}{linked.apis.length > 2 ? ` +${linked.apis.length - 2}` : ""}</span>
+                                  : <span className="text-amber-600">{f.urls.length ? t("rm.e2eNoLink") : t("rm.e2eInvNoUrl")}</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {/* ══ API 現況（2026-11-03 Fleming：一鍵清點前後端 API + 測試狀態 + AI 摘要）══ */}
                 {apiStatus && (
                   <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight, background: "#f0f9ff" }} data-testid="rm-api-status-block">

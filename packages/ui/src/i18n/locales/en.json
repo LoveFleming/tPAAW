@@ -2101,5 +2101,17 @@
   "qaRecords.apiFilterPh": "API filter (e.g. GET /api/x)",
   "qaRecords.apiFilterTip": "Filter QA records by API",
   "qaRecords.signApiPh": "API (e.g. GET /api/x, optional)",
-  "qaRecords.signApiTip": "Tag the sign-off with an API entry"
+  "qaRecords.signApiTip": "Tag the sign-off with an API entry",
+  "rm.e2eInvBtn": "🧪 E2E Inventory",
+  "rm.e2eInvTitle": "E2E Test Inventory (test-code extraction ↔ API mapping)",
+  "rm.e2eInvFiles": "Test files",
+  "rm.e2eInvTests": "Tests",
+  "rm.e2eInvCovered": "APIs covered",
+  "rm.e2eInvLinked": "URLs linked",
+  "rm.e2eInvOrphan": "Orphan test files",
+  "rm.e2eColFile": "File",
+  "rm.e2eColTests": "Tests",
+  "rm.e2eColUrl": "URL hit",
+  "rm.e2eNoLink": "No API link (black-box)",
+  "rm.e2eInvNoUrl": "No literal URLs"
 }

@@ -2101,5 +2101,17 @@
   "qaRecords.apiFilterPh": "API 過濾（如 GET /api/x）",
   "qaRecords.apiFilterTip": "以 API 過濾 QA 記錄",
   "qaRecords.signApiPh": "API（如 GET /api/x，選填）",
-  "qaRecords.signApiTip": "簽核直接標 API entry"
+  "qaRecords.signApiTip": "簽核直接標 API entry",
+  "rm.e2eInvBtn": "🧪 E2E 盤點",
+  "rm.e2eInvTitle": "E2E 測試盤點（測試碼抽取 ↔ API 雙向關聯）",
+  "rm.e2eInvFiles": "測試檔",
+  "rm.e2eInvTests": "測試數",
+  "rm.e2eInvCovered": "API 已覆蓋",
+  "rm.e2eInvLinked": "URL 已關聯",
+  "rm.e2eInvOrphan": "孤兒測試檔",
+  "rm.e2eColFile": "測試檔",
+  "rm.e2eColTests": "測試",
+  "rm.e2eColUrl": "打到的路徑",
+  "rm.e2eNoLink": "未關聯 API（黑盒）",
+  "rm.e2eInvNoUrl": "無路徑字面值"
 }

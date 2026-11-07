@@ -688,6 +688,23 @@ export default async function releaseRoutes(req, res, next) {
 
   // ── GET evidence-by-api — API-first Evidence Matrix（2026-11-07 Fleming v3：審 API 不審 feature；按鈕才載入）──
   // since=<sha>：只看該 baseline commit 之後（sha..HEAD）的變更；無 since = HEAD = 全部 API（不 by 時間 — 2026-11-07 Fleming v4：release record 已不需要，沒有「上次 release 以來」逼科）
+  // GET e2e-inventory — E2E 測試盤點（deterministic：測試名+URL 抽取 ↔ API 雙向關聯；孤兒=黑盒缺口可見化）
+  if (url === "/api/coding-releases/e2e-inventory" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
+      return res.status(400).json({ error: "path required" });
+    }
+    try {
+      const { buildE2EInventory } = await import("../lib/e2e-inventory.mjs");
+      const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
+      const apis = readApiFeatures(projectPath);
+      const inv = buildE2EInventory(projectPath, apis);
+      res.json({ ok: true, ...inv, generatedAt: new Date().toISOString() });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+    return true;
+  }
+
   if (url === "/api/coding-releases/evidence-by-api" && method === "GET") {
     if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first
     try {

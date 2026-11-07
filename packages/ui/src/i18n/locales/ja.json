@@ -2101,5 +2101,17 @@
   "qaRecords.apiFilterPh": "API フィルタ（例: GET /api/x）",
   "qaRecords.apiFilterTip": "API で QA 記録をフィルタ",
   "qaRecords.signApiPh": "API（例: GET /api/x、任意）",
-  "qaRecords.signApiTip": "API エントリを直接タグ付け"
+  "qaRecords.signApiTip": "API エントリを直接タグ付け",
+  "rm.e2eInvBtn": "🧪 E2Eインベントリ",
+  "rm.e2eInvTitle": "E2Eテストインベントリ（テストコード抽出 ↔ APIマッピング）",
+  "rm.e2eInvFiles": "テストファイル",
+  "rm.e2eInvTests": "テスト数",
+  "rm.e2eInvCovered": "カバー済みAPI",
+  "rm.e2eInvLinked": "紐付けURL",
+  "rm.e2eInvOrphan": "孤立テストファイル",
+  "rm.e2eColFile": "ファイル",
+  "rm.e2eColTests": "テスト",
+  "rm.e2eColUrl": "アクセスパス",
+  "rm.e2eNoLink": "API未紐付け（ブラックボックス）",
+  "rm.e2eInvNoUrl": "リテラルURLなし"
 }
