@@ -126,17 +126,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   }, [rootPath]);
   useEffect(() => { fetchEvSnapshots(); }, [fetchEvSnapshots]);
 
-  // 整頁刷新（2026-09-19 Fleming）：現況報告一次重讀
-  const [refreshing, setRefreshing] = useState(false);
-  const refreshAll = useCallback(async () => {
-    setRefreshing(true);
-    let ok = true;
-    try { await Promise.all([refresh(), fetchReadiness()]); } catch { ok = false; }
-    setRefreshing(false);
-    const now = new Date().toLocaleTimeString("zh-TW", { hour12: false });
-    setToast({ ok, text: `${ok ? t("rm.refreshDone") : t("rm.refreshFail")} · ${now}` });
-    setTimeout(() => setToast(null), 4000);
-  }, [refresh, fetchReadiness, t]);
+  // ↻ 重新整理按鈕已移除（2026-11-07 Fleming）— readiness 隨各區塊按鈕重抓，不再全頁刷新
+  const fetchReadinessNow = fetchReadiness; // 保留給未來用途
 
   // 2026-11-07 Fleming v3：Evidence Matrix API-first — 按鈕載入（/evidence-by-api），窗口 = 選的 baseline commit 之後；api 現況另顆按鈕看全貌
   const loadEvApi = async (sha?: string) => {
@@ -310,13 +301,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                 {t("rm.apiBtn")}
               </button>
             )}
-            <span className="flex-1 min-w-[8px]" />
-            <button onClick={refreshAll} disabled={refreshing}
-              title={t("rm.refreshAll")}
-              className="text-xs px-2.5 py-1 rounded-lg border font-semibold transition-colors disabled:opacity-40"
-              style={{ borderColor: tk.borderLight }}>
-              {refreshing ? `⏳ ${t("rm.refreshing")}` : `↻ ${t("rm.refreshAll")}`}
-            </button>
+            {/* ↻ 重新整理按鈕移除（2026-11-07 Fleming）— 各區塊按鈕各自載入，不需全頁刷新 */}
           </div>
           <p className="text-[11px] text-stone-400 mt-0.5">{t("rm.subtitle")}</p>
         </div>
