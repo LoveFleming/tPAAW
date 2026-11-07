@@ -1,6 +1,24 @@
 // coding-crew-routes.mjs — 2026-11-07 從 routes/coding.mjs 機械抽取（不改行為）
-// /api/coding-crew/* 子分派：crew 定義/chat/EM dispatch/會話持久化/action-log/em-plan/em-execute/interrupt/running/memory/export-import
+import { readFile, writeFile, readdir, mkdir, unlink, appendFile, stat as fsStat } from "fs/promises";
+import { existsSync, readFileSync as readSync, readdirSync, statSync, openSync, readSync as fsReadSync, closeSync as fsCloseSync } from "fs";
+import { resolve, join, dirname } from "path";
+import { fileURLToPath } from "url";
+import { exec as execCb } from "child_process";
+import { shellExec, IS_WIN } from "../lib/shell-exec.mjs";
+import { createPaawProject, maybeWriteProjectDraft } from "../lib/paaw-project.mjs";
+import { parseProjectMd, buildProjectMd, regenerateProjectMd, USER_START, USER_END, AI_START, AI_END } from "../lib/project-md.mjs";
+import { callLLMWithRetry, dateTimeContextBlock, parseModelReference } from "../lib/llm-utils.mjs";
+import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
+import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-parser.mjs";
+import { runSemgrep } from "../lib/semgrep-runner.mjs";
+import { buildCodeIntelligence, buildContextPackage } from "../lib/code-intelligence.mjs";
+import { buildTestIntelligence } from "../lib/test-intelligence.mjs";
+import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
+import { rescanMechanicalLayer } from "../lib/cu-mechanical.mjs";
+import { countSourceFiles, walkSourceFiles, changedSourceFilesSince } from "../lib/cu-source-scan.mjs";
+import { appendFileSync, existsSync as existsSyncSync, mkdirSync } from "fs";
 import { PAAW_ROOT } from "./coding-helpers.mjs";
+// /api/coding-crew/* 子分派：crew 定義/chat/EM dispatch/會話持久化/action-log/em-plan/em-execute/interrupt/running/memory/export-import
 
 export async function crewRoutes({ req, res, method, url, q, projectPath }) {
 
