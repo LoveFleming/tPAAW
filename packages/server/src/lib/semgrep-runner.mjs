@@ -159,7 +159,7 @@ const INSTALL_INSTRUCTIONS = IS_WIN
 function scanSourceExtensions(projectRoot, maxDepth = 4) {
   const found = new Set();
   const excludeDirs = new Set(["node_modules", ".git", "dist", "build", "coverage", ".paaw", "semgrep-rules", "tests"]); // tests 刻意練危險 pattern，掃產品碼
-  const targetExts = new Set([".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".py", ".java", ".go"]);
+  const targetExts = new Set([".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".py", ".java", ".go", ".rs"]);
 
   function walk(dir, depth) {
     if (depth > maxDepth) return;
@@ -205,6 +205,9 @@ export function detectRulePacks(projectRoot) {
     if (exts.has(".go")) {
       packs.push(safePath(join(LOCAL_RULES_DIR, "golang")));
     }
+    if (exts.has(".rs")) {
+      packs.push(safePath(join(LOCAL_RULES_DIR, "rust")));
+    }
     if (existsSync(join(LOCAL_RULES_DIR, "problem-based-packs"))) {
       packs.push(safePath(join(LOCAL_RULES_DIR, "problem-based-packs")));
     }
@@ -233,6 +236,7 @@ const SOURCE_INCLUDES = [
   '--include "*.py"',
   '--include "*.java"',
   '--include "*.go"',
+  '--include "*.rs"',
   '--include "*.rb"',
   '--include "*.php"',
   '--include "*.c"',

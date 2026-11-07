@@ -1,0 +1,8 @@
+rules:
+  - id: rust.expect-in-async-handler
+    languages: [rust]
+    severity: INFO
+    message: "async handler 內使用 expect()/lock() — 高併發下 panic 風險，建議 map_err 處理"
+    pattern-either:
+      - pattern: $X.lock().unwrap()
+      - pattern: $F(...).expect(...)
