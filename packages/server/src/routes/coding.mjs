@@ -147,7 +147,8 @@ import { crewRoutes } from "./coding-crew-routes.mjs"; // 2026-11-07 抽出
 // Debug logger for Code Understanding — writes to log/cu-debug.log
 // （不可寫產品根目錄 .paaw — 執行程式不能在安裝目錄長 .paaw）
 import { appendFileSync, existsSync as existsSyncSync, mkdirSync } from "fs";
-import { cuLog, diffWriteFile, _stripCodeFence, _sanitizeMd, cuStepSkillKey, loadCuStepSkills, parseQuery, _extractJsonArray, backfillApiTests, _buildManifestContext } from "./coding-helpers.mjs"; // 2026-11-07 抽出
+import { cuLog, diffWriteFile, _stripCodeFence, _sanitizeMd, cuStepSkillKey, loadCuStepSkills, parseQuery, _extractJsonArray, backfillApiTests, _buildManifestContext, callProjectLLM, CU_LLM_OPTS } from "./coding-helpers.mjs"; // 2026-11-07 抽出（+callProjectLLM/CU_LLM_OPTS 補回）
+import { DATA_HOME, LOG_HOME, logSlug } from "../data-home.mjs"; // 2026-11-07 補回：Phase 2 拆分時誤抽走（ai-initial runtime 炸 DATA_HOME is not defined）
 import { runShellCmd, scanProjectFiles, collectProjectHealth } from "./coding-health.mjs"; // 2026-11-07 抽出
 
 export default async function projectRoute(req, res) {

@@ -91,7 +91,7 @@ function _sanitizeMd(md) {
 // maxTokens 不 hardcode — 由 providers.json 的 model.maxTokens 當事實來源（全升 32768）
 // temperature：程式/結構化產出 = 0（deterministic），對話型 = 0.3
 // caller em：這批呼叫屬 EM dashboard 的 AI 初始化/知識建構流 — 成本歸集（R3）別記在 coding 帳上
-const CU_LLM_OPTS = { caller: "em", agentId: "em" };
+export const CU_LLM_OPTS = { caller: "em", agentId: "em" };
 
 // ── CU step skill 外掛（2026-09-03 Fleming：CU 綁定 PAAW 的 skill）──
 // 綁定存在專案 .paaw/crew.json 的 skillBindings["cu.<stepId>"]，跟 crew agent 同一套
