@@ -1021,7 +1021,10 @@ export function formatCondensed(parsedResult) {
     }
 
     // Routes（2026-11-07：測試檔的 routes 是假訊號 — gin/express 測試會 new router 注册假路由，不能讓 api-map 當 ground truth）
-    const isTestFile = /(^|\/)(?:[\w.-]*_test\.(?:go|py|rs|java|[cm]?[jt]sx?)|[\w.-]*\.(?:test|spec)\.[cm]?[jt]sx?|test_[\w.-]*\.py|test[-_][\w.-]*)$/.test(file.file || "");
+    // 2026-11-07 actix 實測補：Rust 慣例 tests/ 目錄放 integration tests（檔名不帶 test）、Java 慣例 XxxTests.java
+    const _fp = file.file || "";
+    const isTestFile = /(^|\/)tests?\//.test(_fp)
+      || /(^|\/)(?:[\w.-]*_test\.(?:go|py|rs|java|[cm]?[jt]sx?)|[\w.-]*\.(?:test|spec)\.[cm]?[jt]sx?|test_[\w.-]*\.py|test[-_][\w.-]*|[\w.-]*Tests?\.java)$/.test(_fp);
     if (file.routes.length > 0 && !isTestFile) {
       parts.push("⚡" + file.routes.map(r => `${r.method} ${r.path}`).join(" | "));
     }
