@@ -730,6 +730,23 @@ export default async function releaseRoutes(req, res, next) {
     }
   }
 
+  // ── POST review-report — Evidence Matrix 下方生成 Review Report（2026-11-07 Fleming：跟 api 摘要同款，按鈕在塊內、結果顯示在表格下方）──
+  if (url === "/api/coding-releases/review-report" && method === "POST") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first
+    const body = await readJsonBody(req);
+    if (!body?.evidence || !String(body.evidence).trim()) return res.status(400).json({ error: "evidence required" });
+    try {
+      const { callProjectLLM } = await import("./coding.mjs");
+      const result = await callProjectLLM({
+        messages: [{ role: "user", content: `${body.evidence}\n\n請以 Release Manager 角色產生一份「給老闆的上線報告」（繁體中文）：\n1) 一句話結論（能不能上）\n2) 這次改了什麼（人話，API 導向）\n3) 風險與最壞情況\n4) 測試與驗證狀態\n5) rollback 考量\n6) 建議決策（上 / 不上 / 附條件上）\n只根據證據說話（No answer without evidence）。` }],
+        temperature: 0.2,
+      }, { caller: "rm-review-report", timeoutMs: 120_000, maxRetries: 2 });
+      return res.json({ ok: true, report: result.content || "" });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   // ── POST api-summary — AI 摘要（2026-11-03：api-status 數據 → 繁中幾句話現狀）──
   if (url === "/api/coding-releases/api-summary" && method === "POST") {
     if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
@@ -737,8 +754,8 @@ export default async function releaseRoutes(req, res, next) {
       const status = await _buildApiStatus(projectPath);
       const compact = {
         backend: status.backend, frontend: status.frontend, changedSinceRelease: status.changedSinceRelease,
-        noTestApis: status.apis.filter(a => a.tests === 0).map(a => a.entry).slice(0, 30),
-        changedApis: status.apis.filter(a => a.changed).map(a => ({ entry: a.entry, tests: a.tests })).slice(0, 30),
+        noTestApis: status.apis.filter(a => a.testCount === 0).map(a => a.entry).slice(0, 30),
+        changedApis: status.apis.filter(a => a.changed).map(a => ({ entry: a.entry, tests: a.testCount })).slice(0, 30),
       };
       const { callProjectLLM } = await import("./coding.mjs");
       const result = await callProjectLLM({

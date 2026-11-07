@@ -230,17 +230,25 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     return `Evidence Matrix by API（${anchorDesc}：${evApi.summary.changedApis} APIs changed / tests ✓${evApi.summary.withTests} / e2e ✓${evApi.summary.e2eCovered} / SG high ✗${evApi.summary.sgHigh}）\n\n${rows}`;
   };
 
-  const generateReport = () => {
+  // 2026-11-07 Fleming v5：產生 Review Report 搬進 Evidence Matrix 塊內（跟 api 摘要同款：按鈕 → 結果顯示在表格下方）
+  const [reviewReport, setReviewReport] = useState<string | null>(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const generateReport = async () => {
+    if (!rootPath || reviewBusy) return;
     const ev = readinessEvidence();
     const mx = matrixEvidenceText();
     if (!ev) return;
     const cmt = baselines.find(b => b.sha === selCommit);
-    const anchor = cmt ? `\n報告基準 commit：${cmt.short}（${cmt.subject}，${cmt.at}）\n報告範圍：這個 commit 為止的狀態。` : `\n報告基準：目前 HEAD。`;
-    chatRef.current?.send(
-      `以下是這次 release 的就緒證據（程式產生，deterministic）：\n\n${ev}\n\n${mx || ""}${anchor}\n\n` +
-      `請以 Release Manager 角色產生一份「給老闆的上線報告」：\n` +
-      `1) 一句話結論（能不能上）\n2) 這次改了什麼（人話，feature 導向）\n3) 風險與最壞情況\n4) 測試與驗證狀態\n5) rollback 考量\n6) 建議決策（上 / 不上 / 附條件上）`
-    );
+    const anchor = cmt ? `\n報告基準 commit：${cmt.short}（${cmt.subject}，${cmt.at}）\n報告範圍：這個 commit 之後的變更。` : `\n報告基準：目前 HEAD（全部 API，不 by 時間）。`;
+    const evidence = `以下是這次 release 的就緒證據（程式產生，deterministic）：\n\n${ev}\n\n${mx || ""}${anchor}`;
+    setReviewBusy(true); setReviewReport(null);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-releases/review-report?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ evidence }),
+      }).then(r => r.json());
+      if (r.ok) setReviewReport(String(r.report || "")); else setToast({ ok: false, text: String(r.error || "failed") });
+    } catch (e: any) { setToast({ ok: false, text: e.message }); }
+    finally { setReviewBusy(false); }
   };
 
   // 2026-11-06 Fleming：請 AI 實際去看證據（不只看表 — 讀 code/test 檔驗證）
@@ -278,13 +286,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                   <option key={b.sha} value={b.sha}>{fmtShort(b.at)} {b.short} · {b.subject.slice(0, 40)}</option>
                 ))}
               </select>
-            )}
-            {readiness && (
-              <button onClick={generateReport}
-                className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90"
-                style={{ backgroundColor: "#7c3aed" }} data-testid="rm-gen-report">
-                📋 {t("rm.genReport")}
-              </button>
             )}
             {readiness && (
               <button onClick={() => loadEvApi()} disabled={evApiBusy}
@@ -355,7 +356,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                     </div>
                     <div className="max-h-64 overflow-y-auto rounded-lg border bg-white" style={{ borderColor: tk.borderLight }}>
                       <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 py-1 sticky top-0 bg-white border-b" style={{ gridTemplateColumns: "2.1fr 1.4fr 0.8fr 0.6fr 0.7fr", borderColor: tk.borderLight }}>
-                        <span>{t("rm.apiColApi")}</span><span>{t("rm.apiColName")}</span><span>Unit Test</span><span>E2E</span><span>SG</span><span>{t("rm.ev.reviewCol")}</span>
+                        <span>{t("rm.apiColApi")}</span><span>{t("rm.apiColName")}</span><span>Unit Test</span><span>E2E</span><span>SG</span>
                       </div>
                       {(apiStatus.apis || []).map((a: any, i: number) => (
                         <div key={i} className="grid gap-1 items-center px-2 py-1 text-[10px] hover:bg-stone-50" style={{ gridTemplateColumns: "2.1fr 1.4fr 0.8fr 0.6fr 0.7fr" }}>
@@ -383,6 +384,12 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                       <span className="text-xs font-bold text-stone-700">⚖️ {t("rm.ev.title")}</span>
                       <span className="text-[10px] text-stone-400">{evApi.anchor === "all" ? t("rm.ev.sinceHead") : `${evApi.anchor} · ${evApi.commitsInWindow} commits`}</span>
                       {onOpenReviewBoard && <button type="button" onClick={onOpenReviewBoard} className="text-[10px] px-2 py-0.5 rounded-full border font-bold text-violet-600 hover:bg-violet-50" style={{ borderColor: "#ddd6fe" }} data-testid="rm-open-review-board">{t("rm.ev.openBoard")} →</button>}
+                      {/* 2026-11-07 Fleming v5：產生 Review Report 搬進本塊 — 按鈕在這，結果在表格下方 */}
+                      <button type="button" onClick={generateReport} disabled={reviewBusy}
+                        className="ml-auto text-[10px] px-2.5 py-1 rounded-full border font-bold text-violet-600 hover:bg-violet-50 disabled:opacity-50 flex items-center gap-1" style={{ borderColor: "#ddd6fe" }} data-testid="rm-gen-report">
+                        {reviewBusy && <span className="animate-spin inline-block w-2.5 h-2.5 border-[1.5px] border-current border-t-transparent rounded-full" />}
+                        📋 {t("rm.genReport")}
+                      </button>
                       <span className="ml-auto flex gap-1.5 text-[10px] font-mono">
                         <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 font-bold">API {evApi.summary.changedApis}</span>
                         <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 font-bold">Tests ✓{evApi.summary.withTests}</span>
@@ -392,7 +399,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                       </span>
                     </div>
                     <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 pb-1" style={{ gridTemplateColumns: "1.9fr 1.3fr 0.7fr 0.6fr 0.7fr 1.1fr" }}>
-                      <span>{t("rm.apiColApi")}</span><span>{t("rm.apiColName")}</span><span>Unit Test</span><span>E2E</span><span>SG</span>
+                      <span>{t("rm.apiColApi")}</span><span>{t("rm.apiColName")}</span><span>Unit Test</span><span>E2E</span><span>SG</span><span>{t("rm.ev.reviewCol")}</span>
                     </div>
                     <div className="max-h-72 overflow-y-auto">
                       {evApi.apis.map((a: any, i: number) => {
@@ -409,6 +416,12 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                         );
                       })}
                     </div>
+                    {(reviewBusy || reviewReport) && (
+                      <div className="mt-2 rounded-lg bg-violet-50 border px-3 py-2 text-[11px] text-stone-700 whitespace-pre-wrap" style={{ borderColor: "#ddd6fe" }} data-testid="rm-review-report">
+                        <div className="text-[9px] font-bold text-violet-600 mb-0.5">{t("rm.reportTitle")}</div>
+                        {reviewBusy ? t("rm.reportGenerating") : reviewReport}
+                      </div>
+                    )}
                   </div>
                 )}
 

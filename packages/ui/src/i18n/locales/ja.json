@@ -473,7 +473,7 @@
   "rm.qd.subtitle": "高速開発で溜まった債、リリース前に一括補強",
   "rm.qd.title": "品質負債",
   "rm.ready": "READY ✓",
-  "rm.reportTitle": "現状レポート",
+  "rm.reportTitle": "Review Report",
   "rm.riskWhy": "リスク要因",
   "rm.runTests": "テスト実行",
   "rm.since": "ベースライン：前回リリース",
@@ -2095,5 +2095,6 @@
   "rm.ev.reviewCol": "Code Review",
   "rm.ev.noReview": "レビュー記録なし",
   "crb.viewApi": "API 順",
-  "crb.viewMeetings": "会議順"
+  "crb.viewMeetings": "会議順",
+  "rm.reportGenerating": "生成中…"
 }

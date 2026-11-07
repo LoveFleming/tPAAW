@@ -473,7 +473,7 @@
   "rm.qd.subtitle": "Debt from rapid development — sweep and fix it all before shipping",
   "rm.qd.title": "Quality Debt",
   "rm.ready": "READY ✓",
-  "rm.reportTitle": "Status Report",
+  "rm.reportTitle": "Review Report",
   "rm.riskWhy": "Risk factors",
   "rm.runTests": "Run Tests",
   "rm.since": "Baseline: last release",
@@ -2095,5 +2095,6 @@
   "rm.ev.reviewCol": "Code Review",
   "rm.ev.noReview": "no review records",
   "crb.viewApi": "By API",
-  "crb.viewMeetings": "By meeting"
+  "crb.viewMeetings": "By meeting",
+  "rm.reportGenerating": "Generating…"
 }
