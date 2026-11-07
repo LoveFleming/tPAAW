@@ -745,7 +745,6 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   if (!rootPath) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
-      {showDispatchWizard && <DispatchWizard rootPath={rootPath} theme={tk} onClose={() => setShowDispatchWizard(false)} />}
         <span className="text-5xl opacity-40">🎖️</span>
         <p className="text-sm text-stone-400">開啟專案後即可查看 EM 大總管 Dashboard</p>
       </div>
@@ -754,6 +753,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
 
   return (
     <>
+    {showDispatchWizard && <DispatchWizard rootPath={rootPath} theme={tk} onClose={() => setShowDispatchWizard(false)} />}
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
       {/* 2026-08-29: 兩個 view 常駐掛載，用 hidden 切換 — 保留雙方 scroll 位置與元件狀態 */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">

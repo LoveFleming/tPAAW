@@ -11519,3 +11519,30 @@
   ]
 }
 ---
+{
+  "ts": "2026-11-07T11:25:29.387Z",
+  "route": "A2A message/stream",
+  "agentId": "architect",
+  "model": "default",
+  "systemPromptLength": 116343,
+  "systemPromptPreview": "DOMAIN_SYS_PROMPT\n## Feature Map (126 features)\nUse project_info(category=feature_detail) for full info on any feature.\n- [F20261107-001] AI 開發工作台（Coding App 後端 API） (active) — PAAW Coding App 的後端路由層：以「Release Unit（.paaw 專案目錄）」為單位，提供 AI 開發團隊（crew：architect/developer/tester/qa/doc-writer/helpdesk）的對話、派工與中斷，以及 feature map / tasks / issues / evidence / release / handover / troubleshooting 等專案知識與治理資料的讀寫。同時以 A2A JSON-RPC 2.0 對外暴露 agent 能力（agent card、message/send、message/stream、 → 17 code files, 133 A",
+  "actionLogInjected": "(none)",
+  "agentMemoryInjected": "(none)",
+  "conversationHistoryCount": 0,
+  "cleanHistoryCount": 0,
+  "currentMessage": "域代理串流",
+  "totalMessages": 2,
+  "messagesSummary": [
+    {
+      "role": "system",
+      "contentLength": 116343,
+      "preview": "DOMAIN_SYS_PROMPT\n## Feature Map (126 features)\nUse project_info(category=feature_detail) for full info on any feature.\n"
+    },
+    {
+      "role": "user",
+      "contentLength": 5,
+      "preview": "域代理串流"
+    }
+  ]
+}
+---
