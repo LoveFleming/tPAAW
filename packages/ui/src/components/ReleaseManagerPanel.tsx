@@ -303,7 +303,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
             )}
             {/* ↻ 重新整理按鈕移除（2026-11-07 Fleming）— 各區塊按鈕各自載入，不需全頁刷新 */}
           </div>
-          <p className="text-[11px] text-stone-400 mt-0.5">{t("rm.subtitle")}</p>
+          {/* rm.subtitle 拿掉（2026-11-07 Fleming）*/}
         </div>
 
         {toast && (
