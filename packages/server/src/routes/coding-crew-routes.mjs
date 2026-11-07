@@ -18,6 +18,11 @@ import { rescanMechanicalLayer } from "../lib/cu-mechanical.mjs";
 import { countSourceFiles, walkSourceFiles, changedSourceFilesSince } from "../lib/cu-source-scan.mjs";
 import { appendFileSync, existsSync as existsSyncSync, mkdirSync } from "fs";
 import { PAAW_ROOT } from "./coding-helpers.mjs";
+import { AGENT_RULES } from "../lib/agent-rules.mjs";
+import { SECURITY_RULES } from "../lib/security-rules.mjs";
+import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { runningCodingAgents } from "../lib/running-agents.mjs";
+import { DATA_HOME, LOG_HOME, logSlug } from "../data-home.mjs";
 // /api/coding-crew/* 子分派：crew 定義/chat/EM dispatch/會話持久化/action-log/em-plan/em-execute/interrupt/running/memory/export-import
 
 export async function crewRoutes({ req, res, method, url, q, projectPath }) {
