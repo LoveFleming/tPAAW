@@ -1,224 +1,293 @@
-/**
- * Coding App Health Check — GET /api/coding-health?path=...
- *
- * Checks all Coding App subsystems and returns a health report:
- * - Provider config
- * - Feature map coverage
- * - Issues
- * - Auto Dispatch status (detects stuck runs)
- * - Security scan freshness
- * - LLM activity
- * - Coding standards
- */
-import { readFileSync as readSync, existsSync, statSync, readdirSync } from "fs";
-import { join, resolve, dirname, relative, isAbsolute } from "path";
+// coding-health.mjs — 2026-11-07 從 routes/coding.mjs 機械抽取（不改行為）
+// 專案健康收集：shell / 檔案掃描 / .paaw 完整性 / git / code stats / fix items
+import { readFile, writeFile, readdir, mkdir, unlink, appendFile, stat as fsStat } from "fs/promises";
+import { existsSync, readFileSync as readSync, readdirSync, statSync, openSync, readSync as fsReadSync, closeSync as fsCloseSync } from "fs";
+import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { exec as execCb } from "child_process";
+import { shellExec, IS_WIN } from "../lib/shell-exec.mjs";
+import { createPaawProject, maybeWriteProjectDraft } from "../lib/paaw-project.mjs";
+import { parseProjectMd, buildProjectMd, regenerateProjectMd, USER_START, USER_END, AI_START, AI_END } from "../lib/project-md.mjs";
+import { callLLMWithRetry, dateTimeContextBlock, parseModelReference } from "../lib/llm-utils.mjs";
+import { sanitizeId, sendPathTraversalError } from "../lib/coding-security.mjs";
+import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-parser.mjs";
+import { runSemgrep } from "../lib/semgrep-runner.mjs";
+import { buildCodeIntelligence, buildContextPackage } from "../lib/code-intelligence.mjs";
+import { buildTestIntelligence } from "../lib/test-intelligence.mjs";
+import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
+import { rescanMechanicalLayer } from "../lib/cu-mechanical.mjs";
+import { countSourceFiles, walkSourceFiles, changedSourceFilesSince } from "../lib/cu-source-scan.mjs";
+import { appendFileSync, existsSync as existsSyncSync, mkdirSync } from "fs";
+import { AGENT_RULES } from "../lib/agent-rules.mjs";
+import { SECURITY_RULES } from "../lib/security-rules.mjs";
+import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { runningCodingAgents } from "../lib/running-agents.mjs";
+import { DATA_HOME, LOG_HOME, logSlug } from "../data-home.mjs";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
-
-function sendJSON(res, code, data) {
-  res.writeHead(code, { "Content-Type": "application/json" });
-  res.end(JSON.stringify(data));
+async function runShellCmd(command, cwd, timeoutMs = 10_000) {
+  try {
+    const { stdout, stderr } = await shellExec(command, {
+      cwd, timeout: timeoutMs, maxBuffer: 2 * 1024 * 1024,
+    });
+    return (stdout || "") + (stderr ? "\n" + stderr : "");
+  } catch (e) {
+    let output = e.stdout || "";
+    if (e.stderr) output += (output ? "\n" : "") + e.stderr;
+    return output;
+  }
 }
 
-async function getAllowedRoots() {
-  const roots = [PAAW_ROOT, resolve(PAAW_ROOT, "data")];
-  try {
-    const wsFile = resolve(PAAW_ROOT, "data", "workspaces.json");
-    if (existsSync(wsFile)) {
-      const ws = JSON.parse(readSync(wsFile, "utf-8"));
-      for (const d of ws.directories || []) {
-        if (d && existsSync(d)) roots.push(resolve(d));
-      }
-    }
-  } catch { /* fall back to PAAW_ROOT only */ }
-  return roots;
+// ── Cross-platform file tree scan (Windows has no Unix 'find') ──
+async function scanProjectFiles(cwd, maxFiles = 0) {
+  // 2026-09-06：改純 Node walker（共用 cu-source-scan）— 支援 .gitignore、刪掉 Windows/macOS 雙分支 shell find
+  const { files } = walkSourceFiles(cwd, { maxFiles });
+  return files.join("\n");
 }
 
-function withinRoots(absPath, roots) {
-  for (const root of roots) {
-    const r = resolve(root);
-    if (absPath === r) return true;
-    const rel = relative(r, absPath);
-    if (rel && !rel.startsWith("..") && !isAbsolute(rel)) return true;
-  }
-  return false;
-}
+// ── Collect Project Health ──
 
-/**
- * Resolve the ?path= project root. The value is client-supplied, so we only
- * accept it when it lives inside a configured workspace or PAAW_ROOT —
- * otherwise arbitrary directories on the host could be scanned/read.
- */
-function parsePath(req, roots) {
-  const url = new URL(req.url, "http://localhost");
-  const raw = url.searchParams.get("path");
-  if (!raw) return PAAW_ROOT;
-  const abs = resolve(raw);
-  // 2026-11-01：與 coding.mjs 對齊 — path 指向存在的目錄即用（coding 專案如 learning-space 不在 workspaces.json，
-  // 舊邏輯會靜默 fallback 回 PAAW_ROOT，導致 apiMap 讀錯專案的 coding.db）
-  try { if (statSync(abs).isDirectory()) return abs; } catch { /* fallthrough */ }
-  return withinRoots(abs, roots) ? abs : PAAW_ROOT;
-}
-
-export default async function codingHealthRoute(req, res) {
-  const rawUrl = req.url;
-  const method = req.method;
-  const cleanUrl = rawUrl.split("?")[0];
-
-  if (cleanUrl !== "/api/coding-health") return false;
-  if (method !== "GET") return false;
-
-  const allowedRoots = await getAllowedRoots();
-  const projRoot = parsePath(req, allowedRoots);
-  const checks = {};
-  let allHealthy = true;
-
-  // 1. Provider config
-  try {
-    const providersFile = join(projRoot, "data/config/providers.json");
-    const config = JSON.parse(readSync(providersFile, "utf-8"));
-    const activeProvider = config.providers?.[config.active];
-    checks.provider = {
-      status: activeProvider?.apiKey && activeProvider.apiKey !== "na" ? "ok" : "warn",
-      active: config.active,
-      model: config.defaultModel || "(not set)",
-      message: activeProvider?.apiKey ? undefined : "No API key configured",
-    };
-    if (checks.provider.status !== "ok") allHealthy = false;
-  } catch (err) {
-    checks.provider = { status: "fail", message: err.message };
-    allHealthy = false;
-  }
-
-  // 2. Feature map
-  try {
-    {
-      // 2026-11-01 API-first：code health 檢查 api_features（feature map 退役）
-      const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
-      const apis = readApiFeatures(projRoot);
-      let missingFiles = 0;
-      const allSourceFiles = new Set();
-      try {
-        const { scanAllSourceFiles } = await import("../lib/feature-map-validator.mjs");
-        scanAllSourceFiles(projRoot).forEach(f => allSourceFiles.add(f));
-        for (const a of apis) {
-          for (const cf of a.codeFiles || []) {
-            const norm = cf.replace(/^\.\//, "").replace(/\\/g, "/");
-            if (!allSourceFiles.has(norm)) missingFiles++;
-          }
-        }
-      } catch {}
-      checks.apiMap = {
-        status: apis.length > 0 ? "ok" : "warn",
-        total: apis.length,
-        withFlow: apis.filter(a => (a.processFlow || []).length > 0).length,
-        withValidation: apis.filter(a => (a.validation || []).length > 0).length,
-        missingFiles,
-        message: apis.length === 0 ? "No API features — run CU api-map step" : undefined,
-      };
-      if (missingFiles > 0) {
-        checks.apiMap.status = "warn";
-        checks.apiMap.message = `${missingFiles} mapped files not found on disk — api map is stale`;
-      }
-    }
-  } catch (err) {
-    checks.apiMap = { status: "fail", message: err.message };
-  }
-
-  // 3. Issues
-  try {
-    const issuesFile = join(projRoot, ".paaw", "issues", "issues.json");
-    if (existsSync(issuesFile)) {
-      const data = JSON.parse(readSync(issuesFile, "utf-8"));
-      const issues = Array.isArray(data) ? data : (data.issues || []);
-      const open = issues.filter(i => i.status === "open").length;
-      checks.issues = {
-        status: "ok",
-        total: issues.length,
-        open,
-      };
-    } else {
-      checks.issues = { status: "ok", total: 0, open: 0, message: "No issues file (clean slate)" };
-    }
-  } catch (err) {
-    checks.issues = { status: "fail", message: err.message };
-  }
-
-  // 4. Auto Dispatch
-  try {
-    const nsStatusFile = join(projRoot, ".paaw", "auto-dispatch", "status.json");
-    if (existsSync(nsStatusFile)) {
-      const ns = JSON.parse(readSync(nsStatusFile, "utf-8"));
-      const ageHours = ns.startedAt ? (Date.now() - new Date(ns.startedAt).getTime()) / 3600000 : 0;
-      const isStuck = ns.status === "running" && ageHours > 1;
-      checks.autoDispatch = {
-        status: isStuck ? "fail" : "ok",
-        lastStatus: ns.status,
-        startedAt: ns.startedAt,
-        completedAt: ns.completedAt,
-        ageHours: Math.round(ageHours * 10) / 10,
-        message: isStuck ? `Stuck in "running" for ${Math.round(ageHours)}h — should be reset` : undefined,
-      };
-      if (isStuck) allHealthy = false;
-    } else {
-      checks.autoDispatch = { status: "ok", message: "Never run" };
-    }
-  } catch (err) {
-    checks.autoDispatch = { status: "fail", message: err.message };
-  }
-
-  // 5. Security scan freshness
-  try {
-    const scanFile = join(projRoot, ".paaw", "security", "scan-results.json");
-    if (existsSync(scanFile)) {
-      const stat = statSync(scanFile);
-      const ageHours = (Date.now() - stat.mtimeMs) / 3600000;
-      const scan = JSON.parse(readSync(scanFile, "utf-8"));
-      const findings = (scan.findings || []).filter(f => !f.file?.includes("semgrep-rules"));
-      checks.security = {
-        status: ageHours > 168 ? "warn" : "ok", // 7 days
-        findings: findings.length,
-        lastScan: stat.mtime,
-        ageHours: Math.round(ageHours * 10) / 10,
-        message: ageHours > 168 ? `Scan is ${Math.round(ageHours / 24)}d old — consider re-scanning` : undefined,
-      };
-    } else {
-      checks.security = { status: "warn", message: "No scan results — run security scan" };
-    }
-  } catch (err) {
-    checks.security = { status: "fail", message: err.message };
-  }
-
-  // 6. LLM logs (recent activity)
-  try {
-    const logsDir = join(projRoot, "log", "logs", "llm");
-    let recentLogs = 0;
-    if (existsSync(logsDir)) {
-      const files = readdirSync(logsDir);
-      const oneDayAgo = Date.now() - 86400000;
-      for (const f of files) {
-        try { if (statSync(join(logsDir, f)).mtimeMs > oneDayAgo) recentLogs++; } catch {}
-      }
-    }
-    checks.llmActivity = {
-      status: "ok",
-      recentLogs24h: recentLogs,
-      message: recentLogs === 0 ? "No LLM activity in 24h" : undefined,
-    };
-  } catch {
-    checks.llmActivity = { status: "ok", recentLogs24h: 0 };
-  }
-
-  // Summary
-  const summary = {
-    healthy: allHealthy,
-    timestamp: new Date().toISOString(),
-    checks,
+async function collectProjectHealth(root, paaw) {
+  const health = {
+    paawCompleteness: { initialized: paaw.exists, files: [], score: 0 },
+    git: { branch: "", uncommitted: 0 },
+    codeStats: { totalFiles: 0, totalLines: 0, languages: [] },
+    sessions: { total: 0, recent: 0, successRate: 0 },
+    dependencies: undefined,
   };
 
-  sendJSON(res, 200, summary);
-  return true;
+  // ── .paaw/ completeness with fix plans ──
+  const expectedFiles = ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md", "CHANGELOG.md"];
+  // Fix plans for each missing file
+  const fixPlans = {
+    "PROJECT.md": { steps: [{ agent: "architect", task: "建立 .paaw/PROJECT.md，分析專案結構，撰寫專案概述、技術棧、目標使用者等" }], estimatedMinutes: 60 },
+    "ARCHITECTURE.md": { steps: [{ agent: "architect", task: "建立 .paaw/ARCHITECTURE.md，分析專案目錄結構、模組依賴、資料流，畫出架構圖" }], estimatedMinutes: 60 },
+    "DECISIONS.md": { steps: [{ agent: "doc-writer", task: "建立 .paaw/DECISIONS.md，根據現有程式碼和架構推導技術決策，記錄 ADR (Architecture Decision Records)" }], estimatedMinutes: 60 },
+    "CHANGELOG.md": { steps: [{ agent: "doc-writer", task: "建立 .paaw/CHANGELOG.md，從 git log 推導版本歷史和重要變更" }], estimatedMinutes: 60 },
+  };
+  const fixHints = {
+    "PROJECT.md": "No project overview",
+    "ARCHITECTURE.md": "No architecture map",
+    "DECISIONS.md": "No ADRs",
+    "CHANGELOG.md": "No changelog",
+    "sessions/": "No session history",
+  };
+  let existCount = 0;
+  for (const f of expectedFiles) {
+    const content = await paaw.readFile(f);
+    const exists = content !== null;
+    if (exists) existCount++;
+    health.paawCompleteness.files.push({
+      name: f,
+      exists,
+      size: exists ? content.length : undefined,
+      hint: !exists ? (fixHints[f] || `Missing ${f}`) : undefined,
+      fixPlan: !exists ? (fixPlans[f] || { steps: [{ agent: "developer", task: `建立 .paaw/${f}` }], estimatedMinutes: 60 }) : undefined,
+    });
+  }
+  // Check subdirs
+  const dirFixPlans = {
+    "sessions/": { steps: [{ agent: "developer", task: "建立 .paaw/sessions/ 目錄，確保 AI session 歷史可以儲存" }], estimatedMinutes: 60 },
+  };
+  for (const d of ["sessions"]) {
+    const dirPath = join(paaw.paawDir, d);
+    const exists = existsSync(dirPath);
+    if (exists) existCount++;
+    const name = d + "/";
+    health.paawCompleteness.files.push({
+      name,
+      exists,
+      hint: !exists ? (fixHints[name] || `Missing ${name}`) : undefined,
+      fixPlan: !exists ? (dirFixPlans[name] || { steps: [{ agent: "developer", task: `建立 .paaw/${name}` }], estimatedMinutes: 60 }) : undefined,
+    });
+  }
+  health.paawCompleteness.score = Math.round((existCount / (expectedFiles.length + 2)) * 100);
+
+  // ── Git health ──
+  try {
+    const branch = (await runShellCmd("git rev-parse --abbrev-ref HEAD", root, 3000)).trim();
+    const status = await runShellCmd("git status --porcelain", root, 5000);
+    const uncommitted = status.trim().split("\n").filter(Boolean).length;
+    const logLine = (await runShellCmd("git log -1 --oneline --format=%h___%s___%cr", root, 3000)).trim();
+    const remote = (await runShellCmd("git remote get-url origin", root, 3000)).trim();
+
+    const [hash, ...rest] = logLine.split("___");
+    const subject = rest[0] || "";
+    const when = rest[1] || "";
+
+    health.git = {
+      branch,
+      uncommitted,
+      lastCommit: subject ? `${hash} ${subject}` : undefined,
+      lastCommitDate: when || undefined,
+      remote: remote || undefined,
+    };
+  } catch {}
+
+  // ── Code stats ──
+  try {
+    const gitFiles = (await runShellCmd("git ls-files", root, 5000)).trim().split("\n").filter(Boolean);
+    health.codeStats.totalFiles = gitFiles.length;
+
+    // Count lines and languages
+    const langCount = {};
+    let totalLines = 0;
+    const extMap = { ".js": "JavaScript", ".mjs": "JavaScript", ".ts": "TypeScript", ".tsx": "TypeScript", ".jsx": "JavaScript", ".css": "CSS", ".html": "HTML", ".json": "JSON", ".md": "Markdown", ".py": "Python", ".go": "Go", ".rs": "Rust", ".java": "Java", ".c": "C", ".cpp": "C++" };
+
+    // Sample up to 500 files for performance
+    const sample = gitFiles.slice(0, 500);
+    for (const f of sample) {
+      const ext = "." + (f.split(".").pop() || "");
+      const lang = extMap[ext];
+      if (lang) {
+        langCount[lang] = (langCount[lang] || 0) + 1;
+        try {
+          const content = readSync(join(root, f), "utf-8");
+          totalLines += content.split("\n").length;
+        } catch {}
+      } else if (!ext.includes("/")) {
+        langCount[ext] = (langCount[ext] || 0) + 1;
+      }
+    }
+
+    health.codeStats.totalLines = totalLines;
+
+    // Language percentages
+    const totalLangFiles = Object.values(langCount).reduce((a, b) => a + b, 0);
+    health.codeStats.languages = Object.entries(langCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([lang, count]) => ({ lang, files: count, percent: Math.round((count / totalLangFiles) * 100) }));
+  } catch {}
+
+  // ── AI Sessions ──
+  try {
+    const sessions = await paaw.listSessions();
+    health.sessions.total = sessions.length;
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    health.sessions.recent = sessions.filter(s => new Date(s.modified).getTime() > sevenDaysAgo).length;
+
+    // Calculate success rate from session content
+    let successCount = 0;
+    let checked = 0;
+    for (const s of sessions.slice(0, 20)) {
+      try {
+        const content = await paaw.readSession(s.filename);
+        if (content) {
+          checked++;
+          if (content.includes("✅ 成功")) successCount++;
+        }
+      } catch {}
+    }
+    health.sessions.successRate = checked > 0 ? Math.round((successCount / checked) * 100) : 0;
+  } catch {}
+
+  // ── Dependencies ──
+  try {
+    const pkgPath = join(root, "package.json");
+    if (existsSync(pkgPath)) {
+      const pkg = JSON.parse(readSync(pkgPath, "utf-8"));
+      const total = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).length;
+      health.dependencies = { total };
+    }
+  } catch {}
+
+  // ── Fix items (actionable health issues with fixPlan) ──
+  const fixItems = [];
+  const fixId = (cat, name) => `health-${cat}-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
+  // Missing .paaw/ docs → docWriter
+  for (const f of health.paawCompleteness.files) {
+    if (!f.exists && !f.name.endsWith("/")) {
+      fixItems.push({
+        id: fixId("paaw", f.name),
+        severity: "medium",
+        category: "documentation",
+        title: `缺少 .paaw/${f.name}`,
+        description: `${f.name} 是重要的專案知識文件，建議補齊`,
+        fixPlan: {
+          steps: [
+            { agent: "doc-writer", task: `建立 .paaw/${f.name}，內容根據現有專案程式碼和架構推導` },
+          ],
+          estimatedMinutes: 60,
+        },
+      });
+    }
+  }
+
+  // Missing .paaw/ subdirs
+  for (const f of health.paawCompleteness.files) {
+    if (!f.exists && f.name.endsWith("/")) {
+      fixItems.push({
+        id: fixId("paaw", f.name),
+        severity: "low",
+        category: "structure",
+        title: `缺少 .paaw/${f.name} 目錄`,
+        description: `建議建立 ${f.name} 目錄以組織專案知識`,
+        fixPlan: {
+          steps: [
+            { agent: "doc-writer", task: `建立 .paaw/${f.name} 目錄及基本內容` },
+          ],
+          estimatedMinutes: 60,
+        },
+      });
+    }
+  }
+
+  // Git: uncommitted changes → commit
+  if (health.git.uncommitted > 5) {
+    fixItems.push({
+      id: fixId("git", "uncommitted"),
+      severity: "medium",
+      category: "git",
+      title: `${health.git.uncommitted} 個未提交的變更`,
+      description: "工作目錄有大量未提交變更，建議整理後提交",
+      fixPlan: {
+        steps: [
+          { agent: "developer", task: "整理 uncommitted 變更，分組 stage + 準備 commit message（只 git add，不 commit）" },
+        ],
+        estimatedMinutes: 60,
+      },
+    });
+  }
+
+  // Git: no remote
+  if (!health.git.remote) {
+    fixItems.push({
+      id: fixId("git", "no-remote"),
+      severity: "high",
+      category: "git",
+      title: "沒有設定 Git Remote",
+      description: "建議設定 remote origin 以便 push 和協作",
+      fixPlan: {
+        steps: [
+          { agent: "developer", task: "幫使用者設定 git remote origin（詢問 repo URL）" },
+        ],
+        estimatedMinutes: 60,
+      },
+    });
+  }
+
+  // Low paaw score → comprehensive doc fix
+  if (health.paawCompleteness.score < 50) {
+    fixItems.push({
+      id: fixId("paaw", "low-score"),
+      severity: "high",
+      category: "documentation",
+      title: `.paaw/ 健康分數過低 (${health.paawCompleteness.score}/100)`,
+      description: "知識文件嚴重不足，建議全面補齊",
+      fixPlan: {
+        steps: [
+          { agent: "doc-writer", task: "建立 .paaw/PROJECT.md，描述專案目標和架構" },
+          { agent: "doc-writer", task: "建立 .paaw/DECISIONS.md，記錄重要架構決策" },
+        ],
+        estimatedMinutes: 60,
+      },
+    });
+  }
+
+  health.fixItems = fixItems;
+
+  return health;
 }
+
+export { runShellCmd, scanProjectFiles, collectProjectHealth };

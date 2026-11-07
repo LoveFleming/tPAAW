@@ -1,0 +1,11 @@
+{
+  "id": "node-api-skeleton",
+  "name": "Node API Skeleton",
+  "language": "node",
+  "description": "Express 分層架構 API 起點（src/app + routes + services + middlewares，Proskynete/node-api-skeleton）",
+  "tags": [],
+  "createdAt": "2026-10-31T06:06:40.374Z",
+  "fileCount": 159,
+  "rootDir": "node-api-skeleton-main",
+  "hasAdapt": false
+}

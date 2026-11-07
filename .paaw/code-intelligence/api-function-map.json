@@ -587,27 +587,6 @@
       ]
     },
     {
-      "method": "GET",
-      "path": "/api/apps/modules",
-      "file": "packages/server/src/routes/apps.mjs",
-      "handler": "",
-      "callChain": []
-    },
-    {
-      "method": "POST",
-      "path": "/api/apps/modules",
-      "file": "packages/server/src/routes/apps.mjs",
-      "handler": "",
-      "callChain": []
-    },
-    {
-      "method": "POST",
-      "path": "/api/apps/modules/import",
-      "file": "packages/server/src/routes/apps.mjs",
-      "handler": "",
-      "callChain": []
-    },
-    {
       "method": "POST",
       "path": "/api/apps",
       "file": "packages/server/src/routes/apps.mjs",
@@ -1206,6 +1185,58 @@
     },
     {
       "method": "GET",
+      "path": "/api/coding-auto-dispatch/runs",
+      "file": "packages/server/src/routes/coding-auto-dispatch.mjs",
+      "handler": "sendJSON",
+      "callChain": [
+        {
+          "function": "res.writeHead",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-auto-dispatch/run",
+      "file": "packages/server/src/routes/coding-auto-dispatch.mjs",
+      "handler": "sendJSON",
+      "callChain": [
+        {
+          "function": "res.writeHead",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
       "path": "/api/coding-auto-dispatch/last-run",
       "file": "packages/server/src/routes/coding-auto-dispatch.mjs",
       "handler": "sendJSON",
@@ -1298,6 +1329,136 @@
     },
     {
       "method": "GET",
+      "path": "/api/coding-release/evidence/*",
+      "file": "packages/server/src/routes/coding-db.mjs",
+      "handler": "_json",
+      "callChain": [
+        {
+          "function": "res.writeHead",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-db/ru-info/*",
+      "file": "packages/server/src/routes/coding-db.mjs",
+      "handler": "_json",
+      "callChain": [
+        {
+          "function": "res.writeHead",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/coding-db/ru-info/*",
+      "file": "packages/server/src/routes/coding-db.mjs",
+      "handler": "_json",
+      "callChain": [
+        {
+          "function": "res.writeHead",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-db/ru-info/ai-adjust/*",
+      "file": "packages/server/src/routes/coding-db.mjs",
+      "handler": "_json",
+      "callChain": [
+        {
+          "function": "res.writeHead",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-db/status/*",
+      "file": "packages/server/src/routes/coding-db.mjs",
+      "handler": "_json",
+      "callChain": [
+        {
+          "function": "res.writeHead",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
       "path": "/api/coding-doc/coverage",
       "file": "packages/server/src/routes/coding-doc-coverage.mjs",
       "handler": "",
@@ -1355,6 +1516,41 @@
     {
       "method": "GET",
       "path": "/api/coding-features/file-map",
+      "file": "packages/server/src/routes/coding-features.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-features/migration-report",
+      "file": "packages/server/src/routes/coding-features.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-features/crosscut",
+      "file": "packages/server/src/routes/coding-features.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-features/test-signals",
+      "file": "packages/server/src/routes/coding-features.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-features/test-signals/enrich",
+      "file": "packages/server/src/routes/coding-features.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-features/crosscut/enrich",
       "file": "packages/server/src/routes/coding-features.mjs",
       "handler": "",
       "callChain": []
@@ -1513,6 +1709,12 @@
       "handler": "build",
       "callChain": [
         {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 5,
           "file": "",
@@ -1549,7 +1751,37 @@
           "resolved": false
         },
         {
-          "function": "p.every",
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
           "depth": 4,
           "file": "",
           "resolved": false
@@ -1633,6 +1865,30 @@
           "resolved": true
         },
         {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 3,
           "file": "",
@@ -1666,6 +1922,210 @@
           "function": "readFileSync",
           "depth": 1,
           "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
           "resolved": true
         },
         {
@@ -1713,6 +2173,12 @@
       "handler": "build",
       "callChain": [
         {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 5,
           "file": "",
@@ -1749,7 +2215,37 @@
           "resolved": false
         },
         {
-          "function": "p.every",
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
           "depth": 4,
           "file": "",
           "resolved": false
@@ -1833,6 +2329,30 @@
           "resolved": true
         },
         {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 3,
           "file": "",
@@ -1866,6 +2386,210 @@
           "function": "readFileSync",
           "depth": 1,
           "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
           "resolved": true
         },
         {
@@ -1913,6 +2637,12 @@
       "handler": "build",
       "callChain": [
         {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 5,
           "file": "",
@@ -1949,7 +2679,37 @@
           "resolved": false
         },
         {
-          "function": "p.every",
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
           "depth": 4,
           "file": "",
           "resolved": false
@@ -2033,6 +2793,30 @@
           "resolved": true
         },
         {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 3,
           "file": "",
@@ -2066,6 +2850,210 @@
           "function": "readFileSync",
           "depth": 1,
           "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
           "resolved": true
         },
         {
@@ -2113,6 +3101,12 @@
       "handler": "build",
       "callChain": [
         {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 5,
           "file": "",
@@ -2149,7 +3143,37 @@
           "resolved": false
         },
         {
-          "function": "p.every",
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
           "depth": 4,
           "file": "",
           "resolved": false
@@ -2233,6 +3257,30 @@
           "resolved": true
         },
         {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 3,
           "file": "",
@@ -2266,6 +3314,210 @@
           "function": "readFileSync",
           "depth": 1,
           "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
           "resolved": true
         },
         {
@@ -2313,6 +3565,12 @@
       "handler": "build",
       "callChain": [
         {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 5,
           "file": "",
@@ -2349,7 +3607,37 @@
           "resolved": false
         },
         {
-          "function": "p.every",
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
           "depth": 4,
           "file": "",
           "resolved": false
@@ -2433,6 +3721,30 @@
           "resolved": true
         },
         {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 3,
           "file": "",
@@ -2466,6 +3778,210 @@
           "function": "readFileSync",
           "depth": 1,
           "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
           "resolved": true
         },
         {
@@ -2513,6 +4029,12 @@
       "handler": "build",
       "callChain": [
         {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 5,
           "file": "",
@@ -2549,7 +4071,37 @@
           "resolved": false
         },
         {
-          "function": "p.every",
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
           "depth": 4,
           "file": "",
           "resolved": false
@@ -2633,6 +4185,30 @@
           "resolved": true
         },
         {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 3,
           "file": "",
@@ -2666,6 +4242,210 @@
           "function": "readFileSync",
           "depth": 1,
           "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
           "resolved": true
         },
         {
@@ -2713,6 +4493,12 @@
       "handler": "build",
       "callChain": [
         {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 5,
           "file": "",
@@ -2749,7 +4535,37 @@
           "resolved": false
         },
         {
-          "function": "p.every",
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
           "depth": 4,
           "file": "",
           "resolved": false
@@ -2833,6 +4649,30 @@
           "resolved": true
         },
         {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 3,
           "file": "",
@@ -2866,6 +4706,2530 @@
           "function": "readFileSync",
           "depth": 1,
           "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-releases/api-status",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "handler": "build",
+      "callChain": [
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-releases/e2e-inventory",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "handler": "build",
+      "callChain": [
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-releases/evidence-by-api",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "handler": "build",
+      "callChain": [
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-releases/review-report",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "handler": "build",
+      "callChain": [
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-releases/api-summary",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "handler": "build",
+      "callChain": [
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
           "resolved": true
         },
         {
@@ -2913,6 +7277,12 @@
       "handler": "build",
       "callChain": [
         {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 5,
           "file": "",
@@ -2949,7 +7319,37 @@
           "resolved": false
         },
         {
-          "function": "p.every",
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
           "depth": 4,
           "file": "",
           "resolved": false
@@ -3033,6 +7433,30 @@
           "resolved": true
         },
         {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 3,
           "file": "",
@@ -3066,6 +7490,210 @@
           "function": "readFileSync",
           "depth": 1,
           "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
           "resolved": true
         },
         {
@@ -3113,6 +7741,12 @@
       "handler": "build",
       "callChain": [
         {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 5,
           "file": "",
@@ -3149,7 +7783,37 @@
           "resolved": false
         },
         {
-          "function": "p.every",
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
           "depth": 4,
           "file": "",
           "resolved": false
@@ -3233,6 +7897,30 @@
           "resolved": true
         },
         {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 3,
           "file": "",
@@ -3266,6 +7954,210 @@
           "function": "readFileSync",
           "depth": 1,
           "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
           "resolved": true
         },
         {
@@ -3313,6 +8205,12 @@
       "handler": "build",
       "callChain": [
         {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 5,
           "file": "",
@@ -3349,7 +8247,37 @@
           "resolved": false
         },
         {
-          "function": "p.every",
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
           "depth": 4,
           "file": "",
           "resolved": false
@@ -3433,6 +8361,30 @@
           "resolved": true
         },
         {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 3,
           "file": "",
@@ -3466,6 +8418,210 @@
           "function": "readFileSync",
           "depth": 1,
           "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
           "resolved": true
         },
         {
@@ -3513,6 +8669,12 @@
       "handler": "build",
       "callChain": [
         {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 5,
           "file": "",
@@ -3549,7 +8711,37 @@
           "resolved": false
         },
         {
-          "function": "p.every",
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
           "depth": 4,
           "file": "",
           "resolved": false
@@ -3633,6 +8825,30 @@
           "resolved": true
         },
         {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 3,
           "file": "",
@@ -3666,6 +8882,210 @@
           "function": "readFileSync",
           "depth": 1,
           "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
           "resolved": true
         },
         {
@@ -3713,6 +9133,12 @@
       "handler": "build",
       "callChain": [
         {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 5,
           "file": "",
@@ -3749,7 +9175,37 @@
           "resolved": false
         },
         {
-          "function": "p.every",
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
           "depth": 4,
           "file": "",
           "resolved": false
@@ -3833,6 +9289,30 @@
           "resolved": true
         },
         {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
           "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
           "depth": 3,
           "file": "",
@@ -3866,6 +9346,1138 @@
           "function": "readFileSync",
           "depth": 1,
           "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-releases/evidence",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "handler": "build",
+      "callChain": [
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-releases/evidence",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "handler": "build",
+      "callChain": [
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "target.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "prefix.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "p2.every",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "seg.toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "t[i].toLowerCase",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 3,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "skip.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "_TEST_FILE_RE.test",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "out.push",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 1,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 1,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 4,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 1,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFile",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "dir.split(/[\\\\/]/).some",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "dir.split",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "TEST_DIR.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readFileSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
+          "resolved": true
+        },
+        {
+          "function": "isTestFileNameM",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "/^test[-_]/.test",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "readdirSync",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "startsWith",
+          "depth": 0,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": true
+        },
+        {
+          "function": "SKIP.has",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "join",
+          "depth": 0,
+          "file": "packages/server/src/routes/shared.mjs",
+          "resolved": true
+        },
+        {
+          "function": "e.isDirectory",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "walk",
+          "depth": 0,
+          "file": "packages/server/src/routes/coding-releases.mjs",
           "resolved": true
         },
         {
@@ -4158,10 +10770,16 @@
           "resolved": true
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
+        },
+        {
+          "function": "parse",
+          "depth": 1,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -4236,10 +10854,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -4464,10 +11082,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -4638,10 +11256,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -4928,10 +11546,16 @@
           "resolved": true
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
+        },
+        {
+          "function": "parse",
+          "depth": 1,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -5006,10 +11630,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -5234,10 +11858,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -5408,10 +12032,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -5698,10 +12322,16 @@
           "resolved": true
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
+        },
+        {
+          "function": "parse",
+          "depth": 1,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -5776,10 +12406,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -6004,10 +12634,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -6178,10 +12808,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -6468,10 +13098,16 @@
           "resolved": true
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
+        },
+        {
+          "function": "parse",
+          "depth": 1,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -6546,10 +13182,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -6774,10 +13410,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -6948,10 +13584,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -7238,10 +13874,16 @@
           "resolved": true
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
+        },
+        {
+          "function": "parse",
+          "depth": 1,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -7316,10 +13958,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -7544,10 +14186,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -7718,10 +14360,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -8008,10 +14650,16 @@
           "resolved": true
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
+        },
+        {
+          "function": "parse",
+          "depth": 1,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -8086,10 +14734,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -8314,10 +14962,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -8488,10 +15136,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -8778,10 +15426,16 @@
           "resolved": true
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
+        },
+        {
+          "function": "parse",
+          "depth": 1,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -8856,10 +15510,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -9084,10 +15738,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -9258,10 +15912,10 @@
           "resolved": false
         },
         {
-          "function": "JSON.parse",
-          "depth": 5,
-          "file": "",
-          "resolved": false
+          "function": "parse",
+          "depth": 0,
+          "file": "packages/server/src/lib/coding-db/reads.mjs",
+          "resolved": true
         },
         {
           "function": "readBody",
@@ -9433,6 +16087,94 @@
         },
         {
           "function": "res.status",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/api-features",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-project/ui-features",
+      "file": "packages/server/src/routes/coding.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
           "depth": 5,
           "file": "",
           "resolved": false
@@ -12211,6 +18953,13 @@
     },
     {
       "method": "GET",
+      "path": "/api/llm-logs/skill-engagement",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
       "path": "/api/llm-logs",
       "file": "packages/server/src/routes/llm-logs.mjs",
       "handler": "",
@@ -13426,6 +20175,32 @@
       ]
     },
     {
+      "method": "GET",
+      "path": "/api/starter-kits/*",
+      "file": "packages/server/src/routes/starter-kits.mjs",
+      "handler": "_json",
+      "callChain": [
+        {
+          "function": "res.writeHead",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.end",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
       "method": "POST",
       "path": "/api/uploads",
       "file": "packages/server/src/routes/uploads.mjs",
@@ -13543,53 +20318,11 @@
       "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
       "handler": "",
       "callChain": []
-    },
-    {
-      "method": "GET",
-      "path": "/api/learning/curriculum",
-      "file": "installed-apps/learning/server/routes/learning-practice.mjs",
-      "handler": "",
-      "callChain": []
-    },
-    {
-      "method": "GET",
-      "path": "/api/learning/crop",
-      "file": "installed-apps/learning/server/routes/learning-practice.mjs",
-      "handler": "",
-      "callChain": []
-    },
-    {
-      "method": "GET",
-      "path": "/api/learning/practice/today",
-      "file": "installed-apps/learning/server/routes/learning-practice.mjs",
-      "handler": "",
-      "callChain": []
-    },
-    {
-      "method": "GET",
-      "path": "/api/learning/practice/last",
-      "file": "installed-apps/learning/server/routes/learning-practice.mjs",
-      "handler": "",
-      "callChain": []
-    },
-    {
-      "method": "POST",
-      "path": "/api/learning/practice/submit",
-      "file": "installed-apps/learning/server/routes/learning-practice.mjs",
-      "handler": "",
-      "callChain": []
-    },
-    {
-      "method": "GET",
-      "path": "/api/learning/practice/stats",
-      "file": "installed-apps/learning/server/routes/learning-practice.mjs",
-      "handler": "",
-      "callChain": []
     }
   ],
   "stats": {
-    "totalRoutes": 364,
-    "withHandler": 124,
-    "withoutHandler": 240
+    "totalRoutes": 378,
+    "withHandler": 141,
+    "withoutHandler": 237
   }
 }

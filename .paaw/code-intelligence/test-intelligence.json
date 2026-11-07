@@ -1,6 +1,34 @@
 {
   "testFiles": [
     {
+      "file": "tests/unit/a2a-protocol.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/a2a-routes.test.mjs",
+      "type": "unit",
+      "functionCount": 3,
+      "functionNames": [
+        "call",
+        "rpc",
+        "msg"
+      ]
+    },
+    {
+      "file": "tests/unit/agent-logs.test.mjs",
+      "type": "unit",
+      "functionCount": 5,
+      "functionNames": [
+        "makeReqRes",
+        "writeTask",
+        "ageTask",
+        "setRetention",
+        "purgeTolerant"
+      ]
+    },
+    {
       "file": "tests/unit/agent-loop-max-turns.test.mjs",
       "type": "unit",
       "functionCount": 5,
@@ -21,16 +49,99 @@
       ]
     },
     {
-      "file": "tests/unit/audit-log.test.mjs",
+      "file": "tests/unit/api-features.test.mjs",
       "type": "unit",
       "functionCount": 0,
       "functionNames": []
+    },
+    {
+      "file": "tests/unit/audit-log-route.test.mjs",
+      "type": "unit",
+      "functionCount": 4,
+      "functionNames": [
+        "mockReq",
+        "mockRes",
+        "call",
+        "writeDay"
+      ]
+    },
+    {
+      "file": "tests/unit/audit-log.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "mk"
+      ]
+    },
+    {
+      "file": "tests/unit/auto-dispatch-run-history.test.mjs",
+      "type": "unit",
+      "functionCount": 3,
+      "functionNames": [
+        "makeRes",
+        "callRoute",
+        "require_fs_list"
+      ]
     },
     {
       "file": "tests/unit/auto-dispatch-shared.test.mjs",
       "type": "unit",
       "functionCount": 0,
       "functionNames": []
+    },
+    {
+      "file": "tests/unit/changelog-review-scope.test.mjs",
+      "type": "unit",
+      "functionCount": 2,
+      "functionNames": [
+        "git",
+        "tc"
+      ]
+    },
+    {
+      "file": "tests/unit/chat-uploads-hardening.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/chat-uploads-routes.test.mjs",
+      "type": "unit",
+      "functionCount": 8,
+      "functionNames": [
+        "pngBuf",
+        "jpegBuf",
+        "pngDataUrl",
+        "makeReqRes",
+        "jsonBody",
+        "twoReqs",
+        "seedChat",
+        "registerRu"
+      ]
+    },
+    {
+      "file": "tests/unit/chatview.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "makeSeedBox"
+      ]
+    },
+    {
+      "file": "tests/unit/coding-auto-dispatch.test.mjs",
+      "type": "unit",
+      "functionCount": 9,
+      "functionNames": [
+        "fakeReq",
+        "fakeRes",
+        "call",
+        "json",
+        "pathUrl",
+        "writeStatus",
+        "readStatus",
+        "release",
+        "release"
+      ]
     },
     {
       "file": "tests/unit/coding-evidence.test.mjs",
@@ -45,6 +156,42 @@
       "functionNames": [
         "mockReq",
         "mockRes"
+      ]
+    },
+    {
+      "file": "tests/unit/coding-issues.test.mjs",
+      "type": "unit",
+      "functionCount": 8,
+      "functionNames": [
+        "startServer",
+        "stopServer",
+        "req",
+        "q",
+        "issuesFile",
+        "seedIssues",
+        "readIssues",
+        "seedKnown"
+      ]
+    },
+    {
+      "file": "tests/unit/coding-ops.test.mjs",
+      "type": "unit",
+      "functionCount": 4,
+      "functionNames": [
+        "makeReqRes",
+        "RUNBOOK_DIR",
+        "call",
+        "post"
+      ]
+    },
+    {
+      "file": "tests/unit/coding-review-board.test.mjs",
+      "type": "unit",
+      "functionCount": 3,
+      "functionNames": [
+        "makeReqRes",
+        "callRoute",
+        "seedReport"
       ]
     },
     {
@@ -96,6 +243,26 @@
       "type": "unit",
       "functionCount": 0,
       "functionNames": []
+    },
+    {
+      "file": "tests/unit/crosscut-concepts.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "makeRepo"
+      ]
+    },
+    {
+      "file": "tests/unit/cu-staleness.test.mjs",
+      "type": "unit",
+      "functionCount": 5,
+      "functionNames": [
+        "git",
+        "commitAll",
+        "artifact",
+        "stepsWith",
+        "cleanTree"
+      ]
     },
     {
       "file": "tests/unit/db-connection.test.ts",
@@ -176,12 +343,29 @@
       ]
     },
     {
+      "file": "tests/unit/feature-map-store.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "ffDoc"
+      ]
+    },
+    {
       "file": "tests/unit/feature-merge.test.mjs",
       "type": "unit",
       "functionCount": 2,
       "functionNames": [
         "makeId",
         "oldFeature"
+      ]
+    },
+    {
+      "file": "tests/unit/feature-phase-c.test.mjs",
+      "type": "unit",
+      "functionCount": 2,
+      "functionNames": [
+        "old",
+        "makeId"
       ]
     },
     {
@@ -193,6 +377,28 @@
       ]
     },
     {
+      "file": "tests/unit/feature-skeleton-v3.test.mjs",
+      "type": "unit",
+      "functionCount": 2,
+      "functionNames": [
+        "fixture",
+        "mapOf"
+      ]
+    },
+    {
+      "file": "tests/unit/helpdesk.test.mjs",
+      "type": "unit",
+      "functionCount": 6,
+      "functionNames": [
+        "keyFor",
+        "mockReq",
+        "mockRes",
+        "call",
+        "seedTickets",
+        "readTickets"
+      ]
+    },
+    {
       "file": "tests/unit/i18n-consistency.test.ts",
       "type": "unit",
       "functionCount": 3,
@@ -200,6 +406,15 @@
         "loadLocale",
         "loadRaw",
         "checkLeaves"
+      ]
+    },
+    {
+      "file": "tests/unit/llm-logs.test.mjs",
+      "type": "unit",
+      "functionCount": 2,
+      "functionNames": [
+        "dayStr",
+        "w"
       ]
     },
     {
@@ -224,6 +439,58 @@
       ]
     },
     {
+      "file": "tests/unit/nextjs-async-params-page-template.test.mjs",
+      "type": "unit",
+      "functionCount": 4,
+      "functionNames": [
+        "loadTemplateModule",
+        "renderPage",
+        "stubFetch",
+        "jsonResponse"
+      ]
+    },
+    {
+      "file": "tests/unit/nextjs-async-params-template.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/nextjs-parallel-routes-template.test.mjs",
+      "type": "unit",
+      "functionCount": 11,
+      "functionNames": [
+        "resolveSlot",
+        "makeModalTree",
+        "resolveChildren",
+        "childrenHasPageFor",
+        "slotRenderer",
+        "renderSlotWithErrorBoundary",
+        "errorComponent",
+        "failingPage",
+        "flakyPage",
+        "errorComponent",
+        "failingPage"
+      ]
+    },
+    {
+      "file": "tests/unit/nextjs-use-cache-template.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/notes.test.mjs",
+      "type": "unit",
+      "functionCount": 4,
+      "functionNames": [
+        "mockReq",
+        "mockRes",
+        "call",
+        "tryJson"
+      ]
+    },
+    {
       "file": "tests/unit/paaw-sandbox-mxc.test.mjs",
       "type": "unit",
       "functionCount": 0,
@@ -236,14 +503,6 @@
       "functionNames": []
     },
     {
-      "file": "tests/unit/pm-module.test.mjs",
-      "type": "unit",
-      "functionCount": 1,
-      "functionNames": [
-        "slug"
-      ]
-    },
-    {
       "file": "tests/unit/providers.test.mjs",
       "type": "unit",
       "functionCount": 1,
@@ -252,10 +511,42 @@
       ]
     },
     {
+      "file": "tests/unit/release-evidence-snapshot.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "G"
+      ]
+    },
+    {
       "file": "tests/unit/release-evidence.test.mjs",
       "type": "unit",
       "functionCount": 0,
       "functionNames": []
+    },
+    {
+      "file": "tests/unit/release-requests-delta.test.mjs",
+      "type": "unit",
+      "functionCount": 5,
+      "functionNames": [
+        "git",
+        "head",
+        "commitFile",
+        "item",
+        "writeFeatureMap"
+      ]
+    },
+    {
+      "file": "tests/unit/release-requests-lineage.test.mjs",
+      "type": "unit",
+      "functionCount": 5,
+      "functionNames": [
+        "git",
+        "commitFile",
+        "head",
+        "qaAuto",
+        "currentRrId"
+      ]
     },
     {
       "file": "tests/unit/release-unit-adapters.test.mjs",
@@ -266,17 +557,85 @@
       ]
     },
     {
+      "file": "tests/unit/release-unit-impact.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "tmpProject"
+      ]
+    },
+    {
+      "file": "tests/unit/release-unit-model.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/review-boundary-crosscut.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/route-handler-api-template.test.mjs",
+      "type": "unit",
+      "functionCount": 16,
+      "functionNames": [
+        "exportedFunctionNames",
+        "compileTemplateWithTs",
+        "astTopLevelExportedFunctions",
+        "makeResponse",
+        "demoSearchPosts",
+        "demoPatchPost",
+        "demoDeletePost",
+        "demoUploadFile",
+        "makeUploadDeps",
+        "demoGetPost",
+        "demoCreatePost",
+        "demoLogin",
+        "demoMe",
+        "demoWebhook",
+        "demoErrorHandling",
+        "makeRateLimiter"
+      ]
+    },
+    {
+      "file": "tests/unit/ru-skills.test.mjs",
+      "type": "unit",
+      "functionCount": 9,
+      "functionNames": [
+        "mkTmp",
+        "seedGlobalSkill",
+        "mkProject",
+        "track",
+        "mockReq",
+        "mockRes",
+        "callRoute",
+        "r_code",
+        "_copyDir"
+      ]
+    },
+    {
+      "file": "tests/unit/rust-feature-map.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "w"
+      ]
+    },
+    {
       "file": "tests/unit/script-guard.test.mjs",
       "type": "unit",
       "functionCount": 0,
       "functionNames": []
     },
     {
-      "file": "tests/unit/secretary-module.test.mjs",
+      "file": "tests/unit/security-kernel-matrix.test.mjs",
       "type": "unit",
-      "functionCount": 1,
+      "functionCount": 2,
       "functionNames": [
-        "slug"
+        "dirname_",
+        "makeKernel"
       ]
     },
     {
@@ -285,6 +644,29 @@
       "functionCount": 1,
       "functionNames": [
         "restore"
+      ]
+    },
+    {
+      "file": "tests/unit/server-actions-form-compile.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "typeCheckTemplate"
+      ]
+    },
+    {
+      "file": "tests/unit/server-actions-form-template.test.mjs",
+      "type": "unit",
+      "functionCount": 8,
+      "functionNames": [
+        "exportedAsyncFunctionNames",
+        "moduleDirectives",
+        "makeValidator",
+        "createPostWithValidation",
+        "makeFormData",
+        "failingFetch",
+        "submitContactForm",
+        "headers"
       ]
     },
     {
@@ -317,6 +699,14 @@
       "functionNames": []
     },
     {
+      "file": "tests/unit/skill-engagement.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "w"
+      ]
+    },
+    {
       "file": "tests/unit/skill-format.test.mjs",
       "type": "unit",
       "functionCount": 2,
@@ -326,21 +716,25 @@
       ]
     },
     {
-      "file": "tests/unit/sre-module.test.mjs",
-      "type": "unit",
-      "functionCount": 4,
-      "functionNames": [
-        "mockReq",
-        "mockRes",
-        "call",
-        "j"
-      ]
-    },
-    {
       "file": "tests/unit/stable-stringify.test.mjs",
       "type": "unit",
       "functionCount": 0,
       "functionNames": []
+    },
+    {
+      "file": "tests/unit/subfeature-refine.test.mjs",
+      "type": "unit",
+      "functionCount": 8,
+      "functionNames": [
+        "infoOf",
+        "buildTwoCliques",
+        "mk",
+        "wAt",
+        "twoDoms",
+        "info",
+        "info",
+        "info"
+      ]
     },
     {
       "file": "tests/unit/surrogate-safety.test.mjs",
@@ -355,6 +749,25 @@
       "type": "unit",
       "functionCount": 0,
       "functionNames": []
+    },
+    {
+      "file": "tests/unit/test-runner-coverage.test.mjs",
+      "type": "unit",
+      "functionCount": 1,
+      "functionNames": [
+        "fixture"
+      ]
+    },
+    {
+      "file": "tests/unit/test-signals.test.mjs",
+      "type": "unit",
+      "functionCount": 4,
+      "functionNames": [
+        "w",
+        "c",
+        "mockLLM",
+        "lowLLM"
+      ]
     },
     {
       "file": "tests/unit/tool-engine-provider.test.mjs",
@@ -407,6 +820,36 @@
         "loadTools",
         "toolNames"
       ]
+    },
+    {
+      "file": "tests/unit/ui-features.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/ui-utils.test.ts",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
+    },
+    {
+      "file": "tests/unit/usage-report-panel.test.mjs",
+      "type": "unit",
+      "functionCount": 5,
+      "functionNames": [
+        "newAgg",
+        "add",
+        "isoDay",
+        "aggregate",
+        "T"
+      ]
+    },
+    {
+      "file": "tests/unit/utility-consumers.test.mjs",
+      "type": "unit",
+      "functionCount": 0,
+      "functionNames": []
     },
     {
       "file": "tests/e2e/01-smoke.spec.ts",
@@ -539,7 +982,7 @@
     {
       "file": "packages/server/src/lib/test-report-reader.mjs",
       "type": "unit",
-      "functionCount": 14,
+      "functionCount": 15,
       "functionNames": [
         "findTestReports",
         "parseCoverageSummary",
@@ -553,6 +996,7 @@
         "parseGoCoverprofile",
         "parsePaawTestRun",
         "readTestReports",
+        "mergeCoverage",
         "testReportSummary",
         "pick"
       ]
@@ -560,7 +1004,7 @@
     {
       "file": "packages/server/src/lib/test-runner.mjs",
       "type": "unit",
-      "functionCount": 20,
+      "functionCount": 21,
       "functionNames": [
         "detectTestGroups",
         "detectPytest",
@@ -572,6 +1016,7 @@
         "findReportXmls",
         "check",
         "skip",
+        "parseNodeCoverage",
         "runGroup",
         "walk",
         "spawnCapture",
@@ -580,12 +1025,76 @@
         "p",
         "pruneRuns",
         "startTestRun",
-        "readLastTestRun",
-        "detectDetectedSummary"
+        "readLastTestRun"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/test-signals.mjs",
+      "type": "unit",
+      "functionCount": 27,
+      "functionNames": [
+        "_locateTablesDir",
+        "loadTestSignalTables",
+        "validateTables",
+        "check",
+        "isTestPath",
+        "languageOf",
+        "_any",
+        "testRegion",
+        "ownSignals",
+        "push",
+        "_merge",
+        "cat",
+        "labelFromSignals",
+        "localImports",
+        "norm",
+        "_goModule",
+        "_goSeeds",
+        "addDir",
+        "_javaSeeds",
+        "mentions"
       ]
     }
   ],
   "testToCode": [
+    {
+      "testFile": "tests/unit/a2a-protocol.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/routes/a2a.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/a2a-constants.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/a2a-routes.test.mjs",
+      "testType": "unit",
+      "functionCount": 3,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/agent-logs.test.mjs",
+      "testType": "unit",
+      "functionCount": 5,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/routes/agent-logs.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
     {
       "testFile": "tests/unit/agent-loop-max-turns.test.mjs",
       "testType": "unit",
@@ -606,9 +1115,41 @@
       ]
     },
     {
-      "testFile": "tests/unit/audit-log.test.mjs",
+      "testFile": "tests/unit/api-features.test.mjs",
       "testType": "unit",
       "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/coding-db/api-features.repo.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/coding-db/reads.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/audit-log-route.test.mjs",
+      "testType": "unit",
+      "functionCount": 4,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/routes/audit-log.mjs",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/audit-log.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
       "matches": [
         {
           "productionFile": "packages/server/src/routes/audit-log.mjs",
@@ -619,7 +1160,9 @@
         {
           "productionFile": "packages/server/src/lib/audit-log.mjs",
           "matchType": "naming",
-          "testedFunctions": [],
+          "testedFunctions": [
+            "scanCommandOutput"
+          ],
           "confidence": "high"
         },
         {
@@ -631,12 +1174,94 @@
       ]
     },
     {
+      "testFile": "tests/unit/auto-dispatch-run-history.test.mjs",
+      "testType": "unit",
+      "functionCount": 3,
+      "matches": []
+    },
+    {
       "testFile": "tests/unit/auto-dispatch-shared.test.mjs",
       "testType": "unit",
       "functionCount": 0,
       "matches": [
         {
           "productionFile": "packages/server/src/lib/auto-dispatch-shared.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/changelog-review-scope.test.mjs",
+      "testType": "unit",
+      "functionCount": 2,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/coding-review-runner.mjs",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        },
+        {
+          "productionFile": "packages/server/src/lib/paaw-project.mjs",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/chat-uploads-hardening.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/coding-security.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/routes/uploads.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/chat-uploads-routes.test.mjs",
+      "testType": "unit",
+      "functionCount": 8,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/chatview.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/ui/src/pages/ChatView.tsx",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        },
+        {
+          "productionFile": "packages/ui/src/components/ChatInputBar.tsx",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/coding-auto-dispatch.test.mjs",
+      "testType": "unit",
+      "functionCount": 9,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/routes/coding-auto-dispatch.mjs",
           "matchType": "naming",
           "testedFunctions": [],
           "confidence": "high"
@@ -663,6 +1288,47 @@
       "matches": [
         {
           "productionFile": "packages/server/src/routes/coding-handover.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/coding-issues.test.mjs",
+      "testType": "unit",
+      "functionCount": 8,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/routes/coding-issues.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/coding-ops.test.mjs",
+      "testType": "unit",
+      "functionCount": 4,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/routes/coding-ops.mjs",
+          "matchType": "naming",
+          "testedFunctions": [
+            "opsRoutes"
+          ],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/coding-review-board.test.mjs",
+      "testType": "unit",
+      "functionCount": 3,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/routes/coding-review-board.mjs",
           "matchType": "naming",
           "testedFunctions": [],
           "confidence": "high"
@@ -757,6 +1423,40 @@
           "matchType": "import",
           "testedFunctions": [],
           "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/crosscut-concepts.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/crosscut-concepts.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/cu-staleness.test.mjs",
+      "testType": "unit",
+      "functionCount": 5,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/routes/coding.mjs",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        },
+        {
+          "productionFile": "packages/server/src/lib/cu-source-scan.mjs",
+          "matchType": "reference",
+          "testedFunctions": [
+            "git"
+          ],
+          "confidence": "medium"
         }
       ]
     },
@@ -878,18 +1578,6 @@
           "matchType": "import",
           "testedFunctions": [],
           "confidence": "high"
-        },
-        {
-          "productionFile": "packages/server/src/lib/em-orchestrator.mjs",
-          "matchType": "import",
-          "testedFunctions": [],
-          "confidence": "high"
-        },
-        {
-          "productionFile": "packages/server/src/lib/em-job-entrypoints.mjs",
-          "matchType": "import",
-          "testedFunctions": [],
-          "confidence": "high"
         }
       ]
     },
@@ -920,7 +1608,33 @@
       ]
     },
     {
+      "testFile": "tests/unit/feature-map-store.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/feature-map-store.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
       "testFile": "tests/unit/feature-merge.test.mjs",
+      "testType": "unit",
+      "functionCount": 2,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/feature-registry.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/feature-phase-c.test.mjs",
       "testType": "unit",
       "functionCount": 2,
       "matches": [
@@ -946,10 +1660,55 @@
       ]
     },
     {
+      "testFile": "tests/unit/feature-skeleton-v3.test.mjs",
+      "testType": "unit",
+      "functionCount": 2,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/tree-sitter-parser.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/code-graph.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/helpdesk.test.mjs",
+      "testType": "unit",
+      "functionCount": 6,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/routes/helpdesk.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
       "testFile": "tests/unit/i18n-consistency.test.ts",
       "testType": "unit",
       "functionCount": 3,
       "matches": []
+    },
+    {
+      "testFile": "tests/unit/llm-logs.test.mjs",
+      "testType": "unit",
+      "functionCount": 2,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/routes/llm-logs.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
     },
     {
       "testFile": "tests/unit/llm-utils.test.mjs",
@@ -969,6 +1728,77 @@
       "testType": "unit",
       "functionCount": 8,
       "matches": []
+    },
+    {
+      "testFile": "tests/unit/nextjs-async-params-page-template.test.mjs",
+      "testType": "unit",
+      "functionCount": 4,
+      "matches": [
+        {
+          "productionFile": "data/skills/physical-skill/nextjs-backend-best-practices/templates/async-params-page.tsx",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/nextjs-async-params-template.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "data/skills/physical-skill/nextjs-backend-best-practices/templates/app-router-async-params.tsx",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/nextjs-parallel-routes-template.test.mjs",
+      "testType": "unit",
+      "functionCount": 11,
+      "matches": [
+        {
+          "productionFile": "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/nextjs-use-cache-template.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "data/skills/physical-skill/nextjs-backend-best-practices/templates/cache-component-use-cache.tsx",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/notes.test.mjs",
+      "testType": "unit",
+      "functionCount": 4,
+      "matches": [
+        {
+          "productionFile": "packages/ui/src/pages/Notes.tsx",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/routes/notes.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
     },
     {
       "testFile": "tests/unit/paaw-sandbox-mxc.test.mjs",
@@ -997,23 +1827,23 @@
       ]
     },
     {
-      "testFile": "tests/unit/pm-module.test.mjs",
-      "testType": "unit",
-      "functionCount": 1,
-      "matches": [
-        {
-          "productionFile": "packages/server/src/lib/secretary-tools.mjs",
-          "matchType": "reference",
-          "testedFunctions": [],
-          "confidence": "medium"
-        }
-      ]
-    },
-    {
       "testFile": "tests/unit/providers.test.mjs",
       "testType": "unit",
       "functionCount": 1,
       "matches": []
+    },
+    {
+      "testFile": "tests/unit/release-evidence-snapshot.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/release-evidence-snapshot.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
     },
     {
       "testFile": "tests/unit/release-evidence.test.mjs",
@@ -1029,7 +1859,89 @@
       ]
     },
     {
+      "testFile": "tests/unit/release-requests-delta.test.mjs",
+      "testType": "unit",
+      "functionCount": 5,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/release-requests.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/qa-results.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/release-requests-lineage.test.mjs",
+      "testType": "unit",
+      "functionCount": 5,
+      "matches": []
+    },
+    {
       "testFile": "tests/unit/release-unit-adapters.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/release-unit-impact.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/release-unit-model.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/review-boundary-crosscut.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/review-boundary.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/route-handler-api-template.test.mjs",
+      "testType": "unit",
+      "functionCount": 16,
+      "matches": [
+        {
+          "productionFile": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/ru-skills.test.mjs",
+      "testType": "unit",
+      "functionCount": 9,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/ru-skills.mjs",
+          "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/rust-feature-map.test.mjs",
       "testType": "unit",
       "functionCount": 1,
       "matches": []
@@ -1048,15 +1960,45 @@
       ]
     },
     {
-      "testFile": "tests/unit/secretary-module.test.mjs",
+      "testFile": "tests/unit/security-kernel-matrix.test.mjs",
       "testType": "unit",
-      "functionCount": 1,
+      "functionCount": 2,
       "matches": [
         {
-          "productionFile": "packages/server/src/lib/secretary-tools.mjs",
-          "matchType": "reference",
+          "productionFile": "packages/server/src/lib/security/index.mjs",
+          "matchType": "import",
           "testedFunctions": [],
-          "confidence": "medium"
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/security/approval.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/security/audit-log.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/security/secret-store.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/security/policy-pipeline.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/shell-guard.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
         }
       ]
     },
@@ -1070,6 +2012,32 @@
           "matchType": "naming",
           "testedFunctions": [],
           "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/server-actions-form-compile.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "data/skills/physical-skill/nextjs-backend-best-practices/templates/server-actions-form.tsx",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/server-actions-form-template.test.mjs",
+      "testType": "unit",
+      "functionCount": 8,
+      "matches": [
+        {
+          "productionFile": "data/skills/physical-skill/nextjs-backend-best-practices/templates/server-actions-form.tsx",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
         }
       ]
     },
@@ -1125,15 +2093,22 @@
       ]
     },
     {
+      "testFile": "tests/unit/skill-engagement.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/routes/llm-logs.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
       "testFile": "tests/unit/skill-format.test.mjs",
       "testType": "unit",
       "functionCount": 2,
-      "matches": []
-    },
-    {
-      "testFile": "tests/unit/sre-module.test.mjs",
-      "testType": "unit",
-      "functionCount": 4,
       "matches": []
     },
     {
@@ -1144,6 +2119,19 @@
         {
           "productionFile": "packages/server/src/lib/stable-stringify.mjs",
           "matchType": "naming",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/subfeature-refine.test.mjs",
+      "testType": "unit",
+      "functionCount": 8,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/feature-subfeature.mjs",
+          "matchType": "import",
           "testedFunctions": [],
           "confidence": "high"
         }
@@ -1175,6 +2163,18 @@
       "matches": []
     },
     {
+      "testFile": "tests/unit/test-runner-coverage.test.mjs",
+      "testType": "unit",
+      "functionCount": 1,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/test-signals.test.mjs",
+      "testType": "unit",
+      "functionCount": 4,
+      "matches": []
+    },
+    {
       "testFile": "tests/unit/tool-engine-provider.test.mjs",
       "testType": "unit",
       "functionCount": 8,
@@ -1196,7 +2196,66 @@
       "testFile": "tests/unit/tools-index.test.mjs",
       "testType": "unit",
       "functionCount": 7,
-      "matches": []
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/coding-db/api-features.repo.mjs",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/ui-features.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/coding-db/ui-features.repo.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/ui-utils.test.ts",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/ui/src/utils/index.ts",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/usage-report-panel.test.mjs",
+      "testType": "unit",
+      "functionCount": 5,
+      "matches": [
+        {
+          "productionFile": "packages/ui/src/components/UsageReportPanel.tsx",
+          "matchType": "reference",
+          "testedFunctions": [],
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/unit/utility-consumers.test.mjs",
+      "testType": "unit",
+      "functionCount": 0,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/crosscut-concepts.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
     },
     {
       "testFile": "tests/e2e/01-smoke.spec.ts",
@@ -1433,19 +2492,25 @@
           "matchType": "import",
           "testedFunctions": [],
           "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/feature-registry.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
         }
       ]
     },
     {
       "testFile": "packages/server/src/lib/test-report-reader.mjs",
       "testType": "unit",
-      "functionCount": 14,
+      "functionCount": 15,
       "matches": []
     },
     {
       "testFile": "packages/server/src/lib/test-runner.mjs",
       "testType": "unit",
-      "functionCount": 20,
+      "functionCount": 21,
       "matches": [
         {
           "productionFile": "packages/server/src/lib/shell-exec.mjs",
@@ -1454,9 +2519,49 @@
           "confidence": "high"
         }
       ]
+    },
+    {
+      "testFile": "packages/server/src/lib/test-signals.mjs",
+      "testType": "unit",
+      "functionCount": 27,
+      "matches": [
+        {
+          "productionFile": "packages/server/src/lib/coding-db/docs.repo.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        },
+        {
+          "productionFile": "packages/server/src/lib/stable-stringify.mjs",
+          "matchType": "import",
+          "testedFunctions": [],
+          "confidence": "high"
+        }
+      ]
     }
   ],
   "codeToTest": {
+    "packages/server/src/routes/a2a.mjs": [
+      {
+        "testFile": "tests/unit/a2a-protocol.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/a2a-constants.mjs": [
+      {
+        "testFile": "tests/unit/a2a-protocol.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/routes/agent-logs.mjs": [
+      {
+        "testFile": "tests/unit/agent-logs.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
     "packages/server/src/routes/ai-settings.mjs": [
       {
         "testFile": "tests/unit/ai-settings.test.mjs",
@@ -1464,7 +2569,31 @@
         "testedFunctions": []
       }
     ],
+    "packages/server/src/lib/coding-db/api-features.repo.mjs": [
+      {
+        "testFile": "tests/unit/api-features.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/tools-index.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/coding-db/reads.mjs": [
+      {
+        "testFile": "tests/unit/api-features.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
     "packages/server/src/routes/audit-log.mjs": [
+      {
+        "testFile": "tests/unit/audit-log-route.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
       {
         "testFile": "tests/unit/audit-log.test.mjs",
         "testType": "unit",
@@ -1475,7 +2604,9 @@
       {
         "testFile": "tests/unit/audit-log.test.mjs",
         "testType": "unit",
-        "testedFunctions": []
+        "testedFunctions": [
+          "scanCommandOutput"
+        ]
       }
     ],
     "packages/server/src/lib/security/audit-log.mjs": [
@@ -1483,11 +2614,80 @@
         "testFile": "tests/unit/audit-log.test.mjs",
         "testType": "unit",
         "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/security-kernel-matrix.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
       }
     ],
     "packages/server/src/lib/auto-dispatch-shared.mjs": [
       {
         "testFile": "tests/unit/auto-dispatch-shared.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/coding-review-runner.mjs": [
+      {
+        "testFile": "tests/unit/changelog-review-scope.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/paaw-project.mjs": [
+      {
+        "testFile": "tests/unit/changelog-review-scope.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/coding-security.mjs": [
+      {
+        "testFile": "tests/unit/chat-uploads-hardening.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/coding-security-extended.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/coding-security.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/conversation-sanitize.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/routes/uploads.mjs": [
+      {
+        "testFile": "tests/unit/chat-uploads-hardening.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/ui/src/pages/ChatView.tsx": [
+      {
+        "testFile": "tests/unit/chatview.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/ui/src/components/ChatInputBar.tsx": [
+      {
+        "testFile": "tests/unit/chatview.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/routes/coding-auto-dispatch.mjs": [
+      {
+        "testFile": "tests/unit/coding-auto-dispatch.test.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
@@ -1506,19 +2706,25 @@
         "testedFunctions": []
       }
     ],
-    "packages/server/src/lib/coding-security.mjs": [
+    "packages/server/src/routes/coding-issues.mjs": [
       {
-        "testFile": "tests/unit/coding-security-extended.test.mjs",
+        "testFile": "tests/unit/coding-issues.test.mjs",
         "testType": "unit",
         "testedFunctions": []
-      },
+      }
+    ],
+    "packages/server/src/routes/coding-ops.mjs": [
       {
-        "testFile": "tests/unit/coding-security.test.mjs",
+        "testFile": "tests/unit/coding-ops.test.mjs",
         "testType": "unit",
-        "testedFunctions": []
-      },
+        "testedFunctions": [
+          "opsRoutes"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-review-board.mjs": [
       {
-        "testFile": "tests/unit/conversation-sanitize.test.mjs",
+        "testFile": "tests/unit/coding-review-board.test.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
@@ -1559,6 +2765,34 @@
         "testFile": "tests/unit/surrogate-safety.test.mjs",
         "testType": "unit",
         "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/crosscut-concepts.mjs": [
+      {
+        "testFile": "tests/unit/crosscut-concepts.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/utility-consumers.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/routes/coding.mjs": [
+      {
+        "testFile": "tests/unit/cu-staleness.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/cu-source-scan.mjs": [
+      {
+        "testFile": "tests/unit/cu-staleness.test.mjs",
+        "testType": "unit",
+        "testedFunctions": [
+          "git"
+        ]
       }
     ],
     "packages/db/src/connection.ts": [
@@ -1643,20 +2877,6 @@
         "testedFunctions": []
       }
     ],
-    "packages/server/src/lib/em-orchestrator.mjs": [
-      {
-        "testFile": "tests/unit/em-foreman.test.mjs",
-        "testType": "unit",
-        "testedFunctions": []
-      }
-    ],
-    "packages/server/src/lib/em-job-entrypoints.mjs": [
-      {
-        "testFile": "tests/unit/em-foreman.test.mjs",
-        "testType": "unit",
-        "testedFunctions": []
-      }
-    ],
     "packages/server/src/lib/exec-approvals.mjs": [
       {
         "testFile": "tests/unit/exec-approvals.test.mjs",
@@ -1671,6 +2891,13 @@
         "testedFunctions": []
       }
     ],
+    "packages/server/src/lib/feature-map-store.mjs": [
+      {
+        "testFile": "tests/unit/feature-map-store.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
     "packages/server/src/lib/feature-registry.mjs": [
       {
         "testFile": "tests/unit/feature-merge.test.mjs",
@@ -1678,7 +2905,17 @@
         "testedFunctions": []
       },
       {
+        "testFile": "tests/unit/feature-phase-c.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
         "testFile": "tests/unit/severity-auto-scan.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "packages/server/src/lib/test-intelligence.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
@@ -1691,6 +2928,44 @@
       },
       {
         "testFile": "tests/unit/severity-auto-scan.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/tree-sitter-parser.mjs": [
+      {
+        "testFile": "tests/unit/feature-skeleton-v3.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "packages/server/src/lib/test-intelligence.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/code-graph.mjs": [
+      {
+        "testFile": "tests/unit/feature-skeleton-v3.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/routes/helpdesk.mjs": [
+      {
+        "testFile": "tests/unit/helpdesk.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/routes/llm-logs.mjs": [
+      {
+        "testFile": "tests/unit/llm-logs.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/skill-engagement.test.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
@@ -1717,6 +2992,48 @@
         "testedFunctions": []
       }
     ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/async-params-page.tsx": [
+      {
+        "testFile": "tests/unit/nextjs-async-params-page-template.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/app-router-async-params.tsx": [
+      {
+        "testFile": "tests/unit/nextjs-async-params-template.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx": [
+      {
+        "testFile": "tests/unit/nextjs-parallel-routes-template.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/cache-component-use-cache.tsx": [
+      {
+        "testFile": "tests/unit/nextjs-use-cache-template.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/ui/src/pages/Notes.tsx": [
+      {
+        "testFile": "tests/unit/notes.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/routes/notes.mjs": [
+      {
+        "testFile": "tests/unit/notes.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
     "packages/server/src/lib/paaw-sandbox.mjs": [
       {
         "testFile": "tests/unit/paaw-sandbox-mxc.test.mjs",
@@ -1724,14 +3041,9 @@
         "testedFunctions": []
       }
     ],
-    "packages/server/src/lib/secretary-tools.mjs": [
+    "packages/server/src/lib/release-evidence-snapshot.mjs": [
       {
-        "testFile": "tests/unit/pm-module.test.mjs",
-        "testType": "unit",
-        "testedFunctions": []
-      },
-      {
-        "testFile": "tests/unit/secretary-module.test.mjs",
+        "testFile": "tests/unit/release-evidence-snapshot.test.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
@@ -1743,6 +3055,41 @@
         "testedFunctions": []
       }
     ],
+    "packages/server/src/lib/release-requests.mjs": [
+      {
+        "testFile": "tests/unit/release-requests-delta.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/qa-results.mjs": [
+      {
+        "testFile": "tests/unit/release-requests-delta.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/review-boundary.mjs": [
+      {
+        "testFile": "tests/unit/review-boundary-crosscut.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts": [
+      {
+        "testFile": "tests/unit/route-handler-api-template.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/ru-skills.mjs": [
+      {
+        "testFile": "tests/unit/ru-skills.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
     "packages/server/src/lib/script-guard.mjs": [
       {
         "testFile": "tests/unit/script-guard.test.mjs",
@@ -1750,9 +3097,56 @@
         "testedFunctions": []
       }
     ],
+    "packages/server/src/lib/security/index.mjs": [
+      {
+        "testFile": "tests/unit/security-kernel-matrix.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/security/approval.mjs": [
+      {
+        "testFile": "tests/unit/security-kernel-matrix.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/security/secret-store.mjs": [
+      {
+        "testFile": "tests/unit/security-kernel-matrix.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/security/policy-pipeline.mjs": [
+      {
+        "testFile": "tests/unit/security-kernel-matrix.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/shell-guard.mjs": [
+      {
+        "testFile": "tests/unit/security-kernel-matrix.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
     "packages/server/src/lib/security-mode.mjs": [
       {
         "testFile": "tests/unit/security-mode.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/server-actions-form.tsx": [
+      {
+        "testFile": "tests/unit/server-actions-form-compile.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "tests/unit/server-actions-form-template.test.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
@@ -1779,6 +3173,39 @@
     "packages/server/src/lib/stable-stringify.mjs": [
       {
         "testFile": "tests/unit/stable-stringify.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      },
+      {
+        "testFile": "packages/server/src/lib/test-signals.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/feature-subfeature.mjs": [
+      {
+        "testFile": "tests/unit/subfeature-refine.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/server/src/lib/coding-db/ui-features.repo.mjs": [
+      {
+        "testFile": "tests/unit/ui-features.test.mjs",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/ui/src/utils/index.ts": [
+      {
+        "testFile": "tests/unit/ui-utils.test.ts",
+        "testType": "unit",
+        "testedFunctions": []
+      }
+    ],
+    "packages/ui/src/components/UsageReportPanel.tsx": [
+      {
+        "testFile": "tests/unit/usage-report-panel.test.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
@@ -1873,15 +3300,36 @@
         "testedFunctions": []
       }
     ],
-    "packages/server/src/lib/tree-sitter-parser.mjs": [
+    "packages/server/src/lib/coding-db/docs.repo.mjs": [
       {
-        "testFile": "packages/server/src/lib/test-intelligence.mjs",
+        "testFile": "packages/server/src/lib/test-signals.mjs",
         "testType": "unit",
         "testedFunctions": []
       }
     ]
   },
   "whatToRun": {
+    "packages/server/src/routes/a2a.mjs": [
+      {
+        "testFile": "tests/unit/a2a-protocol.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/a2a-constants.mjs": [
+      {
+        "testFile": "tests/unit/a2a-protocol.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/routes/agent-logs.mjs": [
+      {
+        "testFile": "tests/unit/agent-logs.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
     "packages/server/src/routes/ai-settings.mjs": [
       {
         "testFile": "tests/unit/ai-settings.test.mjs",
@@ -1889,7 +3337,31 @@
         "reason": "Tests this file"
       }
     ],
+    "packages/server/src/lib/coding-db/api-features.repo.mjs": [
+      {
+        "testFile": "tests/unit/api-features.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/tools-index.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/coding-db/reads.mjs": [
+      {
+        "testFile": "tests/unit/api-features.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
     "packages/server/src/routes/audit-log.mjs": [
+      {
+        "testFile": "tests/unit/audit-log-route.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
       {
         "testFile": "tests/unit/audit-log.test.mjs",
         "testType": "unit",
@@ -1900,7 +3372,7 @@
       {
         "testFile": "tests/unit/audit-log.test.mjs",
         "testType": "unit",
-        "reason": "Tests this file"
+        "reason": "Tests covering: scanCommandOutput"
       }
     ],
     "packages/server/src/lib/security/audit-log.mjs": [
@@ -1908,11 +3380,80 @@
         "testFile": "tests/unit/audit-log.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/security-kernel-matrix.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
       }
     ],
     "packages/server/src/lib/auto-dispatch-shared.mjs": [
       {
         "testFile": "tests/unit/auto-dispatch-shared.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/coding-review-runner.mjs": [
+      {
+        "testFile": "tests/unit/changelog-review-scope.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/paaw-project.mjs": [
+      {
+        "testFile": "tests/unit/changelog-review-scope.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/coding-security.mjs": [
+      {
+        "testFile": "tests/unit/chat-uploads-hardening.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/coding-security-extended.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/coding-security.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/conversation-sanitize.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/routes/uploads.mjs": [
+      {
+        "testFile": "tests/unit/chat-uploads-hardening.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/ui/src/pages/ChatView.tsx": [
+      {
+        "testFile": "tests/unit/chatview.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/ui/src/components/ChatInputBar.tsx": [
+      {
+        "testFile": "tests/unit/chatview.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/routes/coding-auto-dispatch.mjs": [
+      {
+        "testFile": "tests/unit/coding-auto-dispatch.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
@@ -1931,19 +3472,23 @@
         "reason": "Tests this file"
       }
     ],
-    "packages/server/src/lib/coding-security.mjs": [
+    "packages/server/src/routes/coding-issues.mjs": [
       {
-        "testFile": "tests/unit/coding-security-extended.test.mjs",
+        "testFile": "tests/unit/coding-issues.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
-      },
+      }
+    ],
+    "packages/server/src/routes/coding-ops.mjs": [
       {
-        "testFile": "tests/unit/coding-security.test.mjs",
+        "testFile": "tests/unit/coding-ops.test.mjs",
         "testType": "unit",
-        "reason": "Tests this file"
-      },
+        "reason": "Tests covering: opsRoutes"
+      }
+    ],
+    "packages/server/src/routes/coding-review-board.mjs": [
       {
-        "testFile": "tests/unit/conversation-sanitize.test.mjs",
+        "testFile": "tests/unit/coding-review-board.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
@@ -1984,6 +3529,32 @@
         "testFile": "tests/unit/surrogate-safety.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/crosscut-concepts.mjs": [
+      {
+        "testFile": "tests/unit/crosscut-concepts.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/utility-consumers.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/routes/coding.mjs": [
+      {
+        "testFile": "tests/unit/cu-staleness.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/cu-source-scan.mjs": [
+      {
+        "testFile": "tests/unit/cu-staleness.test.mjs",
+        "testType": "unit",
+        "reason": "Tests covering: git"
       }
     ],
     "packages/db/src/connection.ts": [
@@ -2068,20 +3639,6 @@
         "reason": "Tests this file"
       }
     ],
-    "packages/server/src/lib/em-orchestrator.mjs": [
-      {
-        "testFile": "tests/unit/em-foreman.test.mjs",
-        "testType": "unit",
-        "reason": "Tests this file"
-      }
-    ],
-    "packages/server/src/lib/em-job-entrypoints.mjs": [
-      {
-        "testFile": "tests/unit/em-foreman.test.mjs",
-        "testType": "unit",
-        "reason": "Tests this file"
-      }
-    ],
     "packages/server/src/lib/exec-approvals.mjs": [
       {
         "testFile": "tests/unit/exec-approvals.test.mjs",
@@ -2096,6 +3653,13 @@
         "reason": "Tests this file"
       }
     ],
+    "packages/server/src/lib/feature-map-store.mjs": [
+      {
+        "testFile": "tests/unit/feature-map-store.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
     "packages/server/src/lib/feature-registry.mjs": [
       {
         "testFile": "tests/unit/feature-merge.test.mjs",
@@ -2103,7 +3667,17 @@
         "reason": "Tests this file"
       },
       {
+        "testFile": "tests/unit/feature-phase-c.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
         "testFile": "tests/unit/severity-auto-scan.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "packages/server/src/lib/test-intelligence.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
@@ -2116,6 +3690,44 @@
       },
       {
         "testFile": "tests/unit/severity-auto-scan.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/tree-sitter-parser.mjs": [
+      {
+        "testFile": "tests/unit/feature-skeleton-v3.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "packages/server/src/lib/test-intelligence.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/code-graph.mjs": [
+      {
+        "testFile": "tests/unit/feature-skeleton-v3.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/routes/helpdesk.mjs": [
+      {
+        "testFile": "tests/unit/helpdesk.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/routes/llm-logs.mjs": [
+      {
+        "testFile": "tests/unit/llm-logs.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/skill-engagement.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
@@ -2142,6 +3754,48 @@
         "reason": "Tests this file"
       }
     ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/async-params-page.tsx": [
+      {
+        "testFile": "tests/unit/nextjs-async-params-page-template.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/app-router-async-params.tsx": [
+      {
+        "testFile": "tests/unit/nextjs-async-params-template.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx": [
+      {
+        "testFile": "tests/unit/nextjs-parallel-routes-template.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/cache-component-use-cache.tsx": [
+      {
+        "testFile": "tests/unit/nextjs-use-cache-template.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/ui/src/pages/Notes.tsx": [
+      {
+        "testFile": "tests/unit/notes.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/routes/notes.mjs": [
+      {
+        "testFile": "tests/unit/notes.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
     "packages/server/src/lib/paaw-sandbox.mjs": [
       {
         "testFile": "tests/unit/paaw-sandbox-mxc.test.mjs",
@@ -2149,14 +3803,9 @@
         "reason": "Tests this file"
       }
     ],
-    "packages/server/src/lib/secretary-tools.mjs": [
+    "packages/server/src/lib/release-evidence-snapshot.mjs": [
       {
-        "testFile": "tests/unit/pm-module.test.mjs",
-        "testType": "unit",
-        "reason": "Tests this file"
-      },
-      {
-        "testFile": "tests/unit/secretary-module.test.mjs",
+        "testFile": "tests/unit/release-evidence-snapshot.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
@@ -2168,6 +3817,41 @@
         "reason": "Tests this file"
       }
     ],
+    "packages/server/src/lib/release-requests.mjs": [
+      {
+        "testFile": "tests/unit/release-requests-delta.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/qa-results.mjs": [
+      {
+        "testFile": "tests/unit/release-requests-delta.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/review-boundary.mjs": [
+      {
+        "testFile": "tests/unit/review-boundary-crosscut.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts": [
+      {
+        "testFile": "tests/unit/route-handler-api-template.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/ru-skills.mjs": [
+      {
+        "testFile": "tests/unit/ru-skills.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
     "packages/server/src/lib/script-guard.mjs": [
       {
         "testFile": "tests/unit/script-guard.test.mjs",
@@ -2175,9 +3859,56 @@
         "reason": "Tests this file"
       }
     ],
+    "packages/server/src/lib/security/index.mjs": [
+      {
+        "testFile": "tests/unit/security-kernel-matrix.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/security/approval.mjs": [
+      {
+        "testFile": "tests/unit/security-kernel-matrix.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/security/secret-store.mjs": [
+      {
+        "testFile": "tests/unit/security-kernel-matrix.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/security/policy-pipeline.mjs": [
+      {
+        "testFile": "tests/unit/security-kernel-matrix.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/shell-guard.mjs": [
+      {
+        "testFile": "tests/unit/security-kernel-matrix.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
     "packages/server/src/lib/security-mode.mjs": [
       {
         "testFile": "tests/unit/security-mode.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "data/skills/physical-skill/nextjs-backend-best-practices/templates/server-actions-form.tsx": [
+      {
+        "testFile": "tests/unit/server-actions-form-compile.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "tests/unit/server-actions-form-template.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
@@ -2204,6 +3935,39 @@
     "packages/server/src/lib/stable-stringify.mjs": [
       {
         "testFile": "tests/unit/stable-stringify.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      },
+      {
+        "testFile": "packages/server/src/lib/test-signals.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/feature-subfeature.mjs": [
+      {
+        "testFile": "tests/unit/subfeature-refine.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/server/src/lib/coding-db/ui-features.repo.mjs": [
+      {
+        "testFile": "tests/unit/ui-features.test.mjs",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/ui/src/utils/index.ts": [
+      {
+        "testFile": "tests/unit/ui-utils.test.ts",
+        "testType": "unit",
+        "reason": "Tests this file"
+      }
+    ],
+    "packages/ui/src/components/UsageReportPanel.tsx": [
+      {
+        "testFile": "tests/unit/usage-report-panel.test.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
@@ -2298,9 +4062,9 @@
         "reason": "Tests this file"
       }
     ],
-    "packages/server/src/lib/tree-sitter-parser.mjs": [
+    "packages/server/src/lib/coding-db/docs.repo.mjs": [
       {
-        "testFile": "packages/server/src/lib/test-intelligence.mjs",
+        "testFile": "packages/server/src/lib/test-signals.mjs",
         "testType": "unit",
         "reason": "Tests this file"
       }
@@ -2309,23 +4073,8 @@
   "coverageGaps": [
     {
       "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "functionCount": 68,
+      "functionCount": 72,
       "exportCount": 13
-    },
-    {
-      "file": "packages/server/src/routes/coding.mjs",
-      "functionCount": 42,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/server/src/routes/a2a.mjs",
-      "functionCount": 35,
-      "exportCount": 5
-    },
-    {
-      "file": "packages/server/src/lib/release-requests.mjs",
-      "functionCount": 33,
-      "exportCount": 15
     },
     {
       "file": "packages/ui/src/components/browser/BrowserPanel.tsx",
@@ -2333,14 +4082,14 @@
       "exportCount": 2
     },
     {
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "functionCount": 29,
+      "exportCount": 1
+    },
+    {
       "file": "packages/server/src/lib/project-crew.mjs",
       "functionCount": 28,
       "exportCount": 18
-    },
-    {
-      "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx",
-      "functionCount": 25,
-      "exportCount": 25
     },
     {
       "file": "packages/ui/src/pages/ProjectBoard.tsx",
@@ -2358,17 +4107,12 @@
       "exportCount": 10
     },
     {
-      "file": "installed-apps/learning/server/routes/quiz-session.mjs",
-      "functionCount": 24,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/CodingIDE.tsx",
-      "functionCount": 23,
-      "exportCount": 1
-    },
-    {
       "file": "packages/ui/src/pages/BriefingPlayer.tsx",
+      "functionCount": 22,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/pages/SettingsPage.tsx",
       "functionCount": 22,
       "exportCount": 1
     },
@@ -2378,8 +4122,8 @@
       "exportCount": 7
     },
     {
-      "file": "packages/ui/src/pages/SettingsPage.tsx",
-      "functionCount": 21,
+      "file": "packages/ui/src/pages/CodingIDE.tsx",
+      "functionCount": 20,
       "exportCount": 1
     },
     {
@@ -2388,9 +4132,14 @@
       "exportCount": 2
     },
     {
-      "file": "installed-apps/learning/server/routes/exam-vault.mjs",
-      "functionCount": 20,
-      "exportCount": 1
+      "file": "packages/ui/src/components/ReleaseRequests.tsx",
+      "functionCount": 19,
+      "exportCount": 3
+    },
+    {
+      "file": "packages/server/src/lib/em-orchestrator.mjs",
+      "functionCount": 19,
+      "exportCount": 4
     },
     {
       "file": "packages/server/src/lib/es-shipper.mjs",
@@ -2398,9 +4147,9 @@
       "exportCount": 4
     },
     {
-      "file": "packages/server/src/routes/notes.mjs",
+      "file": "packages/server/src/tools/index.mjs",
       "functionCount": 18,
-      "exportCount": 1
+      "exportCount": 4
     },
     {
       "file": "packages/server/src/lib/auto-dispatch-manager.mjs",
@@ -2413,59 +4162,19 @@
       "exportCount": 5
     },
     {
-      "file": "installed-apps/learning/ui/components/ExamVault.tsx",
-      "functionCount": 18,
-      "exportCount": 1
-    },
-    {
-      "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/server-actions-form.tsx",
-      "functionCount": 18,
-      "exportCount": 14
-    },
-    {
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "functionCount": 17,
-      "exportCount": 3
-    },
-    {
       "file": "packages/server/src/lib/release-unit/cost.mjs",
       "functionCount": 17,
       "exportCount": 5
     },
     {
-      "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
-      "functionCount": 17,
-      "exportCount": 15
-    },
-    {
-      "file": "packages/ui/src/components/UsageReportPanel.tsx",
+      "file": "packages/server/src/lib/code-intelligence.mjs",
       "functionCount": 16,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/tools/index.mjs",
-      "functionCount": 16,
-      "exportCount": 4
-    },
-    {
-      "file": "packages/server/src/lib/ru-skills.mjs",
-      "functionCount": 16,
-      "exportCount": 8
+      "exportCount": 7
     },
     {
       "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
       "functionCount": 16,
       "exportCount": 1
-    },
-    {
-      "file": "installed-apps/learning/ui/pages/LearningSpace.tsx",
-      "functionCount": 16,
-      "exportCount": 1
-    },
-    {
-      "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/cache-component-use-cache.tsx",
-      "functionCount": 16,
-      "exportCount": 14
     },
     {
       "file": "packages/ui/src/pages/CronJobsPage.tsx",
@@ -2478,19 +4187,9 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/lib/code-graph.mjs",
+      "file": "packages/server/src/lib/release-unit/model.mjs",
       "functionCount": 15,
-      "exportCount": 7
-    },
-    {
-      "file": "packages/server/src/lib/code-intelligence.mjs",
-      "functionCount": 15,
-      "exportCount": 7
-    },
-    {
-      "file": "packages/ui/src/pages/ChatView.tsx",
-      "functionCount": 14,
-      "exportCount": 2
+      "exportCount": 5
     },
     {
       "file": "packages/ui/src/components/TaskBoard.tsx",
@@ -2506,11 +4205,6 @@
       "file": "packages/server/src/lib/janitor.mjs",
       "functionCount": 14,
       "exportCount": 5
-    },
-    {
-      "file": "packages/server/src/lib/qa-results.mjs",
-      "functionCount": 14,
-      "exportCount": 6
     },
     {
       "file": "packages/server/src/lib/semgrep-runner.mjs",
@@ -2543,17 +4237,27 @@
       "exportCount": 7
     },
     {
-      "file": "packages/server/src/lib/release-unit/model.mjs",
+      "file": "packages/server/src/lib/feature-map-v2.mjs",
       "functionCount": 13,
-      "exportCount": 5
+      "exportCount": 1
     },
     {
-      "file": "installed-apps/learning/ui/components/CurriculumView.tsx",
+      "file": "packages/server/src/lib/coding-db/stores.repo.mjs",
       "functionCount": 13,
+      "exportCount": 12
+    },
+    {
+      "file": "packages/ui/src/components/ApiRequestTabSheet.tsx",
+      "functionCount": 12,
       "exportCount": 7
     },
     {
       "file": "packages/ui/src/components/CrewManager.tsx",
+      "functionCount": 12,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/EMDashboard.tsx",
       "functionCount": 12,
       "exportCount": 1
     },
@@ -2566,6 +4270,16 @@
       "file": "packages/ui/src/components/git/git-helpers.ts",
       "functionCount": 12,
       "exportCount": 19
+    },
+    {
+      "file": "packages/server/src/routes/coding-features.mjs",
+      "functionCount": 12,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/mindmap.mjs",
+      "functionCount": 12,
+      "exportCount": 1
     },
     {
       "file": "packages/server/src/routes/shared.mjs",
@@ -2583,39 +4297,24 @@
       "exportCount": 5
     },
     {
-      "file": "installed-apps/sre/server/routes/grafana.mjs",
-      "functionCount": 12,
-      "exportCount": 1
-    },
-    {
       "file": "packages/ui/src/components/ChatMessages.tsx",
       "functionCount": 11,
       "exportCount": 12
     },
     {
-      "file": "packages/ui/src/components/EMDashboard.tsx",
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
       "functionCount": 11,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/FeatureMap.tsx",
+      "file": "packages/server/src/lib/em-config.mjs",
       "functionCount": 11,
-      "exportCount": 1
+      "exportCount": 7
     },
     {
-      "file": "packages/server/src/routes/coding-features.mjs",
+      "file": "packages/server/src/lib/em-job-entrypoints.mjs",
       "functionCount": 11,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/routes/coding-releases.mjs",
-      "functionCount": 11,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/coding-review-runner.mjs",
-      "functionCount": 11,
-      "exportCount": 6
+      "exportCount": 5
     },
     {
       "file": "packages/ui/src/components/KnowledgeTree.tsx",
@@ -2638,6 +4337,11 @@
       "exportCount": 2
     },
     {
+      "file": "packages/server/src/routes/release-unit.mjs",
+      "functionCount": 10,
+      "exportCount": 1
+    },
+    {
       "file": "packages/server/src/lib/agent-exec-logger.mjs",
       "functionCount": 10,
       "exportCount": 8
@@ -2653,17 +4357,12 @@
       "exportCount": 2
     },
     {
-      "file": "packages/server/src/lib/em-config.mjs",
-      "functionCount": 10,
-      "exportCount": 7
-    },
-    {
-      "file": "installed-apps/sre/server/routes/briefing.mjs",
+      "file": "packages/server/src/lib/e2e-inventory.mjs",
       "functionCount": 10,
       "exportCount": 1
     },
     {
-      "file": "installed-apps/learning/ui/components/TeacherChatPanel.tsx",
+      "file": "packages/server/src/lib/coding-db/import.mjs",
       "functionCount": 10,
       "exportCount": 1
     },
@@ -2688,44 +4387,14 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/helpdesk.mjs",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
       "functionCount": 9,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/server/src/routes/llm-logs.mjs",
-      "functionCount": 9,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/server/src/routes/mindmap.mjs",
-      "functionCount": 9,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/routes/release-unit.mjs",
-      "functionCount": 9,
-      "exportCount": 1
+      "exportCount": 7
     },
     {
       "file": "packages/server/src/lib/project-md.mjs",
       "functionCount": 9,
       "exportCount": 7
-    },
-    {
-      "file": "installed-apps/pm/server/routes/briefing.mjs",
-      "functionCount": 9,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/pm/server/routes/dossiers.mjs",
-      "functionCount": 9,
-      "exportCount": 1
-    },
-    {
-      "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/app-router-async-params.tsx",
-      "functionCount": 9,
-      "exportCount": 9
     },
     {
       "file": "scripts/check-sandbox.mjs",
@@ -2743,12 +4412,17 @@
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "file": "packages/ui/src/components/git/GitDiffView.tsx",
       "functionCount": 8,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/git/GitDiffView.tsx",
+      "file": "packages/shared/src/utils/index.ts",
+      "functionCount": 8,
+      "exportCount": 7
+    },
+    {
+      "file": "packages/server/src/routes/chat.mjs",
       "functionCount": 8,
       "exportCount": 1
     },
@@ -2758,9 +4432,9 @@
       "exportCount": 9
     },
     {
-      "file": "packages/server/src/lib/app-modules.mjs",
+      "file": "packages/server/src/lib/action-log.mjs",
       "functionCount": 8,
-      "exportCount": 8
+      "exportCount": 5
     },
     {
       "file": "packages/server/src/lib/domain-agent-registry.mjs",
@@ -2768,44 +4442,9 @@
       "exportCount": 8
     },
     {
-      "file": "packages/server/src/lib/feature-map-v2.mjs",
-      "functionCount": 8,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/feature-map-validator.mjs",
-      "functionCount": 8,
-      "exportCount": 6
-    },
-    {
-      "file": "packages/server/src/lib/paaw-project.mjs",
-      "functionCount": 8,
-      "exportCount": 3
-    },
-    {
-      "file": "packages/server/src/lib/review-boundary.mjs",
-      "functionCount": 8,
-      "exportCount": 2
-    },
-    {
       "file": "packages/server/src/lib/ru-resolver.mjs",
       "functionCount": 8,
       "exportCount": 4
-    },
-    {
-      "file": "installed-apps/sre/server/routes/services.mjs",
-      "functionCount": 8,
-      "exportCount": 3
-    },
-    {
-      "file": "installed-apps/secret/server/routes/dossiers.mjs",
-      "functionCount": 8,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/pm/server/routes/projects.mjs",
-      "functionCount": 8,
-      "exportCount": 3
     },
     {
       "file": "packages/ui/src/components/FeatureCockpit.tsx",
@@ -2813,22 +4452,12 @@
       "exportCount": 2
     },
     {
+      "file": "packages/ui/src/components/FeatureMap.tsx",
+      "functionCount": 7,
+      "exportCount": 1
+    },
+    {
       "file": "packages/ui/src/components/IssueTracker.tsx",
-      "functionCount": 7,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/shared/src/utils/index.ts",
-      "functionCount": 7,
-      "exportCount": 7
-    },
-    {
-      "file": "packages/server/src/routes/coding-issues.mjs",
-      "functionCount": 7,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/routes/coding-ops.mjs",
       "functionCount": 7,
       "exportCount": 1
     },
@@ -2836,16 +4465,6 @@
       "file": "packages/server/src/routes/projects.mjs",
       "functionCount": 7,
       "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/action-log.mjs",
-      "functionCount": 7,
-      "exportCount": 5
-    },
-    {
-      "file": "packages/server/src/lib/cu-source-scan.mjs",
-      "functionCount": 7,
-      "exportCount": 7
     },
     {
       "file": "packages/server/src/lib/temp-janitor.mjs",
@@ -2858,29 +4477,9 @@
       "exportCount": 2
     },
     {
-      "file": "installed-apps/sre/server/routes/crews.mjs",
+      "file": "packages/engine/src/runner/index.ts",
       "functionCount": 7,
-      "exportCount": 5
-    },
-    {
-      "file": "installed-apps/sre/server/routes/dossiers.mjs",
-      "functionCount": 7,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/secret/server/routes/briefing.mjs",
-      "functionCount": 7,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/secret/server/routes/categories.mjs",
-      "functionCount": 7,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/learning/server/routes/learning-practice.mjs",
-      "functionCount": 7,
-      "exportCount": 1
+      "exportCount": 8
     },
     {
       "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/proxy-migration.ts",
@@ -2888,17 +4487,7 @@
       "exportCount": 12
     },
     {
-      "file": "packages/ui/src/utils/index.ts",
-      "functionCount": 6,
-      "exportCount": 7
-    },
-    {
       "file": "packages/ui/src/pages/AISettingsPage.tsx",
-      "functionCount": 6,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/pages/AppModules.tsx",
       "functionCount": 6,
       "exportCount": 1
     },
@@ -2913,9 +4502,29 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/uploads.mjs",
+      "file": "packages/ui/src/components/ApiTesterTabs.tsx",
       "functionCount": 6,
-      "exportCount": 3
+      "exportCount": 2
+    },
+    {
+      "file": "packages/ui/src/components/QaRecords.tsx",
+      "functionCount": 6,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/plugins.mjs",
+      "functionCount": 6,
+      "exportCount": 2
+    },
+    {
+      "file": "packages/server/src/routes/pocket.mjs",
+      "functionCount": 6,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/starter-kits.mjs",
+      "functionCount": 6,
+      "exportCount": 1
     },
     {
       "file": "packages/server/src/lib/context-providers.mjs",
@@ -2928,19 +4537,14 @@
       "exportCount": 4
     },
     {
-      "file": "installed-apps/secret/ui/pages/Secretary.tsx",
+      "file": "packages/engine/src/tool-engine/provider.ts",
       "functionCount": 6,
-      "exportCount": 1
+      "exportCount": 2
     },
     {
       "file": "scripts/pack.mjs",
       "functionCount": 5,
       "exportCount": 0
-    },
-    {
-      "file": "packages/ui/src/components/ApiTesterTabs.tsx",
-      "functionCount": 5,
-      "exportCount": 2
     },
     {
       "file": "packages/ui/src/components/TestsPage.tsx",
@@ -2953,7 +4557,12 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/coding-auto-dispatch.mjs",
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "functionCount": 5,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/routes/skill.mjs",
       "functionCount": 5,
       "exportCount": 1
     },
@@ -2978,29 +4587,19 @@
       "exportCount": 5
     },
     {
-      "file": "installed-apps/sre/ui/components/InspectionPanel.tsx",
-      "functionCount": 5,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/pm/ui/pages/ProjectOffice.tsx",
-      "functionCount": 5,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/learning/scripts/import-cap-vault.py",
+      "file": "packages/server/src/lib/coding-db/connection.mjs",
       "functionCount": 5,
       "exportCount": 4
+    },
+    {
+      "file": "packages/server/src/lib/coding-db/ru-info.repo.mjs",
+      "functionCount": 5,
+      "exportCount": 5
     },
     {
       "file": "scripts/postinstall.cjs",
       "functionCount": 4,
       "exportCount": 0
-    },
-    {
-      "file": "packages/ui/src/moduleRuntime.ts",
-      "functionCount": 4,
-      "exportCount": 1
     },
     {
       "file": "packages/ui/src/pages/AppBuilder.tsx",
@@ -3014,6 +4613,11 @@
     },
     {
       "file": "packages/ui/src/pages/HelpDesk.tsx",
+      "functionCount": 4,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/pages/StarterKitsSettings.tsx",
       "functionCount": 4,
       "exportCount": 1
     },
@@ -3063,11 +4667,6 @@
       "exportCount": 4
     },
     {
-      "file": "packages/ui/src/components/QaRecords.tsx",
-      "functionCount": 4,
-      "exportCount": 1
-    },
-    {
       "file": "packages/ui/src/components/RuSkillManagerModal.tsx",
       "functionCount": 4,
       "exportCount": 1
@@ -3088,7 +4687,7 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/chat.mjs",
+      "file": "packages/server/src/routes/coding-db.mjs",
       "functionCount": 4,
       "exportCount": 1
     },
@@ -3098,19 +4697,14 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/pocket.mjs",
-      "functionCount": 4,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/routes/skill.mjs",
-      "functionCount": 4,
-      "exportCount": 1
-    },
-    {
       "file": "packages/server/src/routes/vibe-fs.mjs",
       "functionCount": 4,
       "exportCount": 2
+    },
+    {
+      "file": "packages/server/src/lib/api-map.mjs",
+      "functionCount": 4,
+      "exportCount": 4
     },
     {
       "file": "packages/server/src/lib/browser-setup.mjs",
@@ -3128,17 +4722,7 @@
       "exportCount": 10
     },
     {
-      "file": "packages/engine/src/runner/index.ts",
-      "functionCount": 4,
-      "exportCount": 7
-    },
-    {
-      "file": "installed-apps/sre/ui/pages/SreOffice.tsx",
-      "functionCount": 4,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/learning/ui/components/LearningPractice.tsx",
+      "file": "packages/server/src/lib/coding-db/verify.mjs",
       "functionCount": 4,
       "exportCount": 1
     },
@@ -3163,22 +4747,17 @@
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/pages/Notes.tsx",
-      "functionCount": 3,
-      "exportCount": 1
-    },
-    {
       "file": "packages/ui/src/components/AgentBuilder.tsx",
       "functionCount": 3,
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/ApiMapSidebar.tsx",
+      "file": "packages/ui/src/components/AssistantSkillsModal.tsx",
       "functionCount": 3,
-      "exportCount": 2
+      "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/AssistantSkillsModal.tsx",
+      "file": "packages/ui/src/components/CodeReviewBoardPanel.tsx",
       "functionCount": 3,
       "exportCount": 1
     },
@@ -3189,6 +4768,11 @@
     },
     {
       "file": "packages/ui/src/components/DecisionLog.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/DispatchReports.tsx",
       "functionCount": 3,
       "exportCount": 1
     },
@@ -3223,11 +4807,6 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/apps.mjs",
-      "functionCount": 3,
-      "exportCount": 2
-    },
-    {
       "file": "packages/server/src/routes/browser.mjs",
       "functionCount": 3,
       "exportCount": 1
@@ -3248,17 +4827,17 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/coding-health.mjs",
+      "file": "packages/server/src/routes/coding-reports.mjs",
       "functionCount": 3,
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/coding-review-board.mjs",
+      "file": "packages/server/src/routes/coding-ru-skills.mjs",
       "functionCount": 3,
-      "exportCount": 2
+      "exportCount": 1
     },
     {
-      "file": "packages/server/src/routes/coding-ru-skills.mjs",
+      "file": "packages/server/src/routes/execution-plan-routes.mjs",
       "functionCount": 3,
       "exportCount": 1
     },
@@ -3271,11 +4850,6 @@
       "file": "packages/server/src/lib/dispatch-stream-state.mjs",
       "functionCount": 3,
       "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/module-ui-bundle.mjs",
-      "functionCount": 3,
-      "exportCount": 2
     },
     {
       "file": "packages/server/src/lib/tool-engine/provider.mjs",
@@ -3308,31 +4882,6 @@
       "exportCount": 2
     },
     {
-      "file": "installed-apps/sre/server/routes/sheets.mjs",
-      "functionCount": 3,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/secret/server/routes/sheets.mjs",
-      "functionCount": 3,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/pm/server/routes/sheets.mjs",
-      "functionCount": 3,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/learning/ui/components/quiz/QuizReport.tsx",
-      "functionCount": 3,
-      "exportCount": 1
-    },
-    {
-      "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/async-params-page.tsx",
-      "functionCount": 3,
-      "exportCount": 5
-    },
-    {
       "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/server-action-form.tsx",
       "functionCount": 3,
       "exportCount": 3
@@ -3348,14 +4897,14 @@
       "exportCount": 2
     },
     {
-      "file": "packages/ui/src/components/CodeReviewBoardPanel.tsx",
+      "file": "packages/ui/src/components/ApiMapSidebar.tsx",
       "functionCount": 2,
-      "exportCount": 1
+      "exportCount": 2
     },
     {
-      "file": "packages/ui/src/components/ModulePickerModal.tsx",
+      "file": "packages/ui/src/components/MermaidBlock.tsx",
       "functionCount": 2,
-      "exportCount": 1
+      "exportCount": 2
     },
     {
       "file": "packages/ui/src/components/MoveFolderPicker.tsx",
@@ -3398,27 +4947,12 @@
       "exportCount": 22
     },
     {
-      "file": "packages/server/src/routes/agent-logs.mjs",
+      "file": "packages/server/src/routes/apps.mjs",
       "functionCount": 2,
       "exportCount": 1
     },
     {
       "file": "packages/server/src/routes/coding-auto-dispatch-prompts.mjs",
-      "functionCount": 2,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/server/src/routes/coding-reports.mjs",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/routes/execution-plan-routes.mjs",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/routes/plugins.mjs",
       "functionCount": 2,
       "exportCount": 2
     },
@@ -3458,39 +4992,14 @@
       "exportCount": 2
     },
     {
+      "file": "packages/server/src/lib/coding-db/index.mjs",
+      "functionCount": 2,
+      "exportCount": 35
+    },
+    {
       "file": "packages/context/src/assembler.ts",
       "functionCount": 2,
       "exportCount": 1
-    },
-    {
-      "file": "installed-apps/sre/ui/components/ExpertChatPanel.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/secret/ui/components/ExpertChatPanel.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/pm/ui/components/ExpertChatPanel.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/learning/ui/components/quiz/QuizComposer.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/learning/ui/components/quiz/QuizRunner.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/learning/ui/components/quiz/types.ts",
-      "functionCount": 2,
-      "exportCount": 13
     },
     {
       "file": "packages/ui/src/utils/stableStringify.ts",
@@ -3524,11 +5033,6 @@
     },
     {
       "file": "packages/ui/src/components/FileEmoji.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/ModulePageLoader.tsx",
       "functionCount": 1,
       "exportCount": 1
     },
@@ -3575,7 +5079,7 @@
     {
       "file": "packages/server/src/data-home.mjs",
       "functionCount": 1,
-      "exportCount": 4
+      "exportCount": 5
     },
     {
       "file": "packages/server/src/routes/assistant-skills.mjs",
@@ -3633,7 +5137,12 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/lib/shell-guard.mjs",
+      "file": "packages/server/src/lib/coding-db/features.repo.mjs",
+      "functionCount": 1,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/lib/coding-db/tasks.repo.mjs",
       "functionCount": 1,
       "exportCount": 1
     },
@@ -3643,62 +5152,17 @@
       "exportCount": 12
     },
     {
-      "file": "packages/engine/src/tool-engine/provider.ts",
-      "functionCount": 1,
-      "exportCount": 2
-    },
-    {
-      "file": "installed-apps/sre/ui/components/SheetPreview.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/sre/server/entry.mjs",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/secret/ui/components/SheetPreview.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/secret/server/entry.mjs",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/pm/ui/components/SheetPreview.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/pm/server/entry.mjs",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/learning/ui/components/SplitChatLayout.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/learning/ui/components/quiz/QuizWorkspace.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/learning/server/entry.mjs",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
       "file": "playwright.config.ts",
       "functionCount": 0,
       "exportCount": 0
     },
     {
       "file": "vitest.config.ts",
+      "functionCount": 0,
+      "exportCount": 0
+    },
+    {
+      "file": "tests/setup.mjs",
       "functionCount": 0,
       "exportCount": 0
     },
@@ -3716,11 +5180,6 @@
       "file": "packages/ui/src/main.tsx",
       "functionCount": 0,
       "exportCount": 0
-    },
-    {
-      "file": "packages/ui/src/components/ChatInputBar.tsx",
-      "functionCount": 0,
-      "exportCount": 4
     },
     {
       "file": "packages/ui/src/components/MarkdownText.tsx",
@@ -3783,29 +5242,14 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/lib/security/approval.mjs",
-      "functionCount": 0,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/security/index.mjs",
-      "functionCount": 0,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/security/policy-pipeline.mjs",
-      "functionCount": 0,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/security/secret-store.mjs",
+      "file": "packages/server/src/lib/coding-db/migrate.mjs",
       "functionCount": 0,
       "exportCount": 1
     },
     {
       "file": "packages/engine/src/index.ts",
       "functionCount": 0,
-      "exportCount": 21
+      "exportCount": 22
     },
     {
       "file": "packages/engine/src/tool-engine/tool-registry.ts",
@@ -3841,34 +5285,273 @@
       "file": "packages/context/src/memory/memory-store.ts",
       "functionCount": 0,
       "exportCount": 2
-    },
-    {
-      "file": "installed-apps/sre/server/routes/shared.mjs",
-      "functionCount": 0,
-      "exportCount": 5
-    },
-    {
-      "file": "installed-apps/secret/server/routes/shared.mjs",
-      "functionCount": 0,
-      "exportCount": 4
-    },
-    {
-      "file": "installed-apps/pm/server/routes/shared.mjs",
-      "functionCount": 0,
-      "exportCount": 4
-    },
-    {
-      "file": "installed-apps/learning/server/data-home.mjs",
-      "functionCount": 0,
-      "exportCount": 1
-    },
-    {
-      "file": "installed-apps/learning/server/routes/shared.mjs",
-      "functionCount": 0,
-      "exportCount": 2
     }
   ],
   "featureToTests": [
+    {
+      "featureId": "F20261107-001",
+      "featureName": "AI 開發工作台（Coding App 後端 API）",
+      "tests": [
+        "tests/unit/a2a-protocol.test.mjs",
+        "tests/unit/coding-auto-dispatch.test.mjs",
+        "tests/unit/coding-evidence.test.mjs",
+        "tests/unit/coding-handover.test.mjs",
+        "tests/unit/coding-issues.test.mjs",
+        "tests/unit/coding-review-board.test.mjs",
+        "tests/unit/coding-trouble.test.mjs",
+        "tests/unit/cu-staleness.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-002",
+      "featureName": "Coding 維運工具後端（Vibe 檔案/會話、自動派工計畫、App 與專案、API 測試器）",
+      "tests": [
+        "tests/unit/chat-uploads-hardening.test.mjs",
+        "tests/unit/coding-security-extended.test.mjs",
+        "tests/unit/coding-security.test.mjs",
+        "tests/unit/conversation-sanitize.test.mjs",
+        "tests/unit/execution-plan.test.mjs",
+        "tests/unit/coding-ops.test.mjs",
+        "tests/unit/notes.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-004",
+      "featureName": "日誌資產治理與系統清理（保留政策 / Janitor / 審計與黑盒子）",
+      "tests": [
+        "tests/unit/context-engine.test.mjs",
+        "tests/unit/server-entrypoint.test.mjs",
+        "tests/unit/audit-log-route.test.mjs",
+        "tests/unit/audit-log.test.mjs",
+        "tests/unit/llm-logs.test.mjs",
+        "tests/unit/skill-engagement.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-005",
+      "featureName": "AI 對話引擎與工具執行核心（Agent Runtime）",
+      "tests": [
+        "tests/unit/audit-log.test.mjs",
+        "tests/unit/context-compaction.test.mjs",
+        "packages/server/test/vision-array-content.test.mjs",
+        "tests/unit/context-truncation.test.mjs",
+        "tests/unit/surrogate-safety.test.mjs",
+        "tests/unit/dependency-context.test.mjs",
+        "tests/unit/llm-utils.test.mjs",
+        "tests/unit/parse-model-reference.test.mjs",
+        "packages/server/test/disable-thinking.test.mjs",
+        "tests/unit/paaw-sandbox-mxc.test.mjs",
+        "tests/unit/script-guard.test.mjs",
+        "tests/unit/security-mode.test.mjs",
+        "tests/unit/security-kernel-matrix.test.mjs",
+        "packages/server/test/vision-phase3.test.mjs",
+        "packages/server/test/vision-phase4.test.mjs",
+        "tests/unit/helpdesk.test.mjs",
+        "tests/unit/chat-uploads-hardening.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-006",
+      "featureName": "內建瀏覽器遠端操控（AI 瀏覽器共用畫面與操作回放）",
+      "tests": [
+        "packages/server/test/vision-phase4.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-007",
+      "featureName": "AI 助理工作區設定主控台",
+      "tests": [
+        "tests/unit/ai-settings.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-008",
+      "featureName": "RU 專案營運設定（EM 編排設定與技能實例管理）",
+      "tests": [
+        "tests/unit/a2a-protocol.test.mjs",
+        "tests/unit/changelog-review-scope.test.mjs",
+        "tests/unit/ru-skills.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-009",
+      "featureName": "工作區功能頁面（筆記／專案／設定等 UI 頁面集合）",
+      "tests": [
+        "tests/unit/chatview.test.mjs",
+        "tests/unit/notes.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-010",
+      "featureName": "Agent 執行日誌與 RU 成本統計",
+      "tests": [
+        "tests/unit/agent-logs.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-011",
+      "featureName": "Next.js 16 後端最佳實踐範本（技能教材）",
+      "tests": [
+        "tests/unit/nextjs-async-params-template.test.mjs",
+        "tests/unit/nextjs-async-params-page-template.test.mjs",
+        "tests/unit/nextjs-use-cache-template.test.mjs",
+        "tests/unit/nextjs-parallel-routes-template.test.mjs",
+        "tests/unit/route-handler-api-template.test.mjs",
+        "tests/unit/server-actions-form-compile.test.mjs",
+        "tests/unit/server-actions-form-template.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-070",
+      "featureName": "AI 對話上下文組裝與記憶精煉",
+      "tests": [
+        "tests/unit/shared-utils.test.ts"
+      ]
+    },
+    {
+      "featureId": "F-003",
+      "featureName": "SQLite 資料庫連線與 Schema 初始化",
+      "tests": [
+        "tests/unit/db-connection.test.ts",
+        "tests/unit/db-migrate.test.ts",
+        "tests/unit/db-repositories.test.ts",
+        "tests/unit/db-paths.test.ts"
+      ]
+    },
+    {
+      "featureId": "F20261107-014",
+      "featureName": "對話、技能執行與資料表的持久化存取層",
+      "tests": [
+        "tests/unit/db-repositories.test.ts"
+      ]
+    },
+    {
+      "featureId": "F20261016-071",
+      "featureName": "AI 派工執行安全與成本歸集",
+      "tests": [
+        "tests/unit/exec-approvals.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-017",
+      "featureName": "專案智慧分析與品質治理（Feature Map 骨架與證據審查）",
+      "tests": [
+        "tests/unit/auto-dispatch-shared.test.mjs",
+        "tests/unit/feature-skeleton-v3.test.mjs",
+        "tests/unit/crosscut-concepts.test.mjs",
+        "tests/unit/utility-consumers.test.mjs",
+        "tests/unit/cu-staleness.test.mjs",
+        "tests/unit/dispatch-verifier.test.mjs",
+        "tests/unit/em-foreman.test.mjs",
+        "packages/server/tests/unit/error-code-json-repair.test.mjs",
+        "tests/unit/feature-map-store.test.mjs",
+        "tests/unit/feature-merge.test.mjs",
+        "tests/unit/feature-phase-c.test.mjs",
+        "tests/unit/severity-auto-scan.test.mjs",
+        "packages/server/src/lib/test-intelligence.mjs",
+        "tests/unit/feature-risk-scan.test.mjs",
+        "tests/unit/subfeature-refine.test.mjs",
+        "tests/unit/changelog-review-scope.test.mjs",
+        "tests/unit/release-requests-delta.test.mjs",
+        "tests/unit/release-evidence-snapshot.test.mjs",
+        "tests/unit/release-evidence.test.mjs",
+        "tests/unit/review-boundary-crosscut.test.mjs",
+        "tests/unit/shell-exec.test.mjs",
+        "packages/server/src/lib/test-runner.mjs",
+        "tests/unit/stable-stringify.test.mjs",
+        "packages/server/src/lib/test-signals.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-018",
+      "featureName": "Coding DB 專案資料庫（單一真相儲存層）",
+      "tests": [
+        "tests/unit/api-features.test.mjs",
+        "tests/unit/tools-index.test.mjs",
+        "packages/server/src/lib/test-signals.mjs",
+        "tests/unit/ui-features.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F-022",
+      "featureName": "工具呼叫安全核心（政策管線 · 審批 · 稽核 · 金鑰保險箱）",
+      "tests": [
+        "tests/unit/security-kernel-matrix.test.mjs",
+        "tests/unit/audit-log.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-021",
+      "featureName": "UI 外殼與共用基礎層（啟動器、分頁工作區、主題、i18n、工具函式）",
+      "tests": [
+        "tests/unit/ui-utils.test.ts"
+      ]
+    },
+    {
+      "featureId": "F20261107-022",
+      "featureName": "AI 工作團隊管理與對話工作台",
+      "tests": [
+        "tests/unit/chatview.test.mjs",
+        "tests/unit/usage-report-panel.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-001",
+      "featureName": "Next.js 16 非同步路由參數技能範本",
+      "tests": [
+        "tests/unit/nextjs-async-params-template.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-002",
+      "featureName": "Next.js 16 非同步 Params 頁面範本",
+      "tests": [
+        "tests/unit/nextjs-async-params-page-template.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-003",
+      "featureName": "Next.js 16 「use cache」快取範本教材",
+      "tests": [
+        "tests/unit/nextjs-use-cache-template.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-004",
+      "featureName": "Next.js 16 平行路由範例教材（技能知識庫）",
+      "tests": [
+        "tests/unit/nextjs-parallel-routes-template.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-005",
+      "featureName": "Next.js Route Handler API 範本（後端最佳實務技能素材）",
+      "tests": [
+        "tests/unit/route-handler-api-template.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-006",
+      "featureName": "Next.js Server Actions 表單範本（技能參考素材）",
+      "tests": [
+        "tests/unit/server-actions-form-compile.test.mjs",
+        "tests/unit/server-actions-form-template.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-008",
+      "featureName": "Skill / Workflow / Agent 執行運行時與 API",
+      "tests": [
+        "tests/unit/learning-task168-hardening.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-009",
+      "featureName": "A2A 代理協作協定服務",
+      "tests": [
+        "tests/unit/a2a-protocol.test.mjs"
+      ]
+    },
     {
       "featureId": "F20261016-020",
       "featureName": "交接狀態彙整與交接包生成",
@@ -3876,6 +5559,21 @@
         "tests/unit/context-compaction.test.mjs",
         "packages/server/test/vision-array-content.test.mjs",
         "tests/unit/dependency-context.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F-030",
+      "featureName": "程式碼問題追蹤 API（Coding Issues）",
+      "tests": [
+        "tests/unit/coding-issues.test.mjs",
+        "tests/unit/coding-issues.test.mjs (MISSING — TG-1: route 層零測試，待 tester 補)"
+      ]
+    },
+    {
+      "featureId": "F-041",
+      "featureName": "維運狀態與 Runbook 管理",
+      "tests": [
+        "tests/unit/coding-ops.test.mjs"
       ]
     },
     {
@@ -3889,7 +5587,43 @@
       "featureId": "F20261016-027",
       "featureName": "安全審計紀錄查詢（AI 犯傻審計報表）",
       "tests": [
+        "tests/unit/audit-log-route.test.mjs",
         "tests/unit/audit-log.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F-011",
+      "featureName": "AI 助理對話服務（訊息串流、視覺附件與提示詞檔案）",
+      "tests": [
+        "tests/unit/chat-uploads-hardening.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-030",
+      "featureName": "自動派工執行控制 API（Auto Dispatch HTTP 控制面）",
+      "tests": [
+        "tests/unit/coding-auto-dispatch.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-031",
+      "featureName": "Coding Agent 團隊對話派工與專案知識庫 API（Code Understanding 樞紐）",
+      "tests": [
+        "tests/unit/cu-staleness.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F-014",
+      "featureName": "編碼專案議題追蹤與已知問題匯入",
+      "tests": [
+        "tests/unit/coding-issues.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F-027",
+      "featureName": "維運現況總覽與 Runbook 存取",
+      "tests": [
+        "tests/unit/coding-ops.test.mjs"
       ]
     },
     {
@@ -3897,7 +5631,22 @@
       "featureName": "上線放行閘門與證據審查（Release Request 與證據包）",
       "tests": [
         "tests/unit/release-evidence.test.mjs",
+        "tests/unit/release-requests-delta.test.mjs",
         "tests/unit/coding-evidence.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-037",
+      "featureName": "Code Review 委員會會議記錄瀏覽",
+      "tests": [
+        "tests/unit/coding-review-board.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-038",
+      "featureName": "專案 AI 團隊與技能資產管理（Skill Instance Model）",
+      "tests": [
+        "tests/unit/ru-skills.test.mjs"
       ]
     },
     {
@@ -3908,29 +5657,46 @@
       ]
     },
     {
-      "featureId": "F20261016-070",
-      "featureName": "AI 助理核心基礎套件（嵌入式資料庫 · 情境記憶 · 技能與工具引擎）",
+      "featureId": "F-036",
+      "featureName": "AI 客服中心（Help Desk）",
       "tests": [
-        "tests/unit/db-connection.test.ts",
-        "tests/unit/db-migrate.test.ts",
-        "tests/unit/db-repositories.test.ts",
-        "tests/unit/db-paths.test.ts"
+        "tests/unit/helpdesk.test.mjs"
       ]
     },
     {
-      "featureId": "F20261016-071",
-      "featureName": "PAAW 核心 runtime — 伺服器入口、AI 執行安全鏈與 EM 自動派工編排",
+      "featureId": "F20261016-044",
+      "featureName": "LLM 呼叫日誌查詢、審計與 Skill 使用報表",
       "tests": [
-        "tests/unit/context-engine.test.mjs",
-        "tests/unit/auto-dispatch-shared.test.mjs",
-        "tests/unit/dispatch-verifier.test.mjs",
-        "tests/unit/em-foreman.test.mjs",
-        "tests/unit/exec-approvals.test.mjs",
-        "tests/unit/paaw-sandbox-mxc.test.mjs",
-        "tests/unit/script-guard.test.mjs",
-        "tests/unit/security-mode.test.mjs",
-        "tests/unit/audit-log.test.mjs",
-        "tests/unit/server-entrypoint.test.mjs"
+        "tests/unit/llm-logs.test.mjs",
+        "tests/unit/skill-engagement.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F-035",
+      "featureName": "筆記本管理與 AI 筆記整理",
+      "tests": [
+        "tests/unit/notes.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-062",
+      "featureName": "Agent 用量與成本報表",
+      "tests": [
+        "tests/unit/usage-report-panel.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-066",
+      "featureName": "個人 AI 助理主對話介面",
+      "tests": [
+        "tests/unit/chatview.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-073",
+      "featureName": "共用型別契約與前端基礎工具層",
+      "tests": [
+        "tests/unit/ui-utils.test.ts"
       ]
     },
     {
@@ -3938,16 +5704,6 @@
       "featureName": "PAAW Server Core & HTTP Entrypoint",
       "tests": [
         "tests/unit/server-entrypoint.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F-003",
-      "featureName": "SQLite Database Layer (sql.js/Kysely)",
-      "tests": [
-        "tests/unit/db-connection.test.ts",
-        "tests/unit/db-migrate.test.ts",
-        "tests/unit/db-repositories.test.ts",
-        "tests/unit/db-paths.test.ts"
       ]
     },
     {
@@ -3985,6 +5741,7 @@
       "featureId": "F-017",
       "featureName": "Code Intelligence",
       "tests": [
+        "tests/unit/feature-skeleton-v3.test.mjs",
         "packages/server/src/lib/test-intelligence.mjs",
         "tests/unit/dependency-context.test.mjs"
       ]
@@ -3993,16 +5750,10 @@
       "featureId": "F-021",
       "featureName": "Coding Security (Path Safety)",
       "tests": [
+        "tests/unit/chat-uploads-hardening.test.mjs",
         "tests/unit/coding-security-extended.test.mjs",
         "tests/unit/coding-security.test.mjs",
         "tests/unit/conversation-sanitize.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F-022",
-      "featureName": "Security Kernel",
-      "tests": [
-        "tests/unit/audit-log.test.mjs"
       ]
     },
     {
@@ -4027,6 +5778,13 @@
       ]
     },
     {
+      "featureId": "F-054",
+      "featureName": "Project Dashboard & Decision Log",
+      "tests": [
+        "tests/unit/changelog-review-scope.test.mjs"
+      ]
+    },
+    {
       "featureId": "F-057",
       "featureName": "Context Compaction & Truncation",
       "tests": [
@@ -4034,6 +5792,13 @@
         "tests/unit/surrogate-safety.test.mjs",
         "tests/unit/context-compaction.test.mjs",
         "packages/server/test/vision-array-content.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F-060",
+      "featureName": "CU Mechanical Rescan & Source Scan",
+      "tests": [
+        "tests/unit/cu-staleness.test.mjs"
       ]
     },
     {
@@ -4047,25 +5812,261 @@
     }
   ],
   "testReports": {
-    "found": 0,
-    "reports": [],
-    "run": [],
-    "coverage": [],
+    "found": 2,
+    "mergedCoverage": {
+      "totalLinePct": 44.92,
+      "linesCovered": 10559,
+      "linesTotal": 23503,
+      "sources": [
+        {
+          "runner": "vitest/jest (istanbul 格式)",
+          "at": "2026-11-05T12:23:13.705Z",
+          "totalLinePct": 44.92,
+          "file": null
+        }
+      ],
+      "merged": false,
+      "at": "2026-11-05T12:23:13.705Z"
+    },
+    "reports": [
+      {
+        "runner": "vitest/jest (istanbul 格式)",
+        "kind": "coverage",
+        "at": "2026-11-05T12:23:13.705Z",
+        "total": null,
+        "passed": null,
+        "failed": null,
+        "skipped": null,
+        "totalLinePct": 44.92,
+        "status": null,
+        "durationMs": null,
+        "id": null,
+        "headSha": null,
+        "includeE2e": null,
+        "commands": null,
+        "byKind": null
+      },
+      {
+        "runner": "PAAW test-run",
+        "kind": "run",
+        "at": "2026-11-05T12:23:13.833Z",
+        "total": 1768,
+        "passed": 1768,
+        "failed": 0,
+        "skipped": 0,
+        "totalLinePct": null,
+        "status": "pass",
+        "durationMs": 7195,
+        "id": "RUN-20261105-001",
+        "headSha": "05af648",
+        "includeE2e": false,
+        "commands": [
+          "npx vitest run --reporter=json --outputFile=.paaw/test-runs/.vitest.json --coverage --coverage.reporter=json-summary --coverage.reporter=text --coverage.reportsDirectory=coverage --coverage.reportOnFailure=true"
+        ],
+        "byKind": {
+          "unit": {
+            "passed": 1768,
+            "failed": 0,
+            "skipped": 10,
+            "files": 92
+          }
+        }
+      }
+    ],
+    "run": [
+      {
+        "runner": "PAAW test-run",
+        "kind": "run",
+        "at": "2026-11-05T12:23:13.833Z",
+        "status": "pass",
+        "total": 1768,
+        "passed": 1768,
+        "failed": 0,
+        "skipped": 0,
+        "durationMs": 7195,
+        "id": "RUN-20261105-001",
+        "headSha": "05af648",
+        "includeE2e": false,
+        "byKind": {
+          "unit": {
+            "passed": 1768,
+            "failed": 0,
+            "skipped": 10,
+            "files": 92
+          }
+        },
+        "commands": [
+          "npx vitest run --reporter=json --outputFile=.paaw/test-runs/.vitest.json --coverage --coverage.reporter=json-summary --coverage.reporter=text --coverage.reportsDirectory=coverage --coverage.reportOnFailure=true"
+        ]
+      }
+    ],
+    "coverage": [
+      {
+        "runner": "vitest/jest (istanbul 格式)",
+        "kind": "coverage",
+        "at": "2026-11-05T12:23:13.705Z",
+        "fileCoverage": {
+          "data/skills/physical-skill/nextjs-backend-best-practices/templates/async-params-page.tsx": 50,
+          "packages/db/src/connection.ts": 60,
+          "packages/db/src/index.ts": 100,
+          "packages/db/src/migrate.ts": 93.33,
+          "packages/db/src/paths.ts": 90,
+          "packages/db/src/repositories/chats.ts": 95.23,
+          "packages/db/src/repositories/data-store.ts": 100,
+          "packages/db/src/repositories/runs.ts": 100,
+          "packages/server/src/context-engine.mjs": 68.59,
+          "packages/server/src/data-home.mjs": 100,
+          "packages/server/src/lib/a2a-constants.mjs": 100,
+          "packages/server/src/lib/action-log.mjs": 21.21,
+          "packages/server/src/lib/agent-exec-logger.mjs": 72.28,
+          "packages/server/src/lib/agent-rules.mjs": 100,
+          "packages/server/src/lib/api-map.mjs": 64.58,
+          "packages/server/src/lib/assistant-skills.mjs": 10.97,
+          "packages/server/src/lib/audit-log.mjs": 91.66,
+          "packages/server/src/lib/auto-dispatch-shared.mjs": 55.27,
+          "packages/server/src/lib/browser-session.mjs": 2.15,
+          "packages/server/src/lib/browser-setup.mjs": 37.83,
+          "packages/server/src/lib/change-intelligence.mjs": 60.46,
+          "packages/server/src/lib/code-graph.mjs": 84.26,
+          "packages/server/src/lib/code-intelligence.mjs": 0,
+          "packages/server/src/lib/coding-review-runner.mjs": 82.53,
+          "packages/server/src/lib/coding-security.mjs": 100,
+          "packages/server/src/lib/context-compaction.mjs": 33.79,
+          "packages/server/src/lib/context-truncation.mjs": 98.07,
+          "packages/server/src/lib/crosscut-concepts.mjs": 62.2,
+          "packages/server/src/lib/cu-mechanical.mjs": 3.44,
+          "packages/server/src/lib/cu-source-scan.mjs": 87.03,
+          "packages/server/src/lib/dependency-context.mjs": 100,
+          "packages/server/src/lib/dev-server.mjs": 11.24,
+          "packages/server/src/lib/dispatch-stream-state.mjs": 15.62,
+          "packages/server/src/lib/dispatch-verifier.mjs": 100,
+          "packages/server/src/lib/doc-coverage.mjs": 36.66,
+          "packages/server/src/lib/em-config.mjs": 54.34,
+          "packages/server/src/lib/em-job-entrypoints.mjs": 74.45,
+          "packages/server/src/lib/em-orchestrator.mjs": 66.77,
+          "packages/server/src/lib/em-task-store.mjs": 96.77,
+          "packages/server/src/lib/es-shipper.mjs": 28.12,
+          "packages/server/src/lib/exec-approvals.mjs": 82.75,
+          "packages/server/src/lib/execution-plan.mjs": 67.59,
+          "packages/server/src/lib/feature-boundary.mjs": 10.86,
+          "packages/server/src/lib/feature-map-store.mjs": 97.43,
+          "packages/server/src/lib/feature-map-v2.mjs": 73.94,
+          "packages/server/src/lib/feature-map-validator.mjs": 3.14,
+          "packages/server/src/lib/feature-registry.mjs": 74.46,
+          "packages/server/src/lib/feature-risk-scan.mjs": 100,
+          "packages/server/src/lib/feature-subfeature.mjs": 98.93,
+          "packages/server/src/lib/janitor.mjs": 9.3,
+          "packages/server/src/lib/llm-utils.mjs": 23.73,
+          "packages/server/src/lib/module-registry.mjs": 55.12,
+          "packages/server/src/lib/paaw-agent-loop.mjs": 2.33,
+          "packages/server/src/lib/paaw-project.mjs": 22.99,
+          "packages/server/src/lib/paaw-sandbox.mjs": 77.77,
+          "packages/server/src/lib/paaw-snapshot.mjs": 0,
+          "packages/server/src/lib/proc-ledger.mjs": 16.17,
+          "packages/server/src/lib/project-crew.mjs": 47.07,
+          "packages/server/src/lib/project-md.mjs": 4,
+          "packages/server/src/lib/qa-results.mjs": 72.89,
+          "packages/server/src/lib/release-evidence-snapshot.mjs": 75.14,
+          "packages/server/src/lib/release-evidence.mjs": 90.83,
+          "packages/server/src/lib/release-requests.mjs": 50.47,
+          "packages/server/src/lib/review-boundary.mjs": 57.85,
+          "packages/server/src/lib/ru-resolver.mjs": 70.31,
+          "packages/server/src/lib/ru-skills.mjs": 98.42,
+          "packages/server/src/lib/running-agents.mjs": 100,
+          "packages/server/src/lib/script-guard.mjs": 91.72,
+          "packages/server/src/lib/security-mode.mjs": 100,
+          "packages/server/src/lib/security-rules.mjs": 100,
+          "packages/server/src/lib/semgrep-runner.mjs": 2.74,
+          "packages/server/src/lib/shell-exec.mjs": 68.42,
+          "packages/server/src/lib/shell-guard.mjs": 100,
+          "packages/server/src/lib/stable-hash.mjs": 95.23,
+          "packages/server/src/lib/stable-stringify.mjs": 100,
+          "packages/server/src/lib/task-persistence.mjs": 50,
+          "packages/server/src/lib/task-retrofit.mjs": 0,
+          "packages/server/src/lib/temp-janitor.mjs": 28.78,
+          "packages/server/src/lib/test-intelligence.mjs": 0.7,
+          "packages/server/src/lib/test-report-reader.mjs": 90.57,
+          "packages/server/src/lib/test-runner.mjs": 44.02,
+          "packages/server/src/lib/test-signals.mjs": 93.66,
+          "packages/server/src/lib/tool-registry-init.mjs": 100,
+          "packages/server/src/lib/tool-registry.mjs": 73.8,
+          "packages/server/src/lib/tree-sitter-parser.mjs": 49.48,
+          "packages/server/src/lib/vision-content.mjs": 10.09,
+          "packages/server/src/lib/coding-db/api-features.repo.mjs": 52.38,
+          "packages/server/src/lib/coding-db/connection.mjs": 61.9,
+          "packages/server/src/lib/coding-db/docs.repo.mjs": 78.57,
+          "packages/server/src/lib/coding-db/features.repo.mjs": 92,
+          "packages/server/src/lib/coding-db/index.mjs": 0,
+          "packages/server/src/lib/coding-db/migrate.mjs": 100,
+          "packages/server/src/lib/coding-db/reads.mjs": 53.71,
+          "packages/server/src/lib/coding-db/stores.repo.mjs": 10.34,
+          "packages/server/src/lib/coding-db/tasks.repo.mjs": 88.88,
+          "packages/server/src/lib/coding-db/ui-features.repo.mjs": 88,
+          "packages/server/src/lib/release-unit/adapters.mjs": 45.56,
+          "packages/server/src/lib/release-unit/cost.mjs": 0.5,
+          "packages/server/src/lib/release-unit/dependencies.mjs": 75.42,
+          "packages/server/src/lib/release-unit/gates.mjs": 83.33,
+          "packages/server/src/lib/release-unit/handover-state.mjs": 1.26,
+          "packages/server/src/lib/release-unit/impact.mjs": 100,
+          "packages/server/src/lib/release-unit/model.mjs": 82.07,
+          "packages/server/src/lib/release-unit/verify.mjs": 11.11,
+          "packages/server/src/lib/security/approval.mjs": 90.47,
+          "packages/server/src/lib/security/audit-log.mjs": 66.66,
+          "packages/server/src/lib/security/index.mjs": 89.7,
+          "packages/server/src/lib/security/policy-pipeline.mjs": 73.68,
+          "packages/server/src/lib/security/secret-store.mjs": 90,
+          "packages/server/src/lib/tool-engine/index.mjs": 93.95,
+          "packages/server/src/lib/tool-engine/provider.mjs": 97.85,
+          "packages/server/src/lib/tool-engine/tool-registry.mjs": 100,
+          "packages/server/src/routes/a2a.mjs": 68.4,
+          "packages/server/src/routes/agent-logs.mjs": 73.64,
+          "packages/server/src/routes/audit-log.mjs": 98.11,
+          "packages/server/src/routes/chat.mjs": 55.93,
+          "packages/server/src/routes/coding-auto-dispatch.mjs": 84.73,
+          "packages/server/src/routes/coding-evidence.mjs": 56.52,
+          "packages/server/src/routes/coding-handover.mjs": 34.48,
+          "packages/server/src/routes/coding-issues.mjs": 97.11,
+          "packages/server/src/routes/coding-ops.mjs": 75.39,
+          "packages/server/src/routes/coding-review-board.mjs": 96.15,
+          "packages/server/src/routes/coding-ru-skills.mjs": 93.44,
+          "packages/server/src/routes/coding-trouble.mjs": 78.94,
+          "packages/server/src/routes/coding.mjs": 1.42,
+          "packages/server/src/routes/context.mjs": 41.79,
+          "packages/server/src/routes/helpdesk.mjs": 66.02,
+          "packages/server/src/routes/llm-logs.mjs": 59.58,
+          "packages/server/src/routes/log-retention.mjs": 88.34,
+          "packages/server/src/routes/notes.mjs": 81.91,
+          "packages/server/src/routes/shared.mjs": 47.36,
+          "packages/server/src/routes/uploads.mjs": 93.98,
+          "packages/server/src/routes/vibe-fs.mjs": 2.23,
+          "packages/server/src/tools/index.mjs": 78.11,
+          "packages/shared/src/index.ts": 100,
+          "packages/shared/src/schemas/index.ts": 88.23,
+          "packages/shared/src/types/index.ts": 100,
+          "packages/shared/src/utils/index.ts": 100,
+          "packages/ui/src/utils/index.ts": 100,
+          "packages/ui/src/utils/stableStringify.ts": 100
+        },
+        "totalLinePct": 44.92,
+        "linesCovered": 10559,
+        "linesTotal": 23503
+      }
+    ],
     "e2e": [],
     "unit": [],
     "_note": "真實工具 report（deterministic 讀取）。啟發式檔案對映為獨立欄位，不冒充真實覆蓋。"
   },
   "stats": {
-    "totalTestFiles": 69,
+    "totalTestFiles": 113,
     "byType": {
-      "unit": 58,
+      "unit": 102,
       "integration": 0,
       "contract": 0,
       "e2e": 11
     },
-    "totalMappings": 67,
-    "coverageGapFiles": 312,
-    "estimatedCoverageRate": "12.4%",
-    "featureTestCoverage": 21
+    "totalMappings": 118,
+    "coverageGapFiles": 243,
+    "estimatedCoverageRate": "25.9%",
+    "featureTestCoverage": 61
   }
 }

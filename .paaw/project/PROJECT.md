@@ -1,8 +1,12 @@
 # paaw
 
-> 📄 Schema v2 · AI 區每次 CU 重寫 · 上次生成 2026-10-16 13:00 · User Remarks 由人維護
+> 📄 Schema v2 · AI 區每次 CU 重寫 · 上次生成 2026-11-07 07:44 · User Remarks 由人維護
 
 <!-- USER:START — 人的區（AI 絕不覆蓋） -->
+## 📌 User Remarks
+
+## 📌 User Remarks
+
 ## 📌 User Remarks
 
 ## 📌 User Remarks
@@ -17,154 +21,255 @@
 ## 🤖 AI Overview
 
 ### 一句話定位
-PAAW（Personal AI Assistant Workspace）是一個讓個人使用者「Build your personal AI Workforce」的一體式工作區：透過 AI 助理對話、Coding IDE、Skill/Workflow/Agent 執行運行時與自動派工編排，把個人 AI 團隊從開發到維運全套跑起來。
+PAAW（Personal AI Assistant Workspace）是一個讓使用者建立個人 AI 工作團隊（AI Workforce）的工作區。主要對象為需要以 AI 助理/代理協作完成任務的使用者。
 
 ### 架構與模組
-Monorepo 架構（npm workspaces：`@paaw/ui` 前端、`@paaw/server` 伺服器，另有 `@paaw/db`、`@paaw/context`、`@paaw/engine`、`packages/shared` 等基礎 workspace packages）。程式規模：約 2,527 個函式、4,450 個符號、126 個 error codes。依 features 推模組分佈：
-
-- **核心 runtime**：伺服器入口、Agent Loop、Tool Engine、Security Kernel 安全鏈、LLM Utils、SQLite（sql.js/Kysely）嵌入式資料庫、Context Engine 與記憶
-- **Coding 子系統**：Coding IDE 多頁簽工作台、coding.mjs 樞紐路由（80 APIs）、Code Intelligence（tree-sitter）、Feature Map、任務板/Issue/Release Manager（證據式放行）、交接、維運 Runbook、Release Unit 情報中心
-- **AI 編排**：EM 自動派工（Night Shift）、Skill/Workflow 執行、A2A 協定、Cron 排程、Skill Builder、Skill Instance Model
-- **周邊與 UI**：內建瀏覽器（人機共駕）、聊天、筆記、AI 客服中心、安裝式應用模組（learning/pm/secret/sre）、i18n、報表與審計面板
-- **Bridge**：沙箱外宿主守門橋接器（:4100）
+- 框架：`frameworks` 欄位為空（資料待補）。
+- 程式規模：函式 2,704 個、符號 4,657 個；測試檔 113 個（unit 102、e2e 11、integration 0、contract 0）；錯誤碼 180 個。
+- 模組分佈（依 features 歸納）：
+  - A2A 協定入口與 Agent Card／任務串流（A20261107-001～005）
+  - 設定管理：AI／Agent／Provider／使用者偏好／EM 設定（010～016、107～109）
+  - API 測試與代理請求（018～021）
+  - 日誌與成本：Agent 執行日誌、RU 除錯日誌、成本彙總、日誌清理（006～009）
+  - 模型與 RU 資訊：C4 模型、Release 證據、RU 資訊與 AI 調整、DB 狀態（097～103）
+  - 功能地圖與文件覆蓋率（104～106、113～124）
+  - 技能管理與建議（163～168）
+  - 交接（125～131）、任務（172～175）、問題（133～136）、派工與審查（083～096、160～162）
+  - 對話（075～082）、應用（022～025、033～035）
+  - 瀏覽器自動化與截圖串流（059～074）
+  - 備份／還原（053～058）、稽核日誌（051～052）
+  - 發佈與測試證據、就緒度（141～159）
+  - 維運狀態／Runbook／排解指南（138～140、176～182）
+  - 錯誤碼掃描（110～111）、Agent 記憶（137）、任務證據（112）、Coding 健康檢查（132）、暫存變更（169～171）、工作區（017、043～045）、檔案寫入（050）、UI 狀態（047～049）、PAAW 根目錄與使用者資料／頭像（028～032）、版本與安全模式／網路白名單（036～040）、Provider 清單（041～042）、知識路徑（046）、API／UI 功能清單（183～184）、Crew 對話與派工（185～186）、QA 結果（187～188）、上下文視窗（189）
 
 ### 如何建置/跑/測
 bash
-npm run dev          # 同時跑 UI + API（concurrently）
-npm run dev:ui       # 只跑前端
-npm run dev:server   # 只跑後端
-npm run build        # 建置 UI
-npm run start        # 啟動 server
-npm run start:prod   # node scripts/prod-server.mjs
-npm run typecheck    # 型別檢查（UI）
-npm run test         # vitest run
+# 開發（同時啟動 UI 與 API）
+npm run dev
+
+# 只啟動 UI / 只啟動 API
+npm run dev:ui
+npm run dev:server
+
+# 建置 UI
+npm run build
+
+# 啟動 server（開發模式）
+npm run start
+
+# 生產啟動
+npm run start:prod
+
+# 型別檢查（UI）
+npm run typecheck
+
+# 測試
+npm run test
 ### Feature 清單（表格：| Feature | 說明 | 檔案數 |）
 
 | Feature | 說明 | 檔案數 |
-| --- | --- | --- |
-| F20261016-001 Next.js 16 非同步路由參數技能範本 | 示範 Next.js 16 params/searchParams/cookies()/headers()/draftMode() 非同步寫法的單一 TSX 範本檔 | 1 |
-| F20261016-002 Next.js 16 非同步 Params 頁面範本 | App Router 頁面範本，params/searchParams 改 Promise 後的可貼上骨架 | 1 |
-| F20261016-003 Next.js 16 「use cache」快取範本教材 | 註解式範例教學 "use cache"：元件/函式/頁面級、PPR、標籤失效等 8 段示範 | 1 |
-| F20261016-004 Next.js 16 平行路由範例教材 | Parallel Routes 最佳實踐樣板（技能知識庫內） | 1 |
-| F20261016-005 Next.js Route Handler API 範本 | app/api/[...]/route.ts 教學型樣板檔 | 1 |
-| F20261016-006 Next.js Server Actions 表單範本 | Server Actions 處理表單完整寫法範本 | 1 |
-| F20261016-007 PAAW Bridge | 沙箱外宿主守門橋接器（:4100）：同步審查、API 代理、容器生命週期 | 2 |
-| F20261016-008 Skill/Workflow/Agent 執行運行時與 API | Agent Loop、Tool Registry、對話壓縮、workflow/crew/apps 路由層 | 2 |
-| F20261016-009 A2A 代理協作協定服務 | JSON-RPC 2.0 實作 A2A v1.0，支援同步/SSE/webhook | 2 |
-| F20261016-010 Agent 執行日誌與保留政策 | 任務軌跡查詢、token/成本統計、三類日誌保留與 purge | 1 |
-| F20261016-011 外部整合設定：Plugins 與 Agentic 綁定 | iframe 插件與 Agentic workflow 工具註冊，JSON 檔為單一資料源 | 2 |
-| F20261016-012 AI 設定與記憶蒸餾中心 | AI Settings（提示詞/Provider/執行設定）+ Distill 記憶蒸餾引擎 | 1 |
-| F20261016-013 個人助理設定與工作區中樞 | /api/paaw/* 設定端點：頭像、模型鏈、Workflow CRUD、匯入匯出等 | 3 |
-| F20261016-014 共用內建瀏覽器 API | Playwright headless 瀏覽器的串流、輸入回注、分頁/下載/錄影 API | 1 |
-| F20261016-015 AI 助理對話後端 | session CRUD、SSE 串流、圖片上傳（Vision）、提示詞管理 | 1 |
-| F20261016-016 自動派工控制端點 | Auto Dispatch start/stop/reset/preview/status 等 7 端點 | 1 |
-| F20261016-017 編碼團隊派工與專案知識後端 | Coding Crew 對話派工、EM 規劃、.paaw 知識庫、安全護欄 | 1 |
-| F-023 檔案系統與 Git 操作服務 | vibe-fs 檔案讀寫/搜尋 + git 操作 + 文件覆蓋率追蹤 | 2 |
-| F-056 EM 調度設定管理 | {project}/.paaw/em/config.json 的讀取/深合併/重設 | 1 |
-| F20261016-020 交接狀態彙整與交接包生成 | on-demand 交接包 API + deterministic 交接狀態彙整器 | 13 |
-| F-030 程式碼問題追蹤 API | Issue CRUD/統計/筆記，存於 .paaw/issues/ISSUES.json | 1 |
-| F-041 維運狀態與 Runbook 管理 | git 狀態、runbook 讀寫、release 摘要，供 Ops AI 診斷 | 2 |
-| F-037 上線放行與證據決策卡 | Release Manager 放行流程 + Trust Score 證據卡 | 1 |
-| F-048 Release Unit 技能實例管理 | skill clone 進 {ru}/.paaw/skills/，跟 RU 存檔/移機/handover | 1 |
-| F20261016-025 暫存變更摘要儲存 | staged-changes.json 的 GET/POST/DELETE | 2 |
-| F20261016-026 個人助理設定與使用者檔案 API | /api/paaw/* 32 個 API：檔案、Provider、開發模式、白名單 | 1 |
-| F20261016-027 安全審計紀錄查詢 | audit-*.jsonl 唯讀報表 API，免 Elasticsearch | 1 |
-| F-043 內建共用瀏覽器 | 16 個 /api/browser/* 端點，人機共駕、CDP 串流、操作回放 | 1 |
-| F-011 AI 助理對話服務 | chat.mjs + uploads.mjs，附件存路徑不存 base64 | 2 |
-| F20261016-030 自動派工執行控制 API | 7 端點管理派工生命週期，執行邏輯委託 lib 模組 | 1 |
-| F20261016-031 Coding Agent 團隊對話派工與專案知識庫 API | 最大後端樞紐（coding.mjs 4300+ 行），80 個 API | 6 |
-| F-028 文件覆蓋率追蹤與專案檔案 Git 操作 API | doc-coverage + vibe-fs runGit，兩者實體耦合 | 3 |
-| F20261016-033 EM 總管編排行為設定管理 | 編排行為設定（非 prompt/頭像），UI 為 EM Dashboard | 2 |
-| F-014 編碼專案議題追蹤與已知問題匯入 | Issue CRUD、KNOWN-ISSUES.md 匯入，EM 派工讀取上下文 | 1 |
-| F-027 維運現況總覽與 Runbook 存取 | 維運總覽 + runbook 讀寫，Ops AI 同源讀取 | 1 |
-| F-019 上線放行閘門與證據審查 | coding-releases/evidence + RR 單狀態機 | 4 |
-| F20261016-037 Code Review 委員會會議記錄瀏覽 | .paaw/review-board/*.md 唯讀 API 供會議記錄頁渲染 | 1 |
-| F20261016-038 專案 AI 團隊與技能資產管理 | per-project agents/ 與 skills/，模板跟版 | 3 |
-| F20261016-039 AI 暫存變更交接摘要 | staged_summary tool ↔ Git 面板的交接樞紐 | 1 |
-| F-015 Coding 任務板 | feature-first 任務 CRUD + TaskGit 任務級 git 操作 | 2 |
-| F-024 自動派工執行計畫管理 | Execution Plan 狀態機、中斷恢復、多消費端 | 2 |
-| F-036 AI 客服中心 | A2A/人類提問、ToolEngine 作答、票務管理 | 1 |
-| F20261016-043 系統清理總管（Janitor）與 Console 日誌檢視器 | log/ 垃圾層清理，不碰 data/ 與 .paaw | 2 |
-| F20261016-044 LLM 呼叫日誌查詢、審計與 Skill 使用報表 | 聚合 llm JSONL 日誌：token/成本統計、審計、Skill 注入報表 | 1 |
-| F-035 筆記本管理與 AI 筆記整理 | 三層筆記系統（Notebook→Section→Note）22 端點 + AI 整理 | 1 |
-| F-049 外部插件註冊與 iframe 嵌入管理 | web app 註冊為側欄插件、iframe 分頁 | 1 |
-| F-018 Release Unit 專案情報中心 | 29 個 /api/ru/* 端點：依賴圖、影響分析、健康評分、問答 | 10 |
-| F-002 共用 API 資料契約 | TypeBox schemas，無執行邏輯 | 1 |
-| F20261016-049 AI 編碼工作台 | App.tsx 殼 + CodingIDE 三欄工作區，25 種頁簽 | 20 |
-| F-031 自訂 Agent 建立精靈 | 4 步驟 Modal 精靈，含快速模板與工具預設 | 1 |
-| F20261016-051 Agent 執行軌跡檢視與 RU 成本觀測 | 任務清單、RU token/USD 成本、逐步時間線 | 1 |
-| F20261016-052 AI 安全審計紀錄面板 | 安全事件紀錄面板（audit-log.jsonl） | 1 |
-| F20261016-053 create（自動命名） | （agent 長肉失敗，自動降級）此 feature 含 0 個檔案 | 0 |
-| F20261016-054 AI 團隊成員角色頭像產生器 | 確定性 SVG 圓形頭像，無狀態 | 1 |
-| F-013 Git 提交輸入列與 AI Commit 訊息生成 | 固定提交列 + AI 生成 commit message | 1 |
-| F20261016-056 Git 差異檢視 | Diff 分組摺疊瀏覽、歷史提交雙欄檢查 | 1 |
-| F20261016-057 Git 變更審查與提交面板 | Status/Diff 主面板，整合證據卡與 unpushed 審查 | 2 |
-| F20261016-058 LLM API 呼叫日誌檢視器 | 配對日誌表格 + 統計 + 單筆詳情 | 1 |
-| F20261016-059 模組 App 免建置動態頁面載入 | esbuild 即時 bundle + blob 動態 import | 2 |
-| F20261016-060 Release Unit 新人 12 問證據式問答入口 | 12 題固定 onboarding 問答 UI | 1 |
-| F20261016-061 Skill 注入使用報表 | 哪些 skill 被注入、誰在用、注入多少字 | 1 |
-| F20261016-062 Agent 用量與成本報表 | 前端聚合每日長條圖與四張交叉表 | 1 |
-| F-058 UI 多語系介面（i18n） | 自建輕量 i18n：Context + hook + 四份字典 | 1 |
-| F-032 Skill Builder 工作台 | 對話式技能建構、測試與發佈 + AgentConsole | 2 |
-| F-053 簡報播放器 | 圖片+Markdown 自動配對投影片播放 | 1 |
-| F20261016-066 個人 AI 助理主對話介面 | ChatView 主聊天頁，跨頁注入訊息入口 | 1 |
-| F-045 專案甘特圖時程檢視 | 唯讀時間軸任務視覺化 | 1 |
-| F-040 系統設定中心與備份還原 | 九分頁設定中樞 + 備份還原 | 2 |
-| F20261016-069 安裝式應用模組伺服器端 | learning/pm/secret/sre 四模組路由層 + 共用 sheets 引擎 | 17 |
-| F20261016-070 AI 助理核心基礎套件 | @paaw/db（SQLite）、@paaw/context、@paaw/engine | 20 |
-| F20261016-071 PAAW 核心 runtime | 伺服器入口、安全鏈、Tool Engine、EM 派工編排 | 39 |
-| F20261016-072 工作區周邊功能 API 與通用 App 工具引擎 | 五個獨立路由 + Universal App Engine | 6 |
-| F20261016-073 共用型別契約與前端基礎工具層 | packages/shared 型別與工具 + UI 基礎 | 7 |
-| F20261016-074 建置測試設定與產品打包維運腳本 | Vite/Playwright/Vitest 設定 + scripts/ 維運工具鏈 | 10 |
-| F-001 PAAW Server Core & HTTP Entrypoint | HTTP server、route loading、crash logging、WebSocket、EPIPE guard | 5 |
-| F-003 SQLite Database Layer | sql.js/Kysely 連線、migrations、repositories | 8 |
-| F-004 Context Engine & Refinery | 記憶儲存、token 估算、context refinery | 4 |
-| F-005 Server Context Engine | providers/skills/profile/memory/workspaces 動態 context 組裝 | 2 |
-| F-006 Agent Loop | tool-calling loop 的 AI runtime | 1 |
-| F-007 Tool Engine (Server) | provider adapter、tool registry、寫入驗證、安全整合 | 7 |
-| F-008 Engine Tool Engine (TS) | OpenAI-compatible adapter + tool registry | 4 |
-| F-009 Skill Runner & Workflow Engine | 四種 runner + 拓撲排序 workflow | 3 |
-| F-010 LLM Utils & Provider Retry | 模型解析、內容清理、retry/backoff | 2 |
-| F-012 Coding IDE | 主工作區：檔案樹、編輯器、Terminal、Git、瀏覽器 | 8 |
-| F-016 Feature Mapping | Feature map CRUD、AI 理解、覆蓋率統計 | 5 |
-| F-017 Code Intelligence | tree-sitter 符號索引、call graph、依賴圖 | 5 |
-| F-020 Coding Health | 程式健康評分面板 | 4 |
-| F-021 Coding Security (Path Safety) | ID 清理、路徑穿越防護、對話清理 | 1 |
-| F-022 Security Kernel | 政策管線、審批、secret store、審計 | 5 |
-| F-025 Agent Memory | per-agent 記憶儲存與編輯面板 | 3 |
-| F-026 Coding Handover | 交接包生成（git/plans/issues/decisions） | 3 |
-| F-029 Tests Page | 測試情報檢視與 AI 詢問覆蓋缺口 | 1 |
-| F-033 App Builder & App Pool | 從 skill 建 App、預覽、發佈與管理 | 4 |
-| F-034 Workflow Editor & Execution | ReactFlow 視覺編輯 + 拓撲執行 | 3 |
-| F-038 System Prompts | per role/agent 系統提示詞編輯 | 2 |
-| F-039 Cron Jobs & Scheduler | Cron CRUD、排程執行、投遞對話 | 2 |
-| F-042 Knowledge Distillation | 從 chat/vibe/cron 互動蒸餾知識檔 | 1 |
-| F-044 Mind Map Generation | LLM 心智圖 + markmap 渲染 | 2 |
-| F-046 Knowledge Tree & File Management | 知識目錄樹管理與 .paaw tree 初始化 | 8 |
-| F-047 Vibe Sessions | vibe coding session 持久化 | 1 |
-| F-050 Employee Workspace | 員工 agent 啟動任務的工作區 | 1 |
-| F-051 Orchestrator Views | 編排者總覽（mock data 驅動） | 12 |
-| F-052 Ops Dashboard (Mock) | 維運中心/監控/RCA/閘門儀表板（mock） | 5 |
-| F-054 Project Dashboard & Decision Log | 專案統計 + ADR 決策紀錄檢視 | 4 |
-| F-055 Pocket & Session History | 隨手筆記與 session 歷史 | 2 |
-| F-057 Context Compaction & Truncation | token 估算、工具結果截斷、對話壓縮 | 2 |
-| F-059 Coding Cost Attribution | coding 任務與 RU 的成本歸因 | 2 |
-| F-060 CU Mechanical Rescan & Source Scan | CU 機械層重掃與原始檔計數 | 2 |
-| F-061 Build & Ops Scripts | 打包、paaw sync、postinstall、runtime guard scanner | 5 |
-| F-062 Shell Execution & Utilities | 跨平台 shell exec、雜項工具 | 7 |
+|---|---|---|
+| A2A JSON-RPC 入口 | （資料待補） | 0 |
+| 取得 Agent Card | （資料待補） | 0 |
+| 取得 Agent Card（API 路徑） | （資料待補） | 0 |
+| 列出 A2A 任務 | （資料待補） | 0 |
+| 中斷 A2A 串流 | （資料待補） | 0 |
+| 取得 AI 設定 | （資料待補） | 0 |
+| 取得 Agent 設定 | （資料待補） | 0 |
+| 更新 Agent 設定 | （資料待補） | 0 |
+| 取得 Provider 設定 | （資料待補） | 0 |
+| 更新 Provider 設定 | （資料待補） | 0 |
+| 取得使用者偏好 | （資料待補） | 0 |
+| 更新使用者偏好 | （資料待補） | 0 |
+| 列出工作區 | （資料待補） | 0 |
+| 儲存 API 測試集合 | （資料待補） | 0 |
+| 代理 API 請求 | （資料待補） | 0 |
+| 儲存 API 請求 payload | （資料待補） | 0 |
+| 串流 API 請求 | （資料待補） | 0 |
+| 列出 Agent 執行日誌 | （資料待補） | 0 |
+| RU 除錯日誌 | （資料待補） | 0 |
+| RU 成本彙總 | （資料待補） | 0 |
+| 清除舊 Agent 日誌 | （資料待補） | 0 |
+| 取得 C4 模型 | （資料待補） | 0 |
+| 重掃 C4 模型 | （資料待補） | 0 |
+| 取得 Release 證據 | （資料待補） | 0 |
+| 取得 RU 資訊 | （資料待補） | 0 |
+| 更新 RU 資訊 | （資料待補） | 0 |
+| AI 調整 RU 資訊 | （資料待補） | 0 |
+| 取得 DB 狀態 | （資料待補） | 0 |
+| 取得 API 功能 | （資料待補） | 0 |
+| 取得 UI 功能 | （資料待補） | 0 |
+| Crew 對話 | （資料待補） | 0 |
+| Crew 派工 | （資料待補） | 0 |
+| 取得 QA 結果 | （資料待補） | 0 |
+| 寫入 QA 結果 | （資料待補） | 0 |
+| 取得上下文視窗 | （資料待補） | 0 |
+| 取得 EM 設定 | （資料待補） | 0 |
+| 更新 EM 設定 | （資料待補） | 0 |
+| 重置 EM 設定 | （資料待補） | 0 |
+| 取得 RU 技能 | （資料待補） | 0 |
+| 同步 RU 技能 | （資料待補） | 0 |
+| 新增 RU 技能 | （資料待補） | 0 |
+| 刪除 RU 技能 | （資料待補） | 0 |
+| 取得交接狀態 | （資料待補） | 0 |
+| 取得交接包 | （資料待補） | 0 |
+| 取得交接簡報 | （資料待補） | 0 |
+| 更新交接簡報 | （資料待補） | 0 |
+| 更新交接備註 | （資料待補） | 0 |
+| 刪除交接備註 | （資料待補） | 0 |
+| AI 產生交接簡報 | （資料待補） | 0 |
+| 列出任務 | （資料待補） | 0 |
+| 建立任務 | （資料待補） | 0 |
+| 取得任務統計 | （資料待補） | 0 |
+| 拆解任務 | （資料待補） | 0 |
+| Coding 健康檢查 | （資料待補） | 0 |
+| 取得備份設定 | （資料待補） | 0 |
+| 更新備份設定 | （資料待補） | 0 |
+| 執行備份 | （資料待補） | 0 |
+| 列出備份 | （資料待補） | 0 |
+| 還原備份 | （資料待補） | 0 |
+| 刪除備份 | （資料待補） | 0 |
+| 取得功能清單 | （資料待補） | 0 |
+| 更新功能清單 | （資料待補） | 0 |
+| 取得檔案對應 | （資料待補） | 0 |
+| 取得遷移報告 | （資料待補） | 0 |
+| 取得橫切概念 | （資料待補） | 0 |
+| AI 豐富橫切概念 | （資料待補） | 0 |
+| 取得測試訊號 | （資料待補） | 0 |
+| AI 豐富測試訊號 | （資料待補） | 0 |
+| 驗證功能地圖 | （資料待補） | 0 |
+| 取得功能統計 | （資料待補） | 0 |
+| 重算功能對應 | （資料待補） | 0 |
+| AI 探索功能 | （資料待補） | 0 |
+| 取得助理技能綁定 | （資料待補） | 0 |
+| 更新助理技能綁定 | （資料待補） | 0 |
+| 取得 PAAW 根目錄 | （資料待補） | 0 |
+| 取得使用者資料 | （資料待補） | 0 |
+| 更新使用者資料 | （資料待補） | 0 |
+| 上傳助理頭像 | （資料待補） | 0 |
+| 取得助理頭像 | （資料待補） | 0 |
+| 取得 App 規則 | （資料待補） | 0 |
+| 更新 App 規則 | （資料待補） | 0 |
+| 匯入應用 | （資料待補） | 0 |
+| 取得版本 | （資料待補） | 0 |
+| 取得安全模式 | （資料待補） | 0 |
+| 更新安全模式 | （資料待補） | 0 |
+| 取得網路白名單 | （資料待補） | 0 |
+| 更新網路白名單 | （資料待補） | 0 |
+| 取得 Provider 清單 | （資料待補） | 0 |
+| 更新 Provider 清單 | （資料待補） | 0 |
+| 取得工作區清單 | （資料待補） | 0 |
+| 新增工作區 | （資料待補） | 0 |
+| 刪除工作區 | （資料待補） | 0 |
+| 取得知識路徑 | （資料待補） | 0 |
+| 取得 UI 狀態 | （資料待補） | 0 |
+| 更新 UI 狀態 | （資料待補） | 0 |
+| 局部更新 UI 狀態 | （資料待補） | 0 |
+| 寫入檔案 | （資料待補） | 0 |
+| 列出問題 | （資料待補） | 0 |
+| 建立問題 | （資料待補） | 0 |
+| 取得問題統計 | （資料待補） | 0 |
+| 匯入已知問題 | （資料待補） | 0 |
+| 取得派工報告 | （資料待補） | 0 |
+| 列出審查會議 | （資料待補） | 0 |
+| 取得審查報告 | （資料待補） | 0 |
+| 取得對話上下文 | （資料待補） | 0 |
+| 列出對話 | （資料待補） | 0 |
+| 取得對話 | （資料待補） | 0 |
+| 建立對話 | （資料待補） | 0 |
+| 更新對話 | （資料待補） | 0 |
+| 刪除對話 | （資料待補） | 0 |
+| 送出對話訊息 | （資料待補） | 0 |
+| 取得系統提示 | （資料待補） | 0 |
+| 列出應用 | （資料待補） | 0 |
+| 建立/更新應用 | （資料待補） | 0 |
+| 應用訓練報告 | （資料待補） | 0 |
+| 應用發佈報告 | （資料待補） | 0 |
+| 取得技能建議 | （資料待補） | 0 |
+| 標註技能建議 | （資料待補） | 0 |
+| 取得文件覆蓋率 | （資料待補） | 0 |
+| 更新文件覆蓋率 | （資料待補） | 0 |
+| 列出未文件化項目 | （資料待補） | 0 |
+| 取得暫存變更 | （資料待補） | 0 |
+| 暫存變更 | （資料待補） | 0 |
+| 取消暫存 | （資料待補） | 0 |
+| 取得瀏覽器設定狀態 | （資料待補） | 0 |
+| 調整瀏覽器視窗 | （資料待補） | 0 |
+| 瀏覽器導航 | （資料待補） | 0 |
+| 瀏覽器截圖 | （資料待補） | 0 |
+| 瀏覽器畫面串流 | （資料待補） | 0 |
+| 列出瀏覽器分頁 | （資料待補） | 0 |
+| 新增瀏覽器分頁 | （資料待補） | 0 |
+| 列出下載 | （資料待補） | 0 |
+| 處理瀏覽器對話框 | （資料待補） | 0 |
+| 列出瀏覽器動作 | （資料待補） | 0 |
+| 取得動作截圖 | （資料待補） | 0 |
+| 取得剪貼簿 | （資料待補） | 0 |
+| 瀏覽器輸入 | （資料待補） | 0 |
+| 設定視覺模式 | （資料待補） | 0 |
+| 取得瀏覽器狀態 | （資料待補） | 0 |
+| 取得截圖 | （資料待補） | 0 |
+| 取得排解指南 | （資料待補） | 0 |
+| 產生排解指南 | （資料待補） | 0 |
+| 確認排解 | （資料待補） | 0 |
+| 新增排解條目 | （資料待補） | 0 |
+| 更新排解條目 | （資料待補） | 0 |
+| 更新排解備註 | （資料待補） | 0 |
+| 刪除排解備註 | （資料待補） | 0 |
+| 取得待發佈 | （資料待補） | 0 |
+| 列出發佈 | （資料待補） | 0 |
+| 拒絕發佈 | （資料待補） | 0 |
+| 執行測試 | （資料待補） | 0 |
+| 取得測試執行 | （資料待補） | 0 |
+| 列出測試執行 | （資料待補） | 0 |
+| 取得發佈就緒度 | （資料待補） | 0 |
+| 取得 API 狀態 | （資料待補） | 0 |
+| 取得 E2E 盤點 | （資料待補） | 0 |
+| 取得 API 證據矩陣 | （資料待補） | 0 |
+| 產生審查報告 | （資料待補） | 0 |
+| 產生 API 摘要 | （資料待補） | 0 |
+| 取得品質債 | （資料待補） | 0 |
+| 任務改造 | （資料待補） | 0 |
+| 取得基準候選 | （資料待補） | 0 |
+| 列出發佈請求 | （資料待補） | 0 |
+| 建立發佈請求 | （資料待補） | 0 |
+| 取得發佈證據 | （資料待補） | 0 |
+| 寫入發佈證據 | （資料待補） | 0 |
+| 取得稽核日誌 | （資料待補） | 0 |
+| 列出稽核日誌日期 | （資料待補） | 0 |
+| 取得維運狀態 | （資料待補） | 0 |
+| 取得 Runbook | （資料待補） | 0 |
+| 儲存 Runbook | （資料待補） | 0 |
+| 取得自動派工設定 | （資料待補） | 0 |
+| 更新自動派工設定 | （資料待補） | 0 |
+| 取得派工提示 | （資料待補） | 0 |
+| 更新派工提示 | （資料待補） | 0 |
+| 重置派工提示 | （資料待補） | 0 |
+| 啟動自動派工 | （資料待補） | 0 |
+| 預覽自動派工 | （資料待補） | 0 |
+| 停止自動派工 | （資料待補） | 0 |
+| 重置自動派工 | （資料待補） | 0 |
+| 列出派工執行 | （資料待補） | 0 |
+| 取得派工執行 | （資料待補） | 0 |
+| 取得上次派工 | （資料待補） | 0 |
+| 取得派工狀態 | （資料待補） | 0 |
+| 取得派工報告 | （資料待補） | 0 |
+| 取得 Agent 記憶 | （資料待補） | 0 |
+| 取得任務證據 | （資料待補） | 0 |
+| 取得錯誤碼 | （資料待補） | 0 |
+| 重掃錯誤碼 | （資料待補） | 0 |
 
 ### 維運要點
-- **測試現況**：共 69 個測試檔（unit 58、e2e 11、integration 0、contract 0）；跑 `npm run test`（vitest run），E2E 使用 Playwright。Integration 與 contract 測試為 0，釋出前建議補強。
-- **Error codes**：系統定義 126 個 error codes，排障時可依 code 對照。
-- **維運提醒**：
-  - 日誌落在 `log/`（LLM 呼叫 JSONL、audit-YYYY-MM-DD.jsonl），有保留天數政策與 Janitor 清理，Janitor 不會動 `data/` 使用者資產與 `{ru}/.paaw`。
-  - Bridge 服務跑在宿主機 :4100，是沙箱與外部唯一通道，需確認其健康（/health）。
-  - 審計與日誌查詢為 JSONL 檔案直讀，不依賴 Elasticsearch；注意磁碟成長。
-  - 自動派工有 reset 端點可清殭屍狀態。
+- 測試現況：測試檔 113 個，其中 unit 102、e2e 11；integration 與 contract 皆為 0，整合/契約層覆蓋需留意。
+- 錯誤碼現況：共 180 個錯誤碼，可透過「取得錯誤碼／重掃錯誤碼」功能檢視與更新。
+- 給維運工程師的提醒：
+  - 生產環境啟動請用 `npm run start:prod`（`node scripts/prod-server.mjs`），非 `npm run start`。
+  - 備份／還原與稽核日誌功能已存在，日常維運可搭配「取得維運狀態」「取得 Runbook」使用。
+  - 日誌保留政策見 ADR-023（三層架構與資產級保留政策），清理舊日誌前請先確認保留政策。
 
 ### 最新決策
-- ADR-020: Constrained Shell Execution for AI Agents (project_run_command)
-- ADR-019: Shared Tool Registry (OCP-compliant)
-- ADR-018: Night Shift 三模組職責邊界與分層策略
+- ADR-024: TASK-055 測試範圍：route-level 整合測試 Secretary.tsx 背後的 4 個 server routes
+- ADR-023: 日誌三層架構與資產級保留政策
+- ADR-022: TASK-049 測試策略：範本檔以「靜態契約掃描 + 最小可執行語意重現」雙層鞏固
 
 <!-- AI:END -->

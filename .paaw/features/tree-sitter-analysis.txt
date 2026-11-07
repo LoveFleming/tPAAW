@@ -1,6 +1,6 @@
 # Project Source Analysis (Tree-sitter)
-Parsed 424 of 432 source files
-Languages: typescript(58), javascript(255), tsx(118), python(1)
+Parsed 441 of 447 source files
+Languages: typescript(57), javascript(291), tsx(99)
 
 ## playwright.config.ts [typescript]
   Imports:
@@ -10,6 +10,46 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Imports:
     * ← vitest/config
     * ← path
+
+## tests/setup.mjs [javascript]
+  Imports:
+    * ← node:fs
+    * ← node:os
+    * ← node:path
+
+## tests/unit/a2a-protocol.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← ../../packages/server/src/routes/a2a.mjs
+    * ← ../../packages/server/src/lib/a2a-constants.mjs
+
+## tests/unit/a2a-routes.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:http
+    * ← node:fs
+    * ← node:os
+    * ← node:path
+  Functions:
+    async function call(method, path, { headers = {}, rawBody, body } = {})
+    arrow rpc(method, params, id = 1)
+    arrow msg
+  Classes:
+    class MockToolEngine { constructor, run }
+
+## tests/unit/agent-logs.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← path
+    * ← os
+    * ← events
+  Functions:
+    function makeReqRes(method, url, body)
+    async function writeTask(cwd, status = "completed", usage = USAGE)
+    function ageTask(taskId, days = 100)
+    function setRetention(cfg)
+    async function purgeTolerant(options = {})
 
 ## tests/unit/agent-loop-max-turns.test.mjs [javascript]
   Imports:
@@ -30,16 +70,113 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Functions:
     async function readFileFrom(category, file)
 
+## tests/unit/api-features.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← os
+    * ← path
+    * ← ../../packages/server/src/lib/coding-db/api-features.repo.mjs
+    * ← ../../packages/server/src/lib/coding-db/reads.mjs
+
+## tests/unit/audit-log-route.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:os
+    * ← node:path
+  Functions:
+    function mockReq(method, url)
+    function mockRes()
+    async function call(method, url)
+    function writeDay(date, events)
+
 ## tests/unit/audit-log.test.mjs [javascript]
   Imports:
     * ← vitest
     * ← fs
     * ← path
     * ← os
+  Functions:
+    arrow mk()
+
+## tests/unit/auto-dispatch-run-history.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:os
+    * ← node:path
+    * ← node:fs
+  Functions:
+    function makeRes()
+    async function callRoute(method, pathname, query = "")
+    function require_fs_list(dir)
 
 ## tests/unit/auto-dispatch-shared.test.mjs [javascript]
   Imports:
     * ← vitest
+
+## tests/unit/changelog-review-scope.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:os
+    * ← node:path
+    * ← node:child_process
+    * ← node:url
+  Functions:
+    arrow git(cwd, ...args)
+    arrow tc(name, args)
+
+## tests/unit/chat-uploads-hardening.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← os
+    * ← path
+    * ← ../../packages/server/src/lib/coding-security.mjs
+    * ← ../../packages/server/src/routes/uploads.mjs
+
+## tests/unit/chat-uploads-routes.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← path
+    * ← os
+    * ← events
+  Functions:
+    arrow pngBuf(n = 64)
+    arrow jpegBuf(n = 64)
+    arrow pngDataUrl(buf = pngBuf())
+    function makeReqRes(method, url, body, headers = {})
+    arrow jsonBody(res)
+    function twoReqs(...args)
+    function seedChat(id, overrides = {})
+    function registerRu(path)
+
+## tests/unit/chatview.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:path
+  Functions:
+    function makeSeedBox()
+
+## tests/unit/coding-auto-dispatch.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:os
+    * ← node:path
+  Functions:
+    function fakeReq({ method = "GET", url = "/", body } = {})
+    function fakeRes()
+    async function call(method, url, body)
+    function json(res)
+    function pathUrl(base, root)
+    function writeStatus(obj)
+    function readStatus()
+    arrow release()
+    arrow release()
 
 ## tests/unit/coding-evidence.test.mjs [javascript]
   Imports:
@@ -58,6 +195,52 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Functions:
     function mockReq(method, url, body)
     function mockRes()
+
+## tests/unit/coding-issues.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:http
+    * ← node:fs
+    * ← node:path
+    * ← node:os
+    * ← ../../packages/server/src/routes/coding-issues.mjs
+  Functions:
+    function startServer()
+    function stopServer()
+    async function req(method, path, { body, rawBody } = {})
+    function q(params)
+    function issuesFile()
+    function seedIssues(issues)
+    function readIssues()
+    function seedKnown(md)
+
+## tests/unit/coding-ops.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← path
+    * ← os
+    * ← events
+  Functions:
+    function makeReqRes(method, url, body)
+    arrow RUNBOOK_DIR()
+    async arrow call()
+    function post(body)
+  React Components:
+    arrow: RUNBOOK_DIR
+
+## tests/unit/coding-review-board.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:os
+    * ← node:path
+    * ← ../../packages/server/src/routes/coding-review-board.mjs
+    * ← ../../packages/server/src/routes/coding-review-board.mjs
+  Functions:
+    function makeReqRes(method, url)
+    async function callRoute(method, url)
+    function seedReport(dir, filename, content)
 
 ## tests/unit/coding-security-extended.test.mjs [javascript]
   Imports:
@@ -112,6 +295,30 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← vitest
     * ← ../../packages/server/src/lib/coding-security.mjs
 
+## tests/unit/crosscut-concepts.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:os
+    * ← node:path
+    * ← ../../packages/server/src/lib/crosscut-concepts.mjs
+  Functions:
+    function makeRepo(files)
+
+## tests/unit/cu-staleness.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← path
+    * ← os
+    * ← child_process
+  Functions:
+    arrow git(...args)
+    arrow commitAll(msg)
+    arrow artifact()
+    arrow stepsWith(extra = {})
+    arrow cleanTree()
+
 ## tests/unit/db-connection.test.ts [typescript]
   Imports:
     * ← vitest
@@ -136,6 +343,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Imports:
     * ← vitest
     * ← path
+    * ← url
+    * ← fs
     * ← ../../packages/db/src/paths
 
 ## tests/unit/db-repositories.test.ts [typescript]
@@ -188,10 +397,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← os
     * ← path
     * ← ../../packages/server/src/lib/em-task-store.mjs
-    * ← ../../packages/server/src/lib/em-orchestrator.mjs
-    * ← ../../packages/server/src/lib/em-job-entrypoints.mjs
   Functions:
-    function makeFixture()
+    async function makeFixture()
     function seedTask(root, overrides = {})
     async arrow OK_AGENT()
     function seqDecisions(list)
@@ -218,6 +425,18 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Functions:
     function makeTmpRoot()
 
+## tests/unit/feature-map-store.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← os
+    * ← path
+    * ← ../../packages/server/src/lib/feature-map-store.mjs
+    * ← ../../packages/server/src/lib/coding-db/docs.repo.mjs
+    * ← ../../packages/server/src/lib/feature-registry.mjs
+  Functions:
+    arrow ffDoc()
+
 ## tests/unit/feature-merge.test.mjs [javascript]
   Imports:
     * ← vitest
@@ -225,6 +444,14 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Functions:
     arrow makeId()
     arrow oldFeature(id, files, extra = {})
+
+## tests/unit/feature-phase-c.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← ../../packages/server/src/lib/feature-registry.mjs
+  Functions:
+    arrow old(id, files, extra = {})
+    arrow makeId()
 
 ## tests/unit/feature-risk-scan.test.mjs [javascript]
   Imports:
@@ -237,6 +464,29 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Functions:
     function fixture(files)
 
+## tests/unit/feature-skeleton-v3.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← os
+    * ← path
+    * ← ../../packages/server/src/lib/tree-sitter-parser.mjs
+    * ← ../../packages/server/src/lib/code-graph.mjs
+  Functions:
+    function fixture(files)
+    async function mapOf(root)
+
+## tests/unit/helpdesk.test.mjs [javascript]
+  Imports:
+    * ← vitest
+  Functions:
+    function keyFor(p)
+    function mockReq(method, url, body)
+    function mockRes()
+    async function call(method, url, body)
+    function seedTickets(tickets)
+    function readTickets()
+
 ## tests/unit/i18n-consistency.test.ts [typescript]
   Imports:
     * ← vitest
@@ -246,6 +496,17 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function loadLocale(lang: string)
     function loadRaw(lang: string)
     function checkLeaves(obj: Record<string, unknown>, prefix: string)
+
+## tests/unit/llm-logs.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← path
+    * ← os
+    * ← ../../packages/server/src/routes/llm-logs.mjs
+  Functions:
+    function dayStr(offsetDays)
+    arrow w(id, iso, phase)
 
 ## tests/unit/llm-utils.test.mjs [javascript]
   Imports:
@@ -273,6 +534,66 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     arrow: F
     arrow: FINDING_JSON
 
+## tests/unit/nextjs-async-params-page-template.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:url
+    * ← node:path
+    * ← node:module
+    * ← esbuild
+    * ← react-dom/server
+  Functions:
+    function loadTemplateModule()
+    async function renderPage({ params, searchParams })
+    function stubFetch(handler)
+    arrow jsonResponse(data)
+
+## tests/unit/nextjs-async-params-template.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← path
+    * ← url
+
+## tests/unit/nextjs-parallel-routes-template.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← path
+    * ← url
+  Functions:
+    arrow resolveSlot({ tree, slot, url, nav = "hard", activeState })
+    arrow makeModalTree()
+    arrow resolveChildren(appDefault)
+    arrow childrenHasPageFor(url)
+    arrow slotRenderer({ matched, inFlight, default: dflt, loading })
+    async arrow renderSlotWithErrorBoundary({ fetchPage, errorComponent, attempts })
+    arrow errorComponent({ error, reset })
+    async arrow failingPage()
+    async arrow flakyPage()
+    arrow errorComponent({ reset })
+    async arrow failingPage()
+
+## tests/unit/nextjs-use-cache-template.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← path
+    * ← url
+
+## tests/unit/notes.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:os
+    * ← node:path
+  Functions:
+    function mockReq(method, url, body)
+    function mockRes()
+    async function call(method, url, body)
+    function tryJson(s)
+
 ## tests/unit/paaw-sandbox-mxc.test.mjs [javascript]
   Imports:
     * ← vitest
@@ -287,13 +608,6 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← vitest
     * ← ../../packages/server/src/lib/llm-utils.mjs
 
-## tests/unit/pm-module.test.mjs [javascript]
-  Imports:
-    * ← vitest
-    * ← assert
-  Functions:
-    arrow slug(s)
-
 ## tests/unit/providers.test.mjs [javascript]
   Imports:
     * ← vitest
@@ -302,6 +616,20 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Functions:
     async function loadProviders()
 
+## tests/unit/release-evidence-snapshot.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:os
+    * ← node:path
+    * ← node:child_process
+    * ← ../../packages/server/src/lib/release-evidence-snapshot.mjs
+    * ← ../../packages/server/src/lib/release-evidence.mjs
+  Functions:
+    arrow G(cmd)
+  React Components:
+    arrow: G
+
 ## tests/unit/release-evidence.test.mjs [javascript]
   Imports:
     * ← vitest
@@ -309,6 +637,38 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← node:os
     * ← node:path
     * ← ../../packages/server/src/lib/release-evidence.mjs
+
+## tests/unit/release-requests-delta.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← os
+    * ← path
+    * ← child_process
+    * ← ../../packages/server/src/lib/release-requests.mjs
+    * ← ../../packages/server/src/lib/qa-results.mjs
+  Functions:
+    arrow git(a)
+    arrow head()
+    arrow commitFile(n, msg = "c")
+    arrow item(rr, id)
+    async function writeFeatureMap(filesMap)
+
+## tests/unit/release-requests-lineage.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← os
+    * ← path
+    * ← child_process
+    * ← @server/lib/release-requests.mjs
+    * ← @server/lib/qa-results.mjs
+  Functions:
+    function git(args)
+    function commitFile(name, content = "x")
+    function head()
+    async function qaAuto()
+    async function currentRrId()
 
 ## tests/unit/release-unit-adapters.test.mjs [javascript]
   Imports:
@@ -320,6 +680,79 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Functions:
     function tmpProject(files)
 
+## tests/unit/release-unit-impact.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← os
+    * ← path
+    * ← @server/lib/release-unit/impact.mjs
+    * ← @server/lib/release-unit/dependencies.mjs
+    * ← @server/data-home.mjs
+  Functions:
+    function tmpProject(files)
+
+## tests/unit/release-unit-model.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← @server/lib/release-unit/model.mjs
+
+## tests/unit/review-boundary-crosscut.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← ../../packages/server/src/lib/review-boundary.mjs
+
+## tests/unit/route-handler-api-template.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:url
+    * ← node:path
+    * ← node:module
+  Functions:
+    function exportedFunctionNames(src)
+    function compileTemplateWithTs(sourceText, fileName)
+    function astTopLevelExportedFunctions(sourceText, fileName)
+    function makeResponse(body, init = {})
+    async function demoSearchPosts(request)
+    async function demoPatchPost(request, { params }, deps)
+    async function demoDeletePost(_request, { params }, deps)
+    async function demoUploadFile(request, deps)
+    function makeUploadDeps()
+    async function demoGetPost(request, { params }, deps)
+    async function demoCreatePost(request, deps)
+    async function demoLogin(request, deps)
+    async function demoMe(cookieStore)
+    async function demoWebhook(request, headerGet, deps)
+    async function demoErrorHandling(deps)
+    function makeRateLimiter(limit = 10, windowMs = 60_000)
+
+## tests/unit/ru-skills.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:os
+    * ← node:path
+  Functions:
+    function mkTmp(prefix)
+    function seedGlobalSkill(dataHome, id, { kind = "physical-skill", name, body = "hello template", extraFiles = {} } = {})
+    function mkProject()
+    function track(dir)
+    function mockReq(method, url, body)
+    function mockRes()
+    async function callRoute(method, url, body)
+    function r_code(res)
+    function _copyDir(src, dest)
+
+## tests/unit/rust-feature-map.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← os
+    * ← path
+  Functions:
+    arrow w(rel, content)
+
 ## tests/unit/script-guard.test.mjs [javascript]
   Imports:
     * ← vitest
@@ -329,12 +762,22 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← os
     * ← path
 
-## tests/unit/secretary-module.test.mjs [javascript]
+## tests/unit/security-kernel-matrix.test.mjs [javascript]
   Imports:
     * ← vitest
-    * ← assert
+    * ← node:fs
+    * ← node:os
+    * ← node:path
+    * ← node:url
+    * ← ../../packages/server/src/lib/security/index.mjs
+    * ← ../../packages/server/src/lib/security/approval.mjs
+    * ← ../../packages/server/src/lib/security/audit-log.mjs
+    * ← ../../packages/server/src/lib/security/secret-store.mjs
+    * ← ../../packages/server/src/lib/security/policy-pipeline.mjs
+    * ← ../../packages/server/src/lib/shell-guard.mjs
   Functions:
-    arrow slug(s)
+    function dirname_(p)
+    function makeKernel(approvalOpts = {})
 
 ## tests/unit/security-mode.test.mjs [javascript]
   Imports:
@@ -343,6 +786,31 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← node:path
   Functions:
     function restore()
+
+## tests/unit/server-actions-form-compile.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:url
+    * ← node:path
+  Functions:
+    async function typeCheckTemplate(templateSource)
+
+## tests/unit/server-actions-form-template.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:url
+    * ← node:path
+  Functions:
+    function exportedAsyncFunctionNames(src)
+    function moduleDirectives(src)
+    arrow makeValidator(rules)
+    async arrow createPostWithValidation(prevState, formData, { fetchImpl })
+    arrow makeFormData(obj)
+    async arrow failingFetch()
+    arrow submitContactForm(ip, now, headersGet)
+    async arrow headers()
 
 ## tests/unit/server-entrypoint.test.mjs [javascript]
   Imports:
@@ -380,6 +848,16 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← node:fs
     * ← ../../packages/server/src/lib/shell-exec.mjs
 
+## tests/unit/skill-engagement.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← os
+    * ← path
+    * ← ../../packages/server/src/routes/llm-logs.mjs
+  Functions:
+    arrow w(line)
+
 ## tests/unit/skill-format.test.mjs [javascript]
   Imports:
     * ← vitest
@@ -391,24 +869,24 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function parseSkillFrontmatter(content)
     async function findSkillFiles()
 
-## tests/unit/sre-module.test.mjs [javascript]
-  Imports:
-    * ← vitest
-    * ← assert
-    * ← node:http
-    * ← node:fs
-    * ← node:path
-    * ← node:events
-  Functions:
-    function mockReq(method, url, bodyObj)
-    function mockRes()
-    async function call(handler, { method = "GET", url, body })
-    arrow j(o)
-
 ## tests/unit/stable-stringify.test.mjs [javascript]
   Imports:
     * ← vitest
     * ← ../../packages/server/src/lib/stable-stringify.mjs
+
+## tests/unit/subfeature-refine.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← ../../packages/server/src/lib/feature-subfeature.mjs
+  Functions:
+    arrow infoOf(tokens)
+    function buildTwoCliques(n = 5)
+    arrow mk(prefix)
+    arrow wAt(i, j)
+    arrow twoDoms()
+    arrow info(p)
+    arrow info()
+    arrow info()
 
 ## tests/unit/surrogate-safety.test.mjs [javascript]
   Imports:
@@ -425,6 +903,31 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← node:os
     * ← node:path
     * ← ../../packages/server/src/lib/test-report-reader.mjs
+
+## tests/unit/test-runner-coverage.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← os
+    * ← path
+    * ← ../../packages/server/src/lib/test-runner.mjs
+    * ← ../../packages/server/src/lib/test-report-reader.mjs
+    * ← fs
+  Functions:
+    function fixture(pkg)
+
+## tests/unit/test-signals.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:os
+    * ← node:path
+    * ← ../../packages/server/src/lib/test-signals.mjs
+  Functions:
+    arrow w(p, c)
+    arrow c(p)
+    async arrow mockLLM()
+    async arrow lowLLM()
 
 ## tests/unit/tool-engine-provider.test.mjs [javascript]
   Imports:
@@ -475,10 +978,43 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     arrow jsonRes(status, body)
     arrow route(method, pattern, handler)
     arrow notFound()
-    function setupSandbox()
+    async function setupSandbox()
     function resetState()
     async function loadTools()
     arrow toolNames()
+
+## tests/unit/ui-features.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← os
+    * ← path
+    * ← ../../packages/server/src/lib/coding-db/ui-features.repo.mjs
+
+## tests/unit/ui-utils.test.ts [typescript]
+  Imports:
+    * ← vitest
+    * ← ../../packages/ui/src/utils/index
+
+## tests/unit/usage-report-panel.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← fs
+    * ← path
+    * ← url
+  Functions:
+    arrow newAgg()
+    function add(agg, e)
+    arrow isoDay(iso)
+    function aggregate(items, { from = "", to = "", ru = "", agent = "" } = {})
+    arrow T(o)
+  React Components:
+    arrow: T
+
+## tests/unit/utility-consumers.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← ../../packages/server/src/lib/crosscut-concepts.mjs
 
 ## tests/e2e/01-smoke.spec.ts [typescript]
   Imports:
@@ -672,8 +1208,6 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ./pages/AppPool
     * ← ./pages/CronJobsPage
     * ← ./pages/CodingIDE
-    * ← ./pages/AppModules
-    * ← ./components/ModulePageLoader
     * ← ./pages/BriefingPlayer
     * ← ./pages/MindMapViewer
     * ← ./pages/Notes
@@ -729,17 +1263,6 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ./App
     * ← ./i18n
     * ← ./index.css
-
-## packages/ui/src/moduleRuntime.ts [typescript]
-  Imports:
-    * ← ./api
-  Exports:
-    function: loadModulePage
-  Functions:
-    function appLoader(spec: string)
-    function shimUrl(spec: string)
-    function injectModuleCss(moduleId: string, page: string, css: string)
-    function loadModulePage(moduleId: string, page: string)
 
 ## packages/ui/src/theme.tsx [tsx]
   Imports:
@@ -866,26 +1389,6 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function: SkillPickerDialog
     function: AppBuilder
 
-## packages/ui/src/pages/AppModules.tsx [tsx]
-  Imports:
-    * ← react
-    * ← ../theme
-    * ← ../i18n
-    * ← ../components/ui/uiFeedback
-    * ← ../utils
-    * ← ../api
-  Exports:
-    default function: AppModules
-  Functions:
-    function AppModules()
-    async arrow toggle(m: AppModule)
-    async arrow doImport(file: File)
-    arrow doExport(m: AppModule)
-    async arrow doRemove(m: AppModule)
-    async arrow create()
-  React Components:
-    function: AppModules
-
 ## packages/ui/src/pages/AppPool.tsx [tsx]
   Imports:
     * ← react
@@ -972,6 +1475,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Imports:
     * ← react
     * ← react-markdown
+    * ← ../components/MermaidBlock
     * ← remark-gfm
     * ← remark-breaks
     * ← ../theme
@@ -1025,7 +1529,6 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ../components/TestsPage
     * ← ../components/EMDashboard
     * ← ../components/RuCloneModal
-    * ← ../components/ModulePickerModal
     * ← ../components/RuOnboardingModal
     * ← ../components/git
     * ← ../components/browser/BrowserPanel
@@ -1037,6 +1540,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ../components/ChatMessages
     * ← ../components/IssueTracker
     * ← ../components/QaRecords
+    * ← ../components/DispatchReports
     * ← ../components/TaskBoard
     * ← ../components/ReleaseManagerPanel
     * ← ../components/CodeReviewBoardPanel
@@ -1046,6 +1550,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ../components/FeatureMap
     * ← ../components/ApiMapSidebar
     * ← ../components/ApiTesterTabs
+    * ← ../components/ApiRequestTabSheet
     * ← ../components/AgentSideChat
     * ← ../components/ColResizer
     * ← ../components/CrewManager
@@ -1056,6 +1561,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Exports:
     default function: CodingIDE
   Functions:
+    function ToolLogRow({ name, args, running }: { name: string; args: string; running: boolean })
     arrow crewToAgentId(crewId: string)
     arrow TREE_NOOP()
     function getFileIcon(name: string)
@@ -1063,10 +1569,6 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function getHljsLang(name: string)
     function escapeHtml(str: string)
     function fmtTime(iso: string)
-    function fmtBytes(n: number)
-    function tryFormatJson(str: string)
-    function ApiResponseBody({ body }: { body: string })
-    arrow copy()
     function safeStr(v: any)
     function EditorTabContent({ tabId, filePath, tabData, isActive, isEditing, textareaRef, lineNumWidth, handleContentChange, stopEditing, handleCodeViewClick, startEditing, tk, tt, openFile }: {
   tabId: string;
@@ -1085,18 +1587,18 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   openFile: (path: string) => void;
 })
     function CodingIDE()
+    async arrow saveRuInfo()
+    async arrow runAiAdjust()
     arrow handler(e: MouseEvent)
-    async arrow doSaveToCollection()
     arrow _collapseRunningUi()
     async arrow poll()
     arrow handler(e: KeyboardEvent)
     arrow onMove(ev: MouseEvent)
     arrow onUp()
-    async arrow createNewModule()
     function highlightMatch(text: string, query: string, caseSensitive: boolean)
   React Components:
+    function: ToolLogRow
     arrow: TREE_NOOP
-    function: ApiResponseBody
     function: EditorTabContent
     function: CodingIDE
 
@@ -1153,6 +1655,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ../utils
     * ← highlight.js
     * ← highlight.js/styles/github.css
+    * ← ../components/MermaidBlock
     * ← ../api
   Functions:
     function fileIconElement(name: string)
@@ -1191,6 +1694,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Imports:
     * ← react
     * ← react-markdown
+    * ← ../components/MermaidBlock
     * ← remark-gfm
     * ← remark-breaks
     * ← ../theme
@@ -1338,6 +1842,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ../api
     * ← ../components/ModelSelector
     * ← ./BackupSettings
+    * ← ./StarterKitsSettings
     * ← ./PluginManager
     * ← ../components/ui/uiFeedback
     * ← ../utils
@@ -1345,6 +1850,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     default function: SettingsPage
   Functions:
     function SettingsPage({ initialTab, onTabChange, onProvidersSaved }: SettingsPageProps = {})
+    async arrow loadSecurityTab()
     arrow setTab(newTab: typeof tab)
     async arrow loadSecurityMode()
     async arrow toggleDevMode(next: boolean)
@@ -1376,6 +1882,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ../theme
     * ← ../components/AgentConsole
     * ← react-markdown
+    * ← ../components/MermaidBlock
     * ← remark-gfm
     * ← ../components/ModelSelector
     * ← ../api
@@ -1451,6 +1958,21 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async arrow handleImportSkill(file: File)
   React Components:
     function: SkillsPage
+
+## packages/ui/src/pages/StarterKitsSettings.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../api
+    * ← ../components/ui/uiFeedback
+  Exports:
+    default function: StarterKitsSettings
+  Functions:
+    function StarterKitsSettings()
+    async arrow upload()
+    async arrow remove(id: string, kname: string)
+    async arrow toggleFiles(id: string)
+  React Components:
+    function: StarterKitsSettings
 
 ## packages/ui/src/i18n/index.tsx [tsx]
   Imports:
@@ -1538,16 +2060,46 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Imports:
     * ← react
     * ← ../i18n
-    * ← ./useRuModel
   Exports:
     variable: METHOD_COLORS
     default function: ApiMapSidebar
   Functions:
     function ApiMapSidebar({ rootPath, onPick, onOpenFile, onAskAi, borderLight = "#f0f0f0", accentText = "#0369a1" }: Props)
-    arrow push(key: string, a: ApiEntry)
     arrow askAbout(a: ApiEntry)
   React Components:
     function: ApiMapSidebar
+
+## packages/ui/src/components/ApiRequestTabSheet.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← ../utils
+    * ← ./ui/uiFeedback
+    * ← ./JsonViewer
+    * ← ../api
+  Exports:
+    type: ApiHeader
+    type: ApiResponse
+    type: ApiHistoryItemLike
+    function: tryFormatJson
+    type: ApiTabInput
+    type: ApiRequestTabSheetHandle
+    default value: ApiRequestTabSheet
+  Functions:
+    function fmtBytes(n: number)
+    function tryFormatJson(str: string)
+    function ApiResponseBody({ body }: { body: string })
+    arrow copy()
+    arrow newTabId()
+    arrow emptyTab()
+    arrow closeTab(id: string)
+    async arrow doSaveToCollection()
+    async arrow sendApiRequest()
+    arrow shortPath(url: string)
+    arrow onMove(ev: MouseEvent)
+    arrow onUp()
+  React Components:
+    function: ApiResponseBody
 
 ## packages/ui/src/components/ApiTesterTabs.tsx [tsx]
   Imports:
@@ -1563,8 +2115,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function ApiTesterTabs({
   rootPath, onPick, onOpenFile, onAskAi, onLoadPayload,
   apiHistory, onClearHistory, refreshHistory,
-  borderLight = "#f0f0f0", borderInput = "#e5e5e5",
-}: Props)
+  borderLight = "#f0f0f0", borderInput = "#e5e5e5", refreshSignal }: Props)
+    arrow sendAiAddPayload()
     async arrow loadPayloadDetail(colName: string, payloadId: string)
     async arrow deleteCollection(name: string)
     async arrow deletePayload(colName: string, payloadId: string)
@@ -1626,6 +2178,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Imports:
     * ← react
     * ← react-markdown
+    * ← ./MermaidBlock
     * ← remark-gfm
     * ← remark-breaks
     * ← ../utils
@@ -1722,6 +2275,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Functions:
     function CodeReviewBoardPanel({ rootPath, theme: tk, onBackToReleaseManager }: Props)
     arrow decisionBadge(m: ReportMeta)
+    arrow meetingCard(m: any)
   React Components:
     function: CodeReviewBoardPanel
 
@@ -1845,6 +2399,22 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   React Components:
     function: DirectoryExplorer
 
+## packages/ui/src/components/DispatchReports.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../api
+    * ← ../i18n
+    * ← ./MarkdownText
+    * ← ./ui/uiFeedback
+  Exports:
+    default function: DispatchReports
+  Functions:
+    arrow fmtSize(n?: number)
+    function DispatchReports({ rootPath, theme, focus, active = true }: Props)
+    async arrow handleDelete(date: string)
+  React Components:
+    function: DispatchReports
+
 ## packages/ui/src/components/EMDashboard.tsx [tsx]
   Imports:
     * ← react
@@ -1859,7 +2429,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Exports:
     default function: EMDashboard
   Functions:
-    function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, openMainTab, adRefreshTrigger = 0, model, onModelChange, cuModalRequest = 0 }: EMDashboardProps)
+    arrow fmtChatTs(ts?: string)
+    function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, openMainTab, adRefreshTrigger = 0, model, onModelChange, cuModalRequest = 0, prefillMessage, onOpenDispatchReports }: EMDashboardProps)
     async arrow poll()
     async arrow patchEmConfig(patch: any)
     async arrow patchEmConfigDeep(section: string, key: string, value: any)
@@ -1897,72 +2468,39 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
 ## packages/ui/src/components/FeatureMap.tsx [tsx]
   Imports:
     * ← react
-    * ← ../utils
     * ← ../i18n
-    * ← ./MarkdownText
-    * ← ./FeatureCockpit
     * ← ../api
-    * ← ./ui/uiFeedback
   Exports:
-    default function: FeatureMap
+    default function: ApiMapView
   Functions:
-    function FeatureMap({ rootPath, theme, onOpenFile, refreshKey }: Props)
-    async arrow ecRescan()
-    async arrow handleSaveDocs()
-    async arrow handleCreate(name: string, description: string)
-    function CreateFeatureForm({ onCreate, onCancel, theme, t }: {
-  onCreate: (name: string, description: string) => void;
-  onCancel: () => void;
-  theme: any;
-  t: (k: string) => string;
-})
-    function SeveritySection({ feature, theme, t, rootPath, onFeatureUpdate }: {
-  feature: Feature;
-  theme: any;
-  t: (k: string) => string;
-  rootPath: string;
-  onFeatureUpdate?: (f: Feature) => void;
-})
-    async arrow confirm(sev: string)
-    async arrow removeDecision(did: string)
-    function FeatureDetail({ feature, ecData, theme, t, onOpenFile, ruModel, callChainMap, editingDocs, docsContent, setDocsContent, setEditingDocs, onSaveDocs, savingDocs, rootPath, onFeatureUpdate }: {
-  feature: Feature;
-  ecData?: any;
-  theme: any;
-  t: (k: string) => string;
-  onOpenFile?: (p: string) => void;
-  ruModel?: any;
-  callChainMap?: Map<string, any> | null;
-  editingDocs: boolean;
-  docsContent: string;
-  setDocsContent: (s: string) => void;
-  setEditingDocs: (b: boolean) => void;
-  onSaveDocs: () => void;
-  savingDocs: boolean;
-  rootPath: string;
-  onFeatureUpdate?: (f: Feature) => void;
-})
-    function FileToFeatureList({ features, theme, t, searchQuery, onSelectFeature, onOpenFile }: {
-  features: Feature[];
-  theme: any;
-  t: (k: string) => string;
-  searchQuery: string;
-  onSelectFeature: (id: string) => void;
-  onOpenFile?: (p: string) => void;
-})
+    arrow methodOf(entry: string)
+    function ApiMapView({ rootPath, theme, onOpenFile, refreshKey }: Props)
+    arrow toggleCat(cat: string)
     function Section({ title, count, theme, children }: {
   title: string;
-  count: number;
-  theme: any;
-  children: React.ReactNode;
+  count?: number;
+  theme: Props["theme"];
+  children?: React.ReactNode;
+})
+    function FileChip({ file, theme, onOpenFile }: { file: string; theme: Props["theme"]; onOpenFile?: (p: string) => void })
+    function ApiDetail({ api, theme, t, onOpenFile }: {
+  api: ApiFeature;
+  theme: Props["theme"];
+  t: (k: string) => string;
+  onOpenFile?: (p: string) => void;
+})
+    function UiDetail({ ui, theme, t, onOpenFile }: {
+  ui: UiFeature;
+  theme: Props["theme"];
+  t: (k: string) => string;
+  onOpenFile?: (p: string) => void;
 })
   React Components:
-    function: FeatureMap
-    function: CreateFeatureForm
-    function: SeveritySection
-    function: FeatureDetail
-    function: FileToFeatureList
+    function: ApiMapView
     function: Section
+    function: FileChip
+    function: ApiDetail
+    function: UiDetail
 
 ## packages/ui/src/components/FileEmoji.tsx [tsx]
   Exports:
@@ -2168,8 +2706,19 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← react-markdown
     * ← remark-gfm
     * ← remark-breaks
+    * ← ./MermaidBlock
   Exports:
     default value: MarkdownText
+
+## packages/ui/src/components/MermaidBlock.tsx [tsx]
+  Imports:
+    * ← react
+  Exports:
+    variable: MermaidBlock
+    function: mdPreWithMermaid
+  Functions:
+    function loadMermaid()
+    function mdPreWithMermaid({ children, ...props }: any)
 
 ## packages/ui/src/components/ModelSelector.tsx [tsx]
   Imports:
@@ -2194,31 +2743,6 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     arrow handler(e: MouseEvent)
   React Components:
     function: ModelSelector
-
-## packages/ui/src/components/ModulePageLoader.tsx [tsx]
-  Imports:
-    * ← react
-    * ← ../moduleRuntime
-    * ← ../api
-  Exports:
-    default function: ModulePageLoader
-  Functions:
-    function ModulePageLoader({ moduleId, page }: { moduleId: string; page?: string })
-  React Components:
-    function: ModulePageLoader
-
-## packages/ui/src/components/ModulePickerModal.tsx [tsx]
-  Imports:
-    * ← react
-    * ← ../api
-    * ← ../i18n
-  Exports:
-    default function: ModulePickerModal
-  Functions:
-    function ModulePickerModal({ theme: t, onClose, onPicked }: Props)
-    async arrow pick(m: Mod)
-  React Components:
-    function: ModulePickerModal
 
 ## packages/ui/src/components/MoveFolderPicker.tsx [tsx]
   Imports:
@@ -2277,9 +2801,11 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Exports:
     default function: QaRecords
   Functions:
-    function QaRecords({ rootPath, theme }: Props)
+    function QaRecords({ rootPath, theme, initialFeature }: Props)
     async arrow patchRecord(id: string, patch: Record<string, unknown>)
     async arrow handleDelete(id: string)
+    async arrow openSignForm()
+    async arrow submitSignOff()
     arrow fmtTime(iso: string)
   React Components:
     function: QaRecords
@@ -2291,17 +2817,19 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ../i18n
     * ← ./AgentSideChat
     * ← ./ColResizer
-    * ← ./ReleaseRequests
   Exports:
     default function: ReleaseManagerPanel
   Functions:
-    function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashboard, onOpenReviewBoard }: Props)
+    function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashboard, onOpenReviewBoard, onOpenQaRecords }: Props)
+    async arrow loadEvApi(sha?: string)
+    async arrow loadE2eInv()
+    async arrow loadApiStatus()
+    async arrow genApiSummary()
     async arrow runTests()
     arrow readinessEvidence()
-    arrow generateReport()
-    arrow askBoss(topic: string)
-    async arrow runRetrofit()
-    arrow trustColor(s: number | null)
+    arrow matrixEvidenceText()
+    async arrow generateReport()
+    arrow askAiVerify()
     function fmtShort(iso?: string)
   React Components:
     function: ReleaseManagerPanel
@@ -2324,10 +2852,12 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async arrow openCreate()
     async arrow create()
     async arrow patch(body: Record<string, unknown>, okText: string)
-    async arrow act(action: "open" | "close" | "cancel", body: Record<string, unknown>, okText: string)
+    async arrow act(action: "open" | "close" | "cancel" | "lock" | "unlock", body: Record<string, unknown>, okText: string)
+    async arrow resolveQr(qrId: string)
     async arrow review(itemId: string, verdict: string, note?: string)
     arrow askAi()
     async arrow applySuggestions()
+    arrow renderNextSteps()
     arrow checklistDone(cl: { verdict: string }[])
     arrow StatusBadge({ st }: { st: string })
     arrow MiniLights({ cl }: { cl: { id: string; verdict: string; auto: string }[] })
@@ -2727,6 +3257,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   onStageFile,
   crossPaths,
   unexpectedPaths,
+  impactedApis,
 }: FeatureGroupCardProps)
     arrow norm(p: string)
   React Components:
@@ -2855,6 +3386,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   onUnstageFile,
   onStageFile,
   featureMap,
+  apiFeatures,
   evidence,
   evidenceLoading,
   onShowCode,
@@ -3001,6 +3533,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   template: string,
   vars: Record<string, any>
 )
+    function resolveTemplateValue(value: any, vars: Record<string, any>)
     function resolveTemplateObj(
   obj: Record<string, any>,
   vars: Record<string, any>
@@ -3059,6 +3592,11 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   React Components:
     arrow: PaginatedResponse
     arrow: ApiOkResponse
+
+## packages/server/tests/unit/error-code-json-repair.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← ../../src/lib/error-code-scan.mjs
 
 ## packages/server/test/a2a-images.test.mjs [javascript]
   Functions:
@@ -3139,6 +3677,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← node:path
     * ← node:url
   Exports:
+    named: REPO_ROOT
     variable: DATA_HOME
     variable: LOG_HOME
     function: logSlug
@@ -3191,12 +3730,14 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     named: buildAppInstructions
     named: getHandlers
   Functions:
+    function _evidenceGapText(g)
     function extractFields(app)
     function checkRequired(app, fieldName)
     function getDataShape(app)
     async function loadApps()
     async function buildToolDefinitions()
     function buildHandlers(apps)
+    arrow fmtT(ts)
     arrow _secOnEvent(ev)
     async function loadWorkspaces()
     arrow isAbsPath(d)
@@ -3243,6 +3784,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Imports:
     * ← fs/promises
     * ← fs
+    * ← crypto
+    * ← ../lib/a2a-constants.mjs
     * ← path
     * ← url
     * ← path
@@ -3256,6 +3799,10 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     variable: runningStreams
     function: findRunningStream
     variable: streamStates
+    function: corsHeadersFor
+    function: assertSafeWebhookUrl
+    function: isValidRpcId
+    function: isValidRpcMethod
     function: extractImages
     default function: a2aRoutes
   Functions:
@@ -3272,12 +3819,24 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function loadTickets()
     async function saveTicketsFile(tickets)
     async function syncTicketFromTask(task)
+    function corsHeadersFor(req)
+    function isBlockedWebhookHost(hostname)
+    function isPrivateHost(hostname)
+    function assertSafeWebhookUrl(rawUrl)
     function readBody(req)
-    function sendJSON(res, code, body)
+    function sendJSON(res, code, body, req)
+    async function sseWrite(res, payload)
+    arrow finish()
+    function logInternalError(scope, err)
+    function isValidRpcId(id)
+    function isValidRpcMethod(method)
     function genId()
+    function genMsgId()
+    function _withTaskLock(taskId, fn)
     async function saveTask(task)
     async function getTask(taskId)
     async function listTasks()
+    async function _signWebhookPayload(secret, body)
     async function notifyWebhook(task, pushConfig)
     function makeTask({ message, contextId, taskId })
     function extractText(message)
@@ -3291,7 +3850,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function a2aRoutes(req, res)
     arrow _stBuffer(evName, dataObj)
     arrow _finishState()
-    arrow _stBuf(evName, dataObj)
+    arrow _stBuf()
     arrow _finishSendState()
     async arrow onStatus(statusUpdate)
   Routes:
@@ -3311,6 +3870,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Exports:
     default function: agentLogsRoute
   Functions:
+    async function readIndexEntries()
     async function agentLogsRoute(req, res)
     arrow _agg(ruName, task)
   Routes:
@@ -3398,19 +3958,12 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ../data-home.mjs
     * ← ../lib/coding-security.mjs
     * ← ../lib/stable-stringify.mjs
-    * ← ../lib/app-modules.mjs
-    * ← ../lib/module-ui-bundle.mjs
   Exports:
-    function: appModulesRoutes
     default function: appsRoute
   Functions:
-    async function appModulesRoutes(req, res)
     async function appsRoute(req, res)
     function readRawBody(req)
   Routes:
-    GET /api/apps/modules
-    POST /api/apps/modules
-    POST /api/apps/modules/import
     POST /api/apps
     POST /api/report-train
     POST /api/report-publish
@@ -3567,10 +4120,17 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ./uploads.mjs
     * ← fs/promises
     * ← path
+    * ← crypto
+    * ← ../lib/coding-security.mjs
+    * ← ../lib/audit-log.mjs
   Exports:
     default function: chatRoutes
   Functions:
     async function buildVisionMessages(messages)
+    function withChatLock(chatId, fn)
+    async function atomicWriteJson(filePath, data)
+    async function readJsonBody(req, res, maxBytes)
+    function chatIdFromPath(path)
     async function chatRoutes(req, res)
     async function readPromptFile(file)
     async function writePromptFile(file, content)
@@ -3626,6 +4186,10 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     default function: codingAutoDispatchRoute
   Functions:
     function updateStatusFile(statusPath, mutator)
+    function _pidAlive(pid)
+    function _runFileIdFor(status)
+    function _archiveRun(nsDir, statusObj)
+    function _reconcileAndArchivePrevious(nsDir, statusPath)
     async function codingAutoDispatchRoute(req, res)
     arrow readBody(req)
     arrow sendJSON(res, code, data)
@@ -3635,6 +4199,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     POST /api/coding-auto-dispatch/preview
     POST /api/coding-auto-dispatch/stop
     POST /api/coding-auto-dispatch/reset
+    GET /api/coding-auto-dispatch/runs
+    GET /api/coding-auto-dispatch/run
     GET /api/coding-auto-dispatch/last-run
     GET /api/coding-auto-dispatch/status
     GET /api/coding-auto-dispatch/report
@@ -3654,6 +4220,25 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Routes:
     GET /api/coding-project/c4-model
     POST /api/coding-project/c4-model/rescan
+
+## packages/server/src/routes/coding-db.mjs [javascript]
+  Imports:
+    * ← path
+    * ← url
+    * ← ./shared.mjs
+  Exports:
+    default function: codingDbRoute
+  Functions:
+    async function codingDbRoute(req, res)
+    arrow _json(code, obj)
+    async arrow root()
+    arrow mod()
+  Routes:
+    GET /api/coding-release/evidence/*
+    GET /api/coding-db/ru-info/*
+    PUT /api/coding-db/ru-info/*
+    POST /api/coding-db/ru-info/ai-adjust/*
+    GET /api/coding-db/status/*
 
 ## packages/server/src/routes/coding-doc-coverage.mjs [javascript]
   Imports:
@@ -3707,6 +4292,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ../lib/review-boundary.mjs
   Exports:
     function: classifyRisk
+    variable: TRUST_MAX
+    function: computeTrustScore
     function: gatherTaskEvidence
     default function: evidenceRoutes
   Functions:
@@ -3736,6 +4323,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ../lib/feature-registry.mjs
     * ← ../lib/feature-risk-scan.mjs
     * ← ../lib/stable-stringify.mjs
+    * ← ../lib/coding-db/docs.repo.mjs
   Exports:
     default function: codingFeaturesRoute
   Functions:
@@ -3747,11 +4335,17 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function loadFeatures(projectPath)
     async function saveFeatures(projectPath, features)
     async function loadIssueSummaries(projectPath, issueIds)
-    async function generateUnderstanding(projectPath, feature, providersFile)
+    async function _readSamples(projectPath, files, maxChars)
+    async function generateUnderstanding(projectPath, feature, providersFile, subKey = null)
     async function suggestSeverity(feature, scan, providersFile)
     async function codingFeaturesRoute(req, res)
   Routes:
     GET /api/coding-features/file-map
+    GET /api/coding-features/migration-report
+    GET /api/coding-features/crosscut
+    GET /api/coding-features/test-signals
+    POST /api/coding-features/test-signals/enrich
+    POST /api/coding-features/crosscut/enrich
     GET /api/coding-features/validate
     GET /api/coding-features/stats
     GET /api/coding-features
@@ -3769,6 +4363,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ../lib/release-unit/handover-state.mjs
     * ← ./coding.mjs
     * ← ../lib/stable-stringify.mjs
+    * ← ../lib/feature-registry.mjs
   Exports:
     default function: handoverRoutes
   Functions:
@@ -3807,7 +4402,9 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     default function: codingHealthRoute
   Functions:
     function sendJSON(res, code, data)
-    function parsePath(req)
+    async function getAllowedRoots()
+    function withinRoots(absPath, roots)
+    function parsePath(req, roots)
     async function codingHealthRoute(req, res)
 
 ## packages/server/src/routes/coding-issues.mjs [javascript]
@@ -3860,8 +4457,9 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← fs/promises
     * ← fs
     * ← path
-    * ← child_process
-    * ← util
+    * ← ./vibe-fs.mjs
+    * ← ../lib/coding-security.mjs
+    * ← ./shared.mjs
   Exports:
     default function: opsRoutes
   Functions:
@@ -3870,8 +4468,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function loadScripts(projectPath)
     async function loadOverview(projectPath)
     async function loadRecentReleases(projectPath)
+    function isHumanAuthored(content)
     async function opsRoutes(req, res, next)
-    function readBody(req)
   Routes:
     GET /api/coding-ops/status
     GET /api/coding-ops/runbook
@@ -3880,30 +4478,54 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
 ## packages/server/src/routes/coding-releases.mjs [javascript]
   Imports:
     * ← fs/promises
+    * ← ../lib/release-evidence-snapshot.mjs
     * ← ../lib/release-evidence.mjs
     * ← fs
     * ← path
     * ← ./coding-evidence.mjs
     * ← ../lib/task-retrofit.mjs
     * ← ../lib/change-intelligence.mjs
+    * ← ../lib/cu-source-scan.mjs
     * ← ../lib/release-unit/gates.mjs
     * ← ../lib/shell-exec.mjs
     * ← ../lib/test-runner.mjs
+    * ← ../lib/test-report-reader.mjs
     * ← fs
+    * ← ../lib/code-intelligence.mjs
+    * ← url
     * ← ../lib/release-requests.mjs
+    * ← ../lib/feature-registry.mjs
   Exports:
     default function: releaseRoutes
   Functions:
+    function _apiE2eCoverageChecker(root)
+    arrow build()
+    arrow isTestFile(n)
+    arrow walk(dir, depth)
+    arrow segPattern(seg)
+    arrow tryMatch(k)
     async function readTasksFile(projectPath)
     async function writeTasksFile(projectPath, data)
     function isPendingRelease(task)
+    function _collectDiskTestFiles(projectPath)
+    arrow walk(dir, depth)
+    function _diskTestsMissingFromMap(projectPath)
+    function _kickCuRescan(projectPath)
     function releasesDir(projectPath)
     async function listReleases(projectPath)
     async function releaseRoutes(req, res, next)
     arrow build()
     arrow isTestFile(n)
     arrow walk(dir, depth)
+    async arrow _buildApiStatus(projectPath)
+    arrow _pathOf(entry)
+    arrow _normLower(s)
     function readFileStream(req)
+    async function readJsonBody(req)
+    function sanitizeId(id)
+    function assertProjectPath(p)
+    function notMeasuredReason(projectPath)
+    function coverageSummary(projectPath)
     async function lastTestRunSummary(projectPath)
   Routes:
     GET /api/coding-releases/pending
@@ -3913,20 +4535,30 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     GET /api/coding-releases/test-run
     GET /api/coding-releases/test-runs
     GET /api/coding-releases/readiness
+    GET /api/coding-releases/api-status
+    GET /api/coding-releases/e2e-inventory
+    GET /api/coding-releases/evidence-by-api
+    POST /api/coding-releases/review-report
+    POST /api/coding-releases/api-summary
     GET /api/coding-releases/quality-debt
     POST /api/coding-releases/retrofit
     GET /api/coding-releases/baseline-candidates
     GET /api/coding-releases/requests
     POST /api/coding-releases/request
+    GET /api/coding-releases/evidence
+    POST /api/coding-releases/evidence
 
 ## packages/server/src/routes/coding-reports.mjs [javascript]
   Imports:
     * ← ../lib/auto-dispatch-shared.mjs
     * ← node:fs
     * ← node:path
+    * ← node:url
+    * ← node:path
   Exports:
     default function: codingReportsRoutes
   Functions:
+    function resolveRootDir(raw)
     async function codingReportsRoutes(req, res)
     arrow sendJSON(code, data)
 
@@ -4000,8 +4632,9 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← url
     * ← ./shared.mjs
     * ← ../lib/task-git.mjs
+    * ← ../lib/test-runner.mjs
     * ← ../lib/review-boundary.mjs
-    * ← ../lib/feature-registry.mjs
+    * ← ../lib/api-map.mjs
     * ← ../lib/stable-stringify.mjs
   Exports:
     variable: TASK_STATUSES
@@ -4027,7 +4660,6 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
 
 ## packages/server/src/routes/coding-trouble.mjs [javascript]
   Imports:
-    * ← express
     * ← node:fs/promises
     * ← node:fs
     * ← node:path
@@ -4063,6 +4695,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Imports:
     * ← fs/promises
     * ← ../lib/feature-registry.mjs
+    * ← ../lib/coding-db/docs.repo.mjs
     * ← fs
     * ← path
     * ← url
@@ -4074,6 +4707,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ./shared.mjs
     * ← ../lib/coding-security.mjs
     * ← ../lib/audit-log.mjs
+    * ← ../lib/coding-db/index.mjs
     * ← ../lib/tree-sitter-parser.mjs
     * ← ../lib/semgrep-runner.mjs
     * ← ../lib/code-intelligence.mjs
@@ -4089,28 +4723,24 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ../lib/running-agents.mjs
     * ← ../data-home.mjs
   Exports:
+    function: computeCuStaleness
     function: callProjectLLM
     default function: projectRoute
   Functions:
-    function computeCuStaleness(root, steps, codeLastModifiedMs)
+    async function computeCuStaleness(root, steps, codeLastModifiedMs)
+    arrow flag()
     function cuLog(step, msg)
     async function diffWriteFile(paaw, filename, newContent)
+    function _stripCodeFence(text)
     function _sanitizeMd(md)
     function cuStepSkillKey(stepId)
     async function loadCuStepSkills(root, stepId)
     async function callProjectLLM(body, opts = {})
-    function _extractJsonArray(text)
-    function repairLlmJsonArray(text)
-    function sanitizeFeature(f)
-    arrow strArr(v)
-    async function backfillFeatureTests(root, featureToTests)
-    function _chunkFiles(files, maxChars = FM_CHUNK_CHARS)
-    async function _runPool(items, worker, concurrency = FM_CONCURRENCY)
-    async function lane()
-    async function _fmLLM(cuModelOverride, prompt, opts = {})
-    async function generateFeatureMapChunked({ tsResult, basePrompt, projectRoot, cuModelOverride, cuLog, sendEvent, stepId, stepName })
-    arrow mergePrompt(lists, note)
     function parseQuery(url)
+    function _extractJsonArray(text)
+    async function backfillApiTests(root)
+    arrow walk(v)
+    function _buildManifestContext(root)
     async function projectRoute(req, res)
     arrow cleanupChatAgent()
     arrow cleanupDispatch()
@@ -4135,6 +4765,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function collectProjectHealth(root, paaw)
     arrow fixId(cat, name)
   Routes:
+    GET /api/coding-project/api-features
+    GET /api/coding-project/ui-features
     POST /api/coding-crew/chat
     POST /api/coding-crew/dispatch
     GET /api/coding-crew/qa-results
@@ -4207,7 +4839,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function: readSystemPrompt
     function: loadAgentConfig
   Functions:
-    function readBody(req)
+    function readBody(req, maxBytes)
     function json(res, data, status = 200)
     function urlPath(req)
     function projectPathHash(path)
@@ -4252,10 +4884,12 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
 ## packages/server/src/routes/execution-plan-routes.mjs [javascript]
   Imports:
     * ← ../lib/execution-plan.mjs
+    * ← ../lib/coding-security.mjs
   Exports:
     default function: executionPlanRoutes
   Functions:
     async function executionPlanRoutes(req, res)
+    function _sendError(res, err)
     function _readBody(req)
   Routes:
     POST /api/auto-dispatch/plan/create
@@ -4318,20 +4952,31 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← path
     * ← ../data-home.mjs
   Exports:
+    function: safeInt
     function: cleanupOldLogs
+    function: readLogFile
+    function: parseAllLogs
+    function: collectSkillsUsage
+    function: pairLogs
+    function: collectSkillEngagement
     default function: llmLogsRoute
   Functions:
-    function ensureLogDir()
-    function cleanupOldLogs(retentionDays = 7)
+    function ensureLogDir(dir = DEFAULT_LOG_DIR)
+    function safeInt(raw, fallback, min, max)
+    function cleanupOldLogs(retentionDays = 7, dir = DEFAULT_LOG_DIR)
     function _callerToAgentId(caller)
-    function parseLogs(dateStr)
-    function parseAllLogs(days = 7)
-    function collectSkillsUsage(days = 7)
+    function readLogFile(dateStr, dir = DEFAULT_LOG_DIR, maxLines = MAX_TOTAL_LINES)
+    function parseLogs(dateStr, dir = DEFAULT_LOG_DIR)
+    function parseAllLogs(days = 7, dir = DEFAULT_LOG_DIR)
+    function collectSkillsUsage(days = 7, dir = DEFAULT_LOG_DIR)
     function pairLogs(logs)
+    function _skillReadHits(toolName, argsRaw)
+    function collectSkillEngagement(days = 7, dir = DEFAULT_LOG_DIR)
     async function llmLogsRoute(req, res)
     async function readBody(req)
   Routes:
     GET /api/llm-logs/skills-usage
+    GET /api/llm-logs/skill-engagement
     GET /api/llm-logs
     GET /api/llm-logs/stats
     DELETE /api/llm-logs
@@ -4381,6 +5026,9 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     default value: handleMindMapRoutes
   Functions:
     function getSystemPrompt()
+    async function getAllowedReadRoots()
+    function isWithinRoot(absPath, roots)
+    function assertReadablePath(p, roots)
     async function readFilesForMindmap(files)
     async function readDirectoryForMindmap(dirPath)
     async function scan(dir, depth)
@@ -4450,14 +5098,18 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
 ## packages/server/src/routes/plugins.mjs [javascript]
   Imports:
     * ← fs/promises
-    * ← fs
+    * ← crypto
     * ← path
     * ← ./context.mjs
   Exports:
     function: handlePluginRoutes
     default value: handlePluginRoutes
   Functions:
-    arrow rawUrl_path(req)
+    function validateUrl(raw, label)
+    function normalizeConfig(body)
+    async function readConfig()
+    function withWriteLock(fn)
+    async function writeConfigAtomic(config)
     async function handlePluginRoutes(req, res)
   Routes:
     GET /api/plugins
@@ -4473,6 +5125,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Exports:
     default function: pocketRoute
   Functions:
+    function readBodyCapped(req)
+    function sendJSON(res, code, data)
     async function pocketRoute(req, res)
     async function loadArr()
     async function saveArr(data)
@@ -4537,6 +5191,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function releaseUnitRoutes(req, res, next)
     arrow _loadRuRegistry()
     arrow _saveRuRegistry(units)
+    arrow withinDir(p)
   Routes:
     GET /api/ru/workspaces
     POST /api/ru/workspaces
@@ -4659,6 +5314,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Exports:
     default function: skillRoutes
   Functions:
+    function safeSegment(seg)
     async function copyDir(src, dest)
     async function listFiles(dir, prefix = "")
     async function scanSkillsDir(root, kind)
@@ -4681,6 +5337,29 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function skillsApiRoute(req, res)
     async arrow scanSkillsDir(root, kind)
 
+## packages/server/src/routes/starter-kits.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← child_process
+    * ← util
+    * ← ../data-home.mjs
+    * ← ./context.mjs
+    * ← ../lib/paaw-project.mjs
+  Exports:
+    default function: starterKitsRoute
+  Functions:
+    function _kitId(name)
+    async function _listKitDirs()
+    async function _inspectTar(tarPath)
+    async function starterKitsRoute(req, res)
+    arrow _json(code, obj)
+    async arrow _walk(d)
+  Routes:
+    GET /api/starter-kits/*
+
 ## packages/server/src/routes/uploads.mjs [javascript]
   Imports:
     * ← fs/promises
@@ -4688,7 +5367,9 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← path
     * ← ./context.mjs
     * ← ../data-home.mjs
+    * ← crypto
   Exports:
+    function: detectImageType
     default function: uploadRoutes
     function: uploadsDir
     function: resolveUploadRef
@@ -4696,6 +5377,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function _listRuRoots()
     function _safeTextName(name)
     function _safeName(name)
+    function detectImageType(buf)
+    async function _readJsonBody(req, res, maxBytes)
     async function uploadRoutes(req, res)
     function uploadsDir()
     async function resolveUploadRef(ref)
@@ -4742,6 +5425,10 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Routes:
     POST /api/vibe-sessions
 
+## packages/server/src/lib/a2a-constants.mjs [javascript]
+  Exports:
+    variable: A2A_PROTOCOL_VERSION
+
 ## packages/server/src/lib/action-log.mjs [javascript]
   Imports:
     * ← fs/promises
@@ -4759,6 +5446,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function getAgentMemoryDir(cwd)
     function normalizeAffectedFiles(v)
     async function addActionLog(entry, cwd)
+    async function _readActionLogFile(logPath, agent, actions)
     async function listActionLog(opts = {})
     async function saveAgentMemory(agentId, content, cwd)
     async function loadAgentMemory(agentId, cwd, maxChars = 6000)
@@ -4798,32 +5486,24 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Exports:
     variable: AGENT_RULES
 
-## packages/server/src/lib/app-modules.mjs [javascript]
+## packages/server/src/lib/api-map.mjs [javascript]
   Imports:
-    * ← fs
     * ← path
-    * ← adm-zip
-    * ← ../routes/shared.mjs
+    * ← fs
+    * ← ./coding-db/docs.repo.mjs
+    * ← ./coding-db/connection.mjs
+    * ← ./coding-db/api-features.repo.mjs
+    * ← ./feature-registry.mjs
   Exports:
-    variable: MODULE_DATA_ROOT
-    function: listAppModules
-    function: loadAppModuleRoutes
-    function: scaffoldAppModule
-    function: exportAppModule
-    function: importAppModule
-    function: removeAppModule
-    function: patchAppModule
+    function: apiExists
+    function: loadApiMapPrompt
+    function: normalizeApiFeatures
+    function: generateApiMap
   Functions:
-    arrow MODULE_DATA_ROOT(id)
-    function listAppModules()
-    async function loadAppModuleRoutes()
-    function scaffoldAppModule({ id, name, emoji })
-    function exportAppModule(id)
-    function importAppModule(buffer)
-    function removeAppModule(id)
-    function patchAppModule(id, patch = {})
-  React Components:
-    arrow: MODULE_DATA_ROOT
+    function apiExists(projRoot, apiId)
+    function loadApiMapPrompt(projRoot, dataHome)
+    function normalizeApiFeatures(apis, repairFn)
+    async function generateApiMap({ projRoot, dataHome, paawWriteFile, callLLM, parseProjectFn, formatCondensedFn, formatForAIFn, repairJsonArrayFn, onProgress })
 
 ## packages/server/src/lib/asset-log-migrate.mjs [javascript]
   Imports:
@@ -4866,9 +5546,11 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Imports:
     * ← fs
     * ← path
+    * ← url
     * ← crypto
     * ← os
     * ← ../data-home.mjs
+    * ← ./paaw-sandbox.mjs
     * ← ./proc-ledger.mjs
   Exports:
     function: auditFileFor
@@ -4879,8 +5561,10 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function: scanCommandOutput
   Functions:
     function hostInfo()
+    arrow _tpeTs()
     function auditFileFor(date = new Date())
     function logAuditEvent(evt)
+    function _denyPathsInPaawRoot(out)
     function _noteBlockAttempt(kind, targets)
     function _repeatNote(attempt, what)
     function extractHosts(command)
@@ -4932,11 +5616,12 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ./paaw-project.mjs
     * ← ./action-log.mjs
     * ← ./stable-stringify.mjs
+    * ← ./coding-db/connection.mjs
   Exports:
     function: gatherContext
     function: buildSituationReport
     function: scanTasksForDispatch
-    function: refreshFeatureMapping
+    function: refreshApiMap
     function: validateFeatureMap
     function: saveAutoDispatchReport
     function: listAutoDispatchReports
@@ -4953,8 +5638,9 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     arrow norm
     arrow toStatus
     arrow agentFor
-    async function refreshFeatureMapping(projRoot, modelOverride, fallbackModels = [], sendSSE)
-    async function callWithFallback(body, opts = {})
+    async function refreshApiMap(projRoot, modelOverride, fallbackModels = [], sendSSE, dataHome)
+    async function callWithFallback(messages, opts = {})
+    arrow run(cfg, m)
     async function validateFeatureMap(projRoot, sendSSE)
     function saveAutoDispatchReport(rootDir, report, mode = "em")
     async function listAutoDispatchReports(rootDir)
@@ -5119,6 +5805,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Imports:
     * ← fs
     * ← path
+    * ← url
+    * ← path
     * ← ../data-home.mjs
     * ← ./stable-stringify.mjs
   Exports:
@@ -5145,6 +5833,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← path
     * ← util
     * ← ./paaw-project.mjs
+    * ← ./coding-db/docs.repo.mjs
   Exports:
     function: buildChangeIntelligence
   Functions:
@@ -5159,23 +5848,43 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function: buildCodeGraph
     function: extractEntryPoints
     function: computeReachSets
-    function: clusterEntries
-    function: assignFileOwnership
+    function: classifyTier
+    variable: isBarrel
     function: buildDeterministicFeatureMap
   Functions:
     function isTestFile(p)
     function _testStem(p)
     function _resolveRelative(fromFile, source, fileSet)
+    function _rustCrateSrcRoot(filePath)
+    function _rustModuleDir(filePath)
+    function _rustTryModule(dirSegs, modSegs, fileSet)
+    function _resolveRustBySuffix(segs, fileSet)
+    arrow put(key, file)
+    function _resolveRustPath(fromFile, source, fileSet)
     function _resolveBySuffix(source, fileSet, suffixDirs)
     function buildCodeGraph(parsed)
     function extractEntryPoints(graph)
+    arrow crateGroupOf(file)
     function computeReachSets(graph, entries)
-    function _jaccard(a, b)
-    function clusterEntries(entries, reachSets, { threshold = 0.5 } = {})
-    arrow clusterKey(c)
-    arrow avgJ(a, b)
-    function assignFileOwnership(clusters, reachSets, graph, { margin = 0.2 } = {})
-    function buildDeterministicFeatureMap(parsed, { jaccardThreshold = 0.5 } = {})
+    arrow _hasTopDir(path, re)
+    function classifyTier(p)
+    arrow isBarrel(p)
+    function _contractBarrels(edges)
+    arrow effTargets(start, seen)
+    arrow _dirOf(p)
+    arrow _minOf(set)
+    arrow _lcpDir(files)
+    arrow _childUnder(file, dir)
+    arrow _commonPrefixLen(a, b)
+    function _labelPropagate(files, adj, { maxIter = 40 } = {})
+    arrow dir(f)
+    function _splitGroup(group, { minChild, maxFiles })
+    function _mergeSmall(groups, adj, minFiles)
+    function _rollupWideDirs(groups, srcFiles, { wide = 15 } = {})
+    function _mainEntry(f)
+    function buildDeterministicFeatureMap(parsed, { maxFiles = 60, minChild = 8, minFiles = 4 } = {})
+    arrow tierOf(f)
+    arrow mkFeature(files, grade, extra = {})
     function mapTestsToFeatures(testFiles, features, graph)
     arrow vote(fi)
 
@@ -5185,6 +5894,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← fs
     * ← ./stable-hash.mjs
     * ← ./tree-sitter-parser.mjs
+    * ← ./feature-registry.mjs
   Exports:
     function: buildCallGraph
     function: buildApiFunctionMap
@@ -5204,9 +5914,10 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function buildApiFunctionMap(parsedResult, callGraph)
     function traceCallChain(funcId, callGraph, visited, maxDepth)
     function buildDependencyGraph(parsedResult, projectRoot)
-    function buildTestCodeMap(parsedResult)
+    function buildTestCodeMap(parsedResult, projectRoot = null)
+    arrow isTestName(n)
     function buildSymbolIndex(parsedResult)
-    async function buildCodeIntelligence(projectRoot, paawRoot, { persist = true } = {})
+    async function buildCodeIntelligence(projectRoot, paawRoot, { persist = true, onProgress = null } = {})
     async function buildContextPackage(projectRoot, paawRoot, query = {})
     arrow loadJson(name)
 
@@ -5222,8 +5933,11 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function: analyzeDisputes
     function: buildReworkTicket
     function: resolveDecision
+    function: _buildDiffContext
     function: runMultiModelReview
     function: formatReviewResult
+    function: reviewBoardCovered
+    function: ensureReviewBoardCoverage
   Functions:
     function _git(dir, args)
     function resolveReviewConfig(projectDir)
@@ -5236,6 +5950,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function _normPath(p)
     async function runMultiModelReview(opts = {})
     function formatReviewResult(r)
+    function reviewBoardCovered(projectDir, range)
+    async function ensureReviewBoardCoverage(projectDir, opts = {})
 
 ## packages/server/src/lib/coding-security.mjs [javascript]
   Imports:
@@ -5267,15 +5983,20 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ./stable-stringify.mjs
   Exports:
     function: estimateMessageTokens
+    function: estimateMessageTokensConservative
+    function: compactBudget
     function: shouldCompact
     function: partitionMessages
     function: compactIfNeeded
   Functions:
     function estimateMessageTokens(messages)
+    function estimateMessageTokensConservative(messages)
+    function compactBudget(contextWindow, maxOutputTokens)
     function shouldCompact(messages, contextWindow, maxOutputTokens = 16384)
     function partitionMessages(messages, contextWindow, maxOutputTokens = 16384)
     async function summarizeMessages(messages, llmConfig, originalPrompt)
     async function compactIfNeeded(messages, llmConfig, opts = {})
+    function _fixOrphanToolRefs(messages)
 
 ## packages/server/src/lib/context-providers.mjs [javascript]
   Imports:
@@ -5311,6 +6032,26 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function truncateToolResultsInMessages(messages, maxCharsPerResult = DEFAULT_MAX_TOOL_RESULT_CHARS, totalBudgetChars = 30_000)
     function limitHistoryTurns(messages, maxUserTurns = 10)
 
+## packages/server/src/lib/crosscut-concepts.mjs [javascript]
+  Imports:
+    * ← node:fs
+    * ← node:path
+    * ← ./stable-stringify.mjs
+    * ← ./coding-db/docs.repo.mjs
+  Exports:
+    function: computeCrosscutConcepts
+    function: enrichCrosscutConcepts
+    function: computeUtilityConsumers
+  Functions:
+    arrow norm(p)
+    arrow _subTokens(name)
+    function _extractSymbol(line, pats)
+    function computeCrosscutConcepts(projectRoot, parsed, dm, opts = {})
+    arrow textOf(p)
+    async function enrichCrosscutConcepts(projectRoot, { callLLM, model, onProgress } = {})
+    function _extractJsonArray(text)
+    async function computeUtilityConsumers(projectRoot, parsed, features, opts = {})
+
 ## packages/server/src/lib/cu-mechanical.mjs [javascript]
   Imports:
     * ← path
@@ -5328,20 +6069,30 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Imports:
     * ← fs
     * ← path
+    * ← child_process
   Exports:
+    function: getHeadCommit
+    function: isSourceFilePath
+    function: changedSourceFilesSince
     variable: CU_SOURCE_EXTS
     variable: CU_SKIP_DIRS
     function: parseGitignore
     function: loadProjectIgnore
     function: clearIgnoreCache
+    function: isTestFileName
     function: walkSourceFiles
     function: countSourceFiles
   Functions:
+    function git(root, args)
+    function getHeadCommit(root)
+    function isSourceFilePath(root, relPath)
+    async function changedSourceFilesSince(root, fromCommit)
     function globToRegExp(pat)
     function parseGitignore(text)
     function loadProjectIgnore(root)
     arrow shouldIgnore(relPath, isDir)
     function clearIgnoreCache(root)
+    function isTestFileName(name)
     function walkSourceFiles(root, opts = {})
     function countSourceFiles(root)
 
@@ -5444,6 +6195,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← url
     * ← path
     * ← ./security-rules.mjs
+    * ← ./a2a-constants.mjs
     * ← ../data-home.mjs
     * ← ./module-registry.mjs
   Exports:
@@ -5465,6 +6217,25 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function getCrewData(crewId)
     async function buildSystemPrompt(agentId, opts = {})
 
+## packages/server/src/lib/e2e-inventory.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← ./cu-source-scan.mjs
+  Exports:
+    function: buildE2EInventory
+  Functions:
+    function isTestFilePath(relPath)
+    function extractTestNames(src)
+    function extractUrls(src)
+    arrow add(u)
+    function isParamSeg(seg)
+    function esc(s)
+    function urlMatchesApi(url, entry)
+    arrow segEq(u, a)
+    function buildE2EInventory(root, apis = [], opts = {})
+    arrow walk(dir, depth, prefix)
+
 ## packages/server/src/lib/em-config.mjs [javascript]
   Imports:
     * ← fs
@@ -5483,6 +6254,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function getEMConfigPath(projectDir)
     function readJson(filePath, fallback = null)
     function writeJson(filePath, data)
+    function deepClone(value)
     function deepMerge(target, source)
     function readEMConfig(projectDir)
     function updateEMConfig(projectDir, patch)
@@ -5499,6 +6271,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ./shell-exec.mjs
     * ← ./em-task-store.mjs
     * ← ./stable-stringify.mjs
+    * ← ./coding-db/reads.mjs
   Exports:
     variable: JOB_TYPES
     variable: JOB_TYPE_META
@@ -5556,6 +6329,11 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Imports:
     * ← fs
     * ← path
+    * ← ./coding-db/index.mjs
+    * ← ./coding-db/reads.mjs
+    * ← ./feature-registry.mjs
+    * ← ./coding-db/docs.repo.mjs
+    * ← ./coding-db/reads.mjs
   Exports:
     function: tasksFilePath
     function: loadTasksFile
@@ -5613,12 +6391,16 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Imports:
     * ← fs
     * ← path
+    * ← url
+    * ← path
     * ← ../data-home.mjs
     * ← ./cu-source-scan.mjs
     * ← ./stable-stringify.mjs
+    * ← ./feature-registry.mjs
   Exports:
     function: collectErrorSignals
     function: loadEcPromptTemplate
+    function: repairTruncatedJson
     function: organizeErrorCodes
   Functions:
     function collectErrorSignals(root)
@@ -5627,6 +6409,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function _normCode(c)
     function fixInvalidEscapes(txt)
     function repairTruncatedJson(txt)
+    function dumpRawForAutopsy(root, txt, parseErr)
     async function organizeErrorCodes(root, { callLLM, onProgress, timeoutMs = 600_000 } = {})
 
 ## packages/server/src/lib/es-shipper.mjs [javascript]
@@ -5700,6 +6483,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← node:fs/promises
     * ← node:fs
     * ← node:path
+    * ← node:crypto
+    * ← ./coding-security.mjs
   Exports:
     function: createPlan
     function: getPlan
@@ -5716,10 +6501,15 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function: deletePlan
     function: updatePlanStatus
   Functions:
+    function _notFound(message)
+    function _validation(message)
+    function _withPlanLock(planId, fn)
     function _plansDir(rootDir)
     function _planPath(rootDir, planId)
+    async function _writePlanAtomic(rootDir, planId, plan)
     async function _ensurePlansDir(rootDir)
     function _genPlanId(projectPath)
+    async function _genUniquePlanId(projectPath)
     function _genSubTaskId(parentId, index)
     async function createPlan(opts = {})
     async function getPlan(rootDir, planId)
@@ -5736,11 +6526,15 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function resumePlan(rootDir, planId)
     async function deletePlan(rootDir, planId)
     async function updatePlanStatus(rootDir, planId, status)
+  Classes:
+    class PlanError { constructor }
 
 ## packages/server/src/lib/feature-boundary.mjs [javascript]
   Imports:
     * ← node:fs
     * ← node:path
+    * ← ./feature-registry.mjs
+    * ← ./coding-db/docs.repo.mjs
   Exports:
     function: loadFeatureData
     function: matchFeaturesForFiles
@@ -5753,16 +6547,31 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     arrow mark(f)
     function buildContextBoundary(rootDir, changedFiles = [])
 
+## packages/server/src/lib/feature-map-store.mjs [javascript]
+  Imports:
+    * ← ./coding-db/docs.repo.mjs
+    * ← ./coding-db/index.mjs
+    * ← ./feature-registry.mjs
+  Exports:
+    function: mergeFeatureMappings
+  Functions:
+    function _safeRel(file)
+    function mergeFeatureMappings(projectRoot, entries = [], by = "human")
+
 ## packages/server/src/lib/feature-map-v2.mjs [javascript]
   Imports:
     * ← path
+    * ← url
     * ← fs
     * ← ./tree-sitter-parser.mjs
     * ← ./code-graph.mjs
+    * ← ./feature-subfeature.mjs
+    * ← ./crosscut-concepts.mjs
     * ← ./feature-registry.mjs
     * ← ./feature-risk-scan.mjs
     * ← ../data-home.mjs
     * ← ./stable-stringify.mjs
+    * ← ./coding-db/docs.repo.mjs
   Exports:
     function: organizeFeatureMapV2
   Functions:
@@ -5770,22 +6579,29 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     arrow _arr(v, max = 40)
     function _loadTemplate(projectRoot)
     function _extractJson(txt)
+    async function _directNameFallback({ callLLM, item, projectRoot, material, kindLabel })
     async function _runFeatureAgent({ systemPrompt, prompt, cwd, rootDir, model })
     function _fallbackFlesh(item)
     async function organizeFeatureMapV2(root, { callLLM, onProgress, paawRoot, model, runFeatureAgent = _runFeatureAgent })
+    arrow _topDirs(files)
     arrow partPath
+    arrow _itemSig(item)
+    arrow _kindOf(item)
+    arrow _mkFeature(item, fl, extra = {})
 
 ## packages/server/src/lib/feature-map-validator.mjs [javascript]
   Imports:
     * ← fs
     * ← path
     * ← child_process
+    * ← ./feature-registry.mjs
   Exports:
     function: scanAllSourceFiles
     function: extractApiRoutes
     function: validateFeatureMapping
     function: checkCoverage
     function: validateUnderstanding
+    function: validateFeatureQuality
     function: runFullValidation
   Functions:
     function scanAllSourceFiles(projectRoot)
@@ -5795,12 +6611,15 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function validateFeatureMapping(projectRoot, features)
     function checkCoverage(projectRoot, features)
     function validateUnderstanding(projectRoot, feature, parsedProject)
+    function validateFeatureQuality(features)
     async function runFullValidation(projectRoot, options = {})
 
 ## packages/server/src/lib/feature-registry.mjs [javascript]
   Imports:
-    * ← fs
     * ← path
+    * ← fs
+    * ← ./coding-db/reads.mjs
+    * ← ./coding-db/index.mjs
   Exports:
     variable: FEATURE_STATUSES
     function: featuresFile
@@ -5810,7 +6629,11 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function: nextFeatureId
     function: nextFeatureIds
     variable: FEATURE_INHERIT_FIELDS
+    function: computeFeatureKind
+    function: categoryKeyOf
+    function: ensureFeatureKinds
     function: mergeFeaturesWithExisting
+    function: mergeFeaturesWithIdentityReport
     function: inferFeatureType
     function: touchFeature
     variable: MISC_FEATURE_NAME
@@ -5824,7 +6647,11 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function nextFeatureId(projRoot)
     function nextFeatureIds(projRoot, count = 1)
     arrow _norm(f)
+    function computeFeatureKind(f)
+    function categoryKeyOf(files = [])
+    function ensureFeatureKinds(features)
     function mergeFeaturesWithExisting(newFeatures, existing, makeId)
+    function mergeFeaturesWithIdentityReport(newFeatures, existing, makeId)
     function inferFeatureType(files = [])
     function touchFeature(projRoot, featureId, at = null)
     function ensureMiscFeature(projRoot)
@@ -5849,6 +6676,35 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function buildReason(sev, { hasMigration, dataTouch, hasMutatingOutbound, hosts })
     function isValidSeverity(s)
     async function autoScanAllFeatureSeverities(projectRoot)
+
+## packages/server/src/lib/feature-subfeature.mjs [javascript]
+  Imports:
+    * ← ./stable-stringify.mjs
+  Exports:
+    function: cnmPartition
+    function: stabilityConsensus
+    function: vocabTokensOfFile
+    function: vocabSeparation
+    function: refineOneFeature
+    function: computeSubFeatureRefinement
+    function: detectTemplateOrphans
+    function: refinementFingerprint
+  Functions:
+    function mulberry32(a)
+    function cnmPartition(N, weightAt)
+    function stabilityConsensus(N, baseEdges, opts = {})
+    arrow wt(i, j)
+    function vocabTokensOfFile(fileInfo)
+    function vocabCentroid(membersToks, dfCounts, totalDocs)
+    arrow _cos(a, b)
+    arrow _topTerms(vec, n = 5)
+    function vocabSeparation(groupsToks)
+    function refineOneFeature(files, graphEdges, fileInfoOf)
+    arrow groupConsensus(c)
+    function _noSplit(sorted, evidence)
+    function computeSubFeatureRefinement(dm, parsed)
+    function detectTemplateOrphans(orphans)
+    function refinementFingerprint(refinements)
 
 ## packages/server/src/lib/flight-recorder.mjs [javascript]
   Imports:
@@ -5968,20 +6824,6 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function applyCrewPrefs(crew)
     function clearRegistryCache()
 
-## packages/server/src/lib/module-ui-bundle.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← os
-    * ← ../routes/shared.mjs
-  Exports:
-    function: bundleModuleUi
-    function: invalidateModuleUiBundle
-  Functions:
-    async function getEsbuild()
-    async function bundleModuleUi(id, page)
-    function invalidateModuleUiBundle(id)
-
 ## packages/server/src/lib/overnight-runner.mjs [javascript]
   Imports:
     * ← fs/promises
@@ -6009,8 +6851,6 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ./dependency-context.mjs
     * ← ./task-retrofit.mjs
     * ← url
-    * ← ./secretary-tools.mjs
-    * ← ./secretary-tools.mjs
     * ← fs
     * ← path
     * ← ./llm-utils.mjs
@@ -6024,6 +6864,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ./tool-registry.mjs
     * ← ../data-home.mjs
     * ← ./browser-session.mjs
+    * ← ./coding-db/docs.repo.mjs
   Exports:
     function: resolveLLMConfig
     variable: PAAW_TOOLS
@@ -6064,11 +6905,15 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function runShell(command, cwd, timeoutMs = 30_000, opts = {})
     async function executeTool(call, cwd, rootDir, onEvent, agentId, featureBoundary = null)
     arrow resolvePath(p)
+    arrow writeDenialReason(p)
+    arrow norm(s)
+    arrow startsWith(target, prefix)
     arrow isPathAllowed(p, write = false)
     arrow norm(s)
     arrow startsWith(target, prefix)
     arrow _checkBoundary(filePath)
     arrow _recordViolation(file, tool)
+    arrow resolveInBases(p)
     arrow searchDir(dir, relBase)
     async arrow readDoc(rel)
     arrow fmt(list, label)
@@ -6118,6 +6963,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← child_process
     * ← ./shell-exec.mjs
     * ← ./cu-source-scan.mjs
+    * ← ./feature-registry.mjs
+    * ← ./coding-db/docs.repo.mjs
   Exports:
     class: PaawProject
     function: createPaawProject
@@ -6168,9 +7015,10 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function mxcAvailable()
     function activeBackend()
     function needsNetworkAllow(command)
-    function buildMxcFsPolicy(cwd)
+    function buildMxcFsPolicy(cwd, extraReadOnlyDirs = [])
     arrow keep(arr)
     arrow inside(child, parent)
+    arrow expandRo(dir)
     arrow overlapsRw(p)
     function posixQuote(s)
     function wrapForMxc(command)
@@ -6291,6 +7139,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← node:path
     * ← node:fs
     * ← ./paaw-project.mjs
+    * ← ./feature-registry.mjs
   Exports:
     variable: USER_START
     variable: USER_END
@@ -6337,6 +7186,45 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function deleteQaResult(cwd, id)
     function qaStats(cwd)
 
+## packages/server/src/lib/release-evidence-snapshot.mjs [javascript]
+  Imports:
+    * ← node:fs/promises
+    * ← node:fs
+    * ← node:path
+    * ← ./shell-exec.mjs
+    * ← ./test-runner.mjs
+    * ← ./release-evidence.mjs
+    * ← ./release-requests.mjs
+    * ← ./feature-registry.mjs
+    * ← ./coding-db/docs.repo.mjs
+  Exports:
+    function: generateEvidenceSnapshot
+    function: listEvidenceSnapshots
+    function: readEvidenceSnapshot
+    function: snapshotGaps
+    function: openEvidenceGapTask
+  Functions:
+    arrow _normPath(p)
+    function evidenceDir(projectPath)
+    async function git(projectPath, args)
+    async function gitHeadInfo(projectPath)
+    async function changedFilesSince(projectPath, baselineSha)
+    async function commitsSince(projectPath, baselineSha)
+    async function loadModel(projectPath)
+    function buildApiCoverageMatcher(projectPath)
+    arrow build()
+    arrow isTestFile(n)
+    arrow walk(dir, depth)
+    function loadFileFeatureMap(projectPath)
+    async function lastTestRunInfo(projectPath)
+    async function annotateSources(projectPath, matrix)
+    async function generateEvidenceSnapshot(projectPath, { baseline = "auto", by = "human" } = {})
+    async function listEvidenceSnapshots(projectPath)
+    async function readEvidenceSnapshot(projectPath, id)
+    function snapshotGaps(snapshot)
+    function gapTaskOpen(tasks, snapshotId, featureId)
+    async function openEvidenceGapTask(projectPath, { snapshotId, featureId })
+
 ## packages/server/src/lib/release-evidence.mjs [javascript]
   Imports:
     * ← node:fs/promises
@@ -6344,6 +7232,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← node:path
     * ← ./qa-results.mjs
     * ← ./feature-risk-scan.mjs
+    * ← ./feature-registry.mjs
   Exports:
     function: loadSeverityMap
     function: loadSecurityScan
@@ -6355,11 +7244,15 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function: buildEvidenceMatrix
   Functions:
     async function loadSeverityMap(projectPath)
+    arrow _normEvPath(p)
     async function loadSecurityScan(projectPath)
+    function _relToRoot(p, root)
     function sgForFeature(scan, featureFiles)
     async function loadReviewBoard(projectPath)
     function aiReviewForFeature(board, featureFiles)
+    arrow _normFeatureKey(s)
     function qaForFeature(projectPath, featureKey)
+    function _unitGate(opts)
     function evidenceGaps(sev, ev)
     async function buildEvidenceMatrix(projectPath, changedFeatures, opts = {})
 
@@ -6375,6 +7268,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ./release-unit/gates.mjs
     * ← ./test-runner.mjs
     * ← ./qa-results.mjs
+    * ← ./coding-db/docs.repo.mjs
   Exports:
     function: listReleaseRequests
     function: getReleaseRequest
@@ -6389,11 +7283,14 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function: refreshReleaseRequest
     function: closeReleaseRequest
     function: cancelReleaseRequest
+    function: setTargetLock
     function: suggestVerdicts
     function: createAutoRrForTaskApproval
   Functions:
     async function gitLines(projectPath, args)
     async function gitOne(projectPath, args)
+    async function gitIsAncestor(projectPath, maybeAncestor, descendant)
+    function listReleaseDates(projectPath)
     function countCodeCommitsSince(gitOut)
     function gitWhen(iso)
     async function describeCommit(projectPath, sha, source)
@@ -6411,6 +7308,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function computeScope(projectPath, baselineSha, targetSha, opts = {})
     function scopeRisk(scope, autoSoFar, opts = {})
     async function autoCheckAll(projectPath, scope, opts = {})
+    arrow notTraceable
+    arrow aidOf
     arrow rel
     arrow rbWarn
     function freshChecklist(autoResults)
@@ -6423,6 +7322,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function closeReleaseRequest(projectPath, id, { note } = {})
     arrow pad(n)
     async function cancelReleaseRequest(projectPath, id, { reason } = {})
+    async function setTargetLock(projectPath, id, locked)
     async function suggestVerdicts(projectPath, id, items, by = "rm-agent")
     async function createAutoRrForTaskApproval(projectPath, { taskId, taskTitle, relId, note } = {})
 
@@ -6432,8 +7332,10 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← util
     * ← fs
     * ← path
+    * ← ./coding-db/docs.repo.mjs
   Exports:
     function: _normPath
+    function: _crosscutTouches
     function: buildReviewBoundary
   Functions:
     function _normPath(p)
@@ -6443,7 +7345,13 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function _parsePorcelain(stdout)
     function _featureFor(path, fileFeatureMap)
     function _loadFileFeatureMap(projectPath)
+    function _loadTestSignals(projectPath)
+    async function _regressionTests(changedPaths, projectPath, fileFeatureMap, featuresInTask)
+    arrow push(arr, list)
+    function _loadCrosscut(projectPath)
+    function _crosscutTouches(changedPaths, concepts)
     async function buildReviewBoundary(projectPath, task)
+    arrow attachCc(f)
 
 ## packages/server/src/lib/ru-resolver.mjs [javascript]
   Imports:
@@ -6519,7 +7427,6 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← path
     * ← os
     * ← child_process
-    * ← ../routes/shared.mjs
   Exports:
     function: persistentEntryBlock
     function: scanScriptContent
@@ -6539,38 +7446,6 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function guardScriptExecution(command, cwd)
     arrow noteNetwork(r)
     function isPackageJsonClean(cwd)
-
-## packages/server/src/lib/secretary-tools.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← url
-  Exports:
-    variable: SECRET_ROOT
-    variable: SECRETARY_TOOL_DEFS
-    function: runSecretaryTool
-    variable: PM_TOOL_DEFS
-    function: runPmTool
-  Functions:
-    function findRepoRoot(start)
-    arrow DOSSIER_DIR(cat)
-    function loadRegistry()
-    function agentCategory(agentId)
-    function enforceWriteCategory(cat, agentId)
-    function safeCat(cat)
-    function safeFile(f)
-    function toMdTable(headers, rows, maxRows = 30)
-    arrow line(arr)
-    async function runSecretaryTool(name, args, agentId)
-    arrow PM_DIR(proj)
-    function pmRegistry()
-    function pmProjectOf(agentId)
-    function enforceWriteProject(proj, agentId)
-    function safeProject(proj)
-    async function runPmTool(name, args, agentId)
-  React Components:
-    arrow: DOSSIER_DIR
-    arrow: PM_DIR
 
 ## packages/server/src/lib/security-mode.mjs [javascript]
   Imports:
@@ -6720,6 +7595,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← fs/promises
     * ← fs
     * ← path
+    * ← ./feature-registry.mjs
   Exports:
     function: qualityDebtSummary
     function: runTaskRetrofit
@@ -6747,7 +7623,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     arrow walk(dir, depth)
     function relative(cwd, full)
     function cleanupProjectTempFiles(cwd, sinceMs, logFn = () => {})
-    function pruneProviderTemp(tempDir, keep = 60)
+    function pruneProviderTemp(tempDir, keep = 60, minAgeMs = 0)
 
 ## packages/server/src/lib/test-intelligence.mjs [javascript]
   Imports:
@@ -6756,6 +7632,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ./stable-hash.mjs
     * ← ./test-report-reader.mjs
     * ← ./tree-sitter-parser.mjs
+    * ← ./feature-registry.mjs
   Exports:
     function: classifyTestType
     function: buildTestIntelligence
@@ -6772,10 +7649,11 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Exports:
     function: findTestReports
     function: readTestReports
+    function: mergeCoverage
     function: testReportSummary
   Functions:
     function findTestReports(projectRoot)
-    function parseCoverageSummary(projectRoot, filePath)
+    function parseCoverageSummary(projectRoot, filePath, runner = null)
     function parseLcov(projectRoot, filePath)
     function parsePlaywrightJson(filePath)
     arrow walk(suites, path)
@@ -6786,6 +7664,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function parseGoCoverprofile(filePath)
     function parsePaawTestRun(filePath)
     function readTestReports(projectRoot)
+    function mergeCoverage(reports)
     function testReportSummary(projectRoot)
     arrow pick(pred)
 
@@ -6801,6 +7680,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function: parseJUnitXml
     function: junitCounts
     function: parseGoTestOutput
+    function: parseNodeCoverage
     function: getRunState
     function: startTestRun
     function: readLastTestRun
@@ -6815,6 +7695,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function findReportXmls(projectPath, runner)
     arrow check(base)
     arrow skip(n)
+    function parseNodeCoverage(out)
     async function runGroup(projectPath, group)
     arrow walk(suites)
     function spawnCapture(cwd, cmd, timeoutMs)
@@ -6825,6 +7706,56 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function startTestRun(projectPath, { includeE2e = false } = {})
     function readLastTestRun(projectPath)
     function detectDetectedSummary(projectPath)
+
+## packages/server/src/lib/test-signals.mjs [javascript]
+  Imports:
+    * ← node:fs
+    * ← node:path
+    * ← node:url
+    * ← ./coding-db/docs.repo.mjs
+    * ← ./stable-stringify.mjs
+  Exports:
+    function: loadTestSignalTables
+    function: validateTables
+    function: isTestPath
+    function: languageOf
+    function: testRegion
+    function: ownSignals
+    function: labelFromSignals
+    function: localImports
+    function: classifyTestFile
+    function: computeTestSignals
+    function: ambiguousTestFiles
+    function: enrichTestSignals
+    function: effectiveHermeticity
+  Functions:
+    function _locateTablesDir()
+    function loadTestSignalTables(force = false)
+    function validateTables(tables)
+    arrow check(where, pat)
+    function isTestPath(path, conventions)
+    function languageOf(path, conventions)
+    function _any(re, content)
+    function testRegion(content, language, isConventionalTestFile)
+    function ownSignals(content, language, hermeticity)
+    arrow push(bucket, hit)
+    function _merge(a, b)
+    arrow cat(k)
+    function labelFromSignals(s, own)
+    function localImports(content, curPath, language)
+    arrow norm(rel)
+    function _goModule(root)
+    function _goSeeds(abs, content, root)
+    arrow addDir(d)
+    function _javaSeeds(abs, content, root)
+    arrow mentions(f)
+    arrow addDir(d, filter)
+    function classifyTestFile(projectRoot, testPath, opts = {})
+    function computeTestSignals(projectRoot, testFiles, opts = {})
+    function ambiguousTestFiles(sig)
+    async function enrichTestSignals(projectRoot, { callLLM, model, onProgress } = {})
+    function effectiveHermeticity(e)
+    function _extractJsonArray(text)
 
 ## packages/server/src/lib/tool-registry-init.mjs [javascript]
   Imports:
@@ -6866,6 +7797,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function extractCalls(funcNode)
     function javaAnnotationRoute(annoNode)
     function extractFileInfo(tree, filePath, language)
+    arrow visit(n, prefix)
+    arrow scan(n)
     arrow firstStr()
     async function parseProject(projectRoot, paawRoot, options = {})
     function walkDir(dir)
@@ -6975,7 +7908,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Exports:
     class: SecurityKernel
   Classes:
-    class SecurityKernel { constructor, _registerBuiltinPolicies, checkToolCall, recordResult, init, dispose }
+    class SecurityKernel { constructor, _registerBuiltinPolicies, _isReadOnlyTool, checkToolCall, recordResult, init, dispose }
 
 ## packages/server/src/lib/security/policy-pipeline.mjs [javascript]
   Exports:
@@ -7075,6 +8008,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← node:fs
     * ← node:path
     * ← ../ru-resolver.mjs
+    * ← ../feature-registry.mjs
+    * ← ../coding-db/docs.repo.mjs
   Exports:
     function: buildCostReport
     named: ROLE_LABELS
@@ -7200,6 +8135,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← ../shell-exec.mjs
     * ← ../stable-hash.mjs
     * ← ../stable-stringify.mjs
+    * ← ../feature-registry.mjs
+    * ← ../coding-db/docs.repo.mjs
   Exports:
     function: buildReleaseUnitModel
     function: loadReleaseUnitModel
@@ -7216,6 +8153,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function _gitHead(root)
     async function buildReleaseUnitModel(root, opts = {})
     arrow addFileFeature(file, id)
+    async function _buildDeduped(root)
+    function _ciSourcesNewer(root)
     async function loadReleaseUnitModel(root, { refresh = false } = {})
     function queryModelByFeature(model, featureId)
     function queryModelByFile(model, relPath)
@@ -7269,6 +8208,254 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     async function runVerify(root, opts = {})
     async function readLastVerify(root)
 
+## packages/server/src/lib/coding-db/api-features.repo.mjs [javascript]
+  Imports:
+    * ← ./connection.mjs
+  Exports:
+    function: saveApiFeatures
+    function: buildFileApiMap
+    function: mergeApiMappings
+  Functions:
+    arrow _now()
+    function saveApiFeatures(ruRoot, list)
+    function buildFileApiMap(list)
+    function mergeApiMappings(ruRoot, entries = [], writeDoc)
+
+## packages/server/src/lib/coding-db/connection.mjs [javascript]
+  Imports:
+    * ← path
+    * ← fs
+    * ← node:sqlite
+    * ← ./migrate.mjs
+  Exports:
+    function: codingDbPath
+    function: openCodingDb
+    function: closeCodingDb
+    function: checkpointCodingDb
+  Functions:
+    function codingDbPath(ruRoot)
+    function openCodingDb(ruRoot)
+    function closeCodingDb(ruRoot)
+    function checkpointCodingDb(ruRoot)
+    function _migrate(db)
+
+## packages/server/src/lib/coding-db/docs.repo.mjs [javascript]
+  Imports:
+    * ← path
+    * ← fs
+    * ← ./connection.mjs
+  Exports:
+    variable: DOC_FILES
+    function: readDoc
+    function: writeDoc
+    function: hasDoc
+    function: readDocUpdatedAt
+    function: deleteDoc
+  Functions:
+    arrow _ru(ruRoot)
+    function _docPath(ruRoot, docKey)
+    function readDoc(ruRoot, docKey, fallback = null)
+    function writeDoc(ruRoot, docKey, obj)
+    function hasDoc(ruRoot, docKey)
+    function readDocUpdatedAt(ruRoot, docKey)
+    function deleteDoc(ruRoot, docKey)
+
+## packages/server/src/lib/coding-db/features.repo.mjs [javascript]
+  Imports:
+    * ← ./connection.mjs
+  Exports:
+    function: saveFeatures
+  Functions:
+    function saveFeatures(ruRoot, features, ru = ruRoot.split("/").pop())
+
+## packages/server/src/lib/coding-db/import.mjs [javascript]
+  Imports:
+    * ← path
+    * ← fs
+    * ← ./connection.mjs
+    * ← ./ru-info.repo.mjs
+    * ← ./docs.repo.mjs
+  Exports:
+    function: importCodingDb
+  Functions:
+    function readJson(p)
+    function readJsonRecords(p)
+    function readJsonl(p)
+    function importCodingDb(ruRoot, ru = ruRoot.split("/").pop())
+    arrow _n(sql, ...args)
+    function _importTasks(db, ruRoot, ru)
+    function _importFeatures(db, ruRoot, ru)
+    function _importStateJson(db, ruRoot, ru)
+    function _importLogs(db, ruRoot, ru)
+    function _importConversations(db, ruRoot, ru)
+
+## packages/server/src/lib/coding-db/index.mjs [javascript]
+  Imports:
+    * ← ./connection.mjs
+    * ← ./tasks.repo.mjs
+    * ← ./features.repo.mjs
+    * ← ./stores.repo.mjs
+  Exports:
+    named: appendDispatchRecord
+    named: appendActionRecord
+    named: appendQaResult
+    named: appendExecApproval
+    named: saveConversation
+    named: archiveConversation
+    named: deleteConversationSession
+    named: setKv
+    named: setGates
+    named: setHandover
+    named: saveIssue
+    named: saveReleaseRequest
+    named: saveTasks
+    named: saveFeatures
+    named: saveApiFeatures
+    named: buildFileApiMap
+    named: openCodingDb
+    named: readDoc
+    named: writeDoc
+    named: hasDoc
+    named: deleteDoc
+    named: readDocUpdatedAt
+    named: DOC_FILES
+    named: readFeatures
+    named: readApiFeatures
+    named: readUiFeatures
+    named: readTasks
+    named: readActionLog
+    named: readConversationAgents
+    named: readConversationSessions
+    named: readConversation
+    function: recentDispatch
+    function: taskHistory
+    named: saveUiFeatures
+    named: findUiByApiCall
+  Functions:
+    function recentDispatch(ruRoot, { limit = 50, taskId } = {})
+    function taskHistory(ruRoot, taskId)
+
+## packages/server/src/lib/coding-db/migrate.mjs [javascript]
+  Exports:
+    variable: MIGRATIONS
+
+## packages/server/src/lib/coding-db/reads.mjs [javascript]
+  Imports:
+    * ← path
+    * ← fs
+    * ← ./connection.mjs
+  Exports:
+    function: readFeatures
+    function: readApiFeatures
+    named: readUiFeatures
+    named: findUiByApiCall
+    function: readTasks
+    function: readActionLog
+    function: readConversationAgents
+    function: readConversationSessions
+    function: readConversation
+    function: readFileFeatures
+    function: readFileTasks
+    function: readFileConversations
+  Functions:
+    arrow _ru(ruRoot)
+    function readFeatures(ruRoot)
+    function readApiFeatures(ruRoot)
+    arrow parse(s, d)
+    function readTasks(ruRoot)
+    function readActionLog(ruRoot, { agent, actions, limit } = {})
+    function readConversationAgents(ruRoot)
+    function readConversationSessions(ruRoot, agentId)
+    function readConversation(ruRoot, agentId, sessionId = "active")
+    function readFileFeatures(ruRoot)
+    function readFileTasks(ruRoot)
+    function readFileConversations(ruRoot)
+    function _group(db, table, keyCol, valCol)
+    function _groupObjects(db, table, keyCol, cols)
+
+## packages/server/src/lib/coding-db/ru-info.repo.mjs [javascript]
+  Imports:
+    * ← path
+    * ← ./connection.mjs
+  Exports:
+    function: readRuInfo
+    function: upsertRuInfo
+    function: saveRuInfoFields
+    function: saveRuAiFields
+    function: generateRuAiFields
+  Functions:
+    function readRuInfo(ruRoot)
+    function upsertRuInfo(ruRoot, { name, description } = {})
+    function saveRuInfoFields(ruRoot, { name, description } = {})
+    function saveRuAiFields(ruRoot, { ai_overview, ai_architecture } = {})
+    async function generateRuAiFields(ruRoot, { instruction = "初次掃描：請根據 repo 上下文產生兩個欄位", extraContext = "" } = {})
+
+## packages/server/src/lib/coding-db/stores.repo.mjs [javascript]
+  Imports:
+    * ← ./connection.mjs
+  Exports:
+    function: appendDispatchRecord
+    function: appendActionRecord
+    function: appendQaResult
+    function: appendExecApproval
+    function: setKv
+    function: setGates
+    function: setHandover
+    function: saveIssue
+    function: saveReleaseRequest
+    function: saveConversation
+    function: archiveConversation
+    function: deleteConversationSession
+  Functions:
+    arrow _ru(ruRoot)
+    function appendDispatchRecord(ruRoot, record)
+    function appendActionRecord(ruRoot, record)
+    function appendQaResult(ruRoot, record)
+    function appendExecApproval(ruRoot, record)
+    function setKv(ruRoot, key, value)
+    function setGates(ruRoot, gates)
+    function setHandover(ruRoot, kind, payload)
+    function saveIssue(ruRoot, issue)
+    function saveReleaseRequest(ruRoot, rr)
+    function saveConversation(ruRoot, agentId, doc, { session = "active" } = {})
+    function archiveConversation(ruRoot, agentId, archiveSessionId)
+    function deleteConversationSession(ruRoot, agentId, sessionId)
+
+## packages/server/src/lib/coding-db/tasks.repo.mjs [javascript]
+  Imports:
+    * ← ./connection.mjs
+  Exports:
+    function: saveTasks
+  Functions:
+    function saveTasks(ruRoot, payload, ru = ruRoot.split("/").pop())
+
+## packages/server/src/lib/coding-db/ui-features.repo.mjs [javascript]
+  Imports:
+    * ← ./connection.mjs
+  Exports:
+    function: saveUiFeatures
+    function: readUiFeatures
+    function: findUiByApiCall
+  Functions:
+    arrow _now()
+    function saveUiFeatures(ruRoot, list)
+    function _row(r)
+    function readUiFeatures(ruRoot)
+    function findUiByApiCall(ruRoot, entry)
+
+## packages/server/src/lib/coding-db/verify.mjs [javascript]
+  Imports:
+    * ← path
+    * ← fs
+    * ← ./connection.mjs
+  Exports:
+    function: verifyCodingDb
+  Functions:
+    function readJson(p)
+    function verifyCodingDb(ruRoot, ru = ruRoot.split("/").pop())
+    arrow check(name, expected, actual)
+    function _count(db, table)
+
 ## packages/server/src/lib/bridge/paaw-bridge.mjs [javascript]
   Imports:
     * ← http
@@ -7321,6 +8508,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     named: ApiRunner
     named: ScriptRunner
     named: SkillExecutor
+    named: LlmCaller
     named: ToolEngine
     named: createToolEngine
     named: ToolRegistry
@@ -7357,7 +8545,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Functions:
     function createToolEngine(options: ToolEngineOptions)
   Classes:
-    class ToolEngine { provider, registry, maxToolRounds, debug, constructor, getToolDefinitions, registerTool, unregisterTool, run, _chatRoundStream, _chatRound }
+    class ToolEngine { provider, registry, maxToolRounds, debug, constructor, getToolDefinitions, registerTool, unregisterTool, run, _chatRoundStream }
 
 ## packages/engine/src/tool-engine/provider.ts [typescript]
   Imports:
@@ -7366,6 +8554,11 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     class: OpenAICompatibleAdapter
     function: createProviderAdapter
   Functions:
+    function isRetryableStatus(status: number)
+    function retryDelayMs(attempt: number)
+    function sleep(ms: number)
+    arrow buildDone(finishReason: string | null, toolCalls: ToolCallDef[])
+    arrow collectToolCalls()
     function createProviderAdapter(config: ProviderConfig)
   Classes:
     class OpenAICompatibleAdapter { name, config, constructor, chat }
@@ -7399,6 +8592,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← @paaw/db
   Exports:
     type: SkillExecutor
+    type: LlmCaller
     class: PromptRunner
     class: DataRunner
     class: ApiRunner
@@ -7407,8 +8601,11 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function: executeSkill
   Functions:
     function resolvePromptTemplate(template: string, input: Record<string, any>)
+    function assertSafeApiUrl(rawUrl: string)
+    function sleepWithJitter(attempt: number, baseMs: number, overrideMs?: number)
     function getSandboxUrl()
-    function createRunner(type: RunnerType, deps?: { dataStoreRepo?: any })
+    function resolveLanguageRuntime(language: string)
+    function createRunner(type: RunnerType, deps?: { dataStoreRepo?: any; llmCaller?: LlmCaller })
     async function executeSkill(params: {
   skillId: string;
   input: Record<string, any>;
@@ -7416,16 +8613,18 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   context: RunContext;
   runsRepo: RunsRepo;
   dataStoreRepo?: any;
+  llmCaller?: LlmCaller;
 })
   Classes:
-    class PromptRunner { execute }
-    class DataRunner { constructor, execute }
+    class PromptRunner { constructor, execute }
+    class DataRunner { constructor, execute, _assertOwnership, _toRecord }
     class ApiRunner { execute }
     class ScriptRunner { execute, _execFile, _execInline, _buildExecCommand, _buildInlineCommand, _callSandbox, _parseResult }
 
 ## packages/db/src/connection.ts [typescript]
   Imports:
     * ← sql.js
+    * ← kysely
     * ← kysely
     * ← fs
     * ← path
@@ -7438,13 +8637,13 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function: closeDb
     named: saveToDisk
   Functions:
+    function adaptStatement(stmt: ReturnType<SqlJsDatabase["prepare"]>)
+    function adaptDatabase(db: SqlJsDatabase)
     function saveToDisk()
     async function createDb(dbPath?: string)
     async function getDb(dbPath?: string)
     function getRawDb()
     async function closeDb()
-  Classes:
-    class SqlJsDialect { db, constructor, createAdapter }
 
 ## packages/db/src/index.ts [typescript]
   Exports:
@@ -7477,6 +8676,8 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
 ## packages/db/src/paths.ts [typescript]
   Imports:
     * ← path
+    * ← url
+    * ← fs
   Exports:
     function: getProjectRoot
     function: getDbPath
@@ -7534,7 +8735,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← kysely
     * ← @paaw/db
     * ← @paaw/shared
-    * ← ../memory/memory-store
+    * ← ./memory/memory-store
   Exports:
     class: ContextAssembler
   Functions:
@@ -7581,867 +8782,6 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     class: MemoryStore
   Classes:
     class MemoryStore { constructor, remember, recall, search, forget, cleanup }
-
-## installed-apps/sre/ui/pages/SreOffice.tsx [tsx]
-  Imports:
-    * ← react
-    * ← lucide-react
-    * ← ../styles/sre.css
-  Exports:
-    default function: SreOffice
-  Functions:
-    function SreOffice()
-    function ask(text:string)
-    function run()
-    arrow status(v:string)
-  React Components:
-    function: SreOffice
-
-## installed-apps/sre/ui/components/ExpertChatPanel.tsx [tsx]
-  Imports:
-    * ← react
-    * ← @paaw-ui/components/MarkdownText
-  Exports:
-    default function: ExpertChatPanel
-  Functions:
-    function ExpertChatPanel({ agentId, placeholder }: { agentId: string; placeholder?: string })
-    arrow onKey(e: React.KeyboardEvent<HTMLTextAreaElement>)
-  React Components:
-    function: ExpertChatPanel
-
-## installed-apps/sre/ui/components/InspectionPanel.tsx [tsx]
-  Imports:
-    * ← react
-    * ← @paaw-ui/components/MarkdownText
-  Exports:
-    default function: InspectionPanel
-  Functions:
-    function InspectionPanel()
-    async arrow save()
-    async arrow inspect()
-    async arrow openReport(file: string)
-    arrow badge(lv: string)
-  React Components:
-    function: InspectionPanel
-
-## installed-apps/sre/ui/components/SheetPreview.tsx [tsx]
-  Imports:
-    * ← react
-  Exports:
-    default function: SheetPreview
-  Functions:
-    function SheetPreview({ service, file, onClose }: { service: string; file: string; onClose: () => void })
-  React Components:
-    function: SheetPreview
-
-## installed-apps/sre/server/entry.mjs [javascript]
-  Imports:
-    * ← ./routes/crews.mjs
-  Exports:
-    default function: handler
-  Functions:
-    async function handler(req, res)
-
-## installed-apps/sre/server/routes/briefing.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← ./shared.mjs
-    * ← ./crews.mjs
-  Exports:
-    default value: handler
-  Functions:
-    function today()
-    arrow pad
-    function diffDays(iso)
-    function stripFences(md)
-    function readMd(dir, f)
-    function countItems(md)
-    function lastInspect()
-    function scanAll()
-    function handler(req, res)
-    arrow json(code, obj)
-
-## installed-apps/sre/server/routes/crews.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← ./shared.mjs
-  Exports:
-    variable: BUILTIN_FUNCTIONS
-    variable: CHIEF
-    function: ensureBuiltinCrews
-    default function: handler
-    function: listCabinets
-  Functions:
-    function loadRegistry()
-    function saveRegistry(list)
-    function crewTemplate(agentId)
-    function ensureBuiltinCrews()
-    async function handler(req, res)
-    arrow json(code, obj)
-    function listCabinets()
-
-## installed-apps/sre/server/routes/dossiers.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← ./shared.mjs
-    * ← ./crews.mjs
-  Exports:
-    default function: handler
-  Functions:
-    async function parseBody(req)
-    arrow DOSSIER_DIR(svc)
-    function safeName(n)
-    function loadRegistry()
-    async function handler(req, res)
-    arrow json(code, obj)
-    arrow pushDir(c)
-  React Components:
-    arrow: DOSSIER_DIR
-
-## installed-apps/sre/server/routes/grafana.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← node:http
-    * ← node:https
-    * ← ./shared.mjs
-  Exports:
-    default function: handler
-  Functions:
-    async function parseBody(req)
-    function loadCfg()
-    function saveCfg(c)
-    function httpJson(urlStr, { token = "", verifyTls = true, timeoutMs = 8000 } = {})
-    function pad(n)
-    function stamp(d = new Date())
-    function today(d = new Date())
-    function plusDays(from, n)
-    async function runInspect(cfg)
-    arrow add(id, label, level, detail, extra = {})
-    async function handler(req, res)
-    arrow json(code, obj)
-
-## installed-apps/sre/server/routes/services.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← ./shared.mjs
-  Exports:
-    function: scaffoldCrew
-    function: scaffoldTemplates
-    default function: handler
-  Functions:
-    async function parseBody(req)
-    function load()
-    function save(list)
-    arrow slug(s)
-    function scaffoldCrew({ id, name, emoji, goal, owner, tier })
-    function scaffoldTemplates({ id, name, emoji, goal, owner, tier })
-    async function handler(req, res)
-    arrow json(code, obj)
-
-## installed-apps/sre/server/routes/shared.mjs [javascript]
-  Imports:
-    * ← url
-    * ← path
-  Exports:
-    named: readBody
-    named: normalizePath
-    variable: PAAW_ROOT
-    variable: TPAW_REPO_ROOT
-    variable: MODULE_DIR
-
-## installed-apps/sre/server/routes/sheets.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← ./shared.mjs
-  Exports:
-    default function: handler
-  Functions:
-    async function parseBody(req)
-    async function handler(req, res)
-    arrow json(code, obj)
-
-## installed-apps/secret/ui/pages/Secretary.tsx [tsx]
-  Imports:
-    * ← react
-    * ← @paaw-ui/components/MarkdownText
-    * ← @paaw-ui/components/Icon
-    * ← @paaw-ui/i18n
-    * ← @paaw-ui/theme
-    * ← @paaw-ui/components/SidebarFileTree
-    * ← ../components/ExpertChatPanel
-    * ← ../components/SheetPreview
-  Exports:
-    default function: Secretary
-  Functions:
-    function Secretary()
-    arrow h(e: KeyboardEvent)
-    function UploadModal({ cats, onClose, onPickCat }: { cats: CatNode[]; onClose: () => void; onPickCat: (catId: string) => void })
-    function CategoryManager({ cats, onClose, onChanged }: { cats: CatNode[]; onClose: () => void; onChanged: () => void })
-    async arrow create()
-    async arrow patch(id: string, body: Record<string, unknown>)
-  React Components:
-    function: Secretary
-    function: UploadModal
-    function: CategoryManager
-
-## installed-apps/secret/ui/components/ExpertChatPanel.tsx [tsx]
-  Imports:
-    * ← react
-    * ← @paaw-ui/components/MarkdownText
-  Exports:
-    default function: ExpertChatPanel
-  Functions:
-    function ExpertChatPanel({ agentId, placeholder }: { agentId: string; placeholder?: string })
-    arrow onKey(e: React.KeyboardEvent<HTMLTextAreaElement>)
-  React Components:
-    function: ExpertChatPanel
-
-## installed-apps/secret/ui/components/SheetPreview.tsx [tsx]
-  Imports:
-    * ← react
-  Exports:
-    default function: SheetPreview
-  Functions:
-    function SheetPreview({ category, file, onClose }: { category: string; file: string; onClose: () => void })
-  React Components:
-    function: SheetPreview
-
-## installed-apps/secret/server/entry.mjs [javascript]
-  Exports:
-    default function: handler
-  Functions:
-    async function handler(req, res)
-
-## installed-apps/secret/server/routes/briefing.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← ./shared.mjs
-  Exports:
-    default value: handler
-  Functions:
-    function today()
-    arrow pad
-    function diffDays(iso)
-    function stripFences(md)
-    function scanAll()
-    function handler(req, res)
-    arrow json(code, obj)
-
-## installed-apps/secret/server/routes/categories.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← ./shared.mjs
-  Exports:
-    default function: handler
-  Functions:
-    async function parseBody(req)
-    function load()
-    function save(list)
-    arrow slug(s)
-    function scaffoldCrew({ id, name, emoji, description })
-    async function handler(req, res)
-    arrow json(code, obj)
-
-## installed-apps/secret/server/routes/dossiers.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← ./shared.mjs
-  Exports:
-    default function: handler
-  Functions:
-    async function parseBody(req)
-    arrow DOSSIER_DIR(cat)
-    function safeName(n)
-    function safeCat(cat, registry)
-    function loadRegistry()
-    function ensureBuiltinCategories()
-    async function handler(req, res)
-    arrow json(code, obj)
-  React Components:
-    arrow: DOSSIER_DIR
-
-## installed-apps/secret/server/routes/shared.mjs [javascript]
-  Imports:
-    * ← url
-    * ← path
-  Exports:
-    named: readBody
-    named: normalizePath
-    variable: PAAW_ROOT
-    variable: TPAW_REPO_ROOT
-
-## installed-apps/secret/server/routes/sheets.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← ./shared.mjs
-  Exports:
-    default function: handler
-  Functions:
-    async function parseBody(req)
-    async function handler(req, res)
-    arrow json(code, obj)
-
-## installed-apps/pm/ui/pages/ProjectOffice.tsx [tsx]
-  Imports:
-    * ← react
-    * ← @paaw-ui/components/MarkdownText
-    * ← @paaw-ui/components/Icon
-    * ← @paaw-ui/i18n
-    * ← @paaw-ui/theme
-    * ← @paaw-ui/components/SidebarFileTree
-    * ← ../components/ExpertChatPanel
-    * ← ../components/SheetPreview
-  Exports:
-    default function: ProjectOffice
-  Functions:
-    function ProjectOffice()
-    arrow h(e: KeyboardEvent)
-    function UploadModal({ projects, onClose, onPickProj }: { projects: ProjNode[]; onClose: () => void; onPickProj: (projId: string) => void })
-    function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: (p: { id: string; name: string; emoji: string; agentId: string }) => void })
-    async arrow create()
-  React Components:
-    function: ProjectOffice
-    function: UploadModal
-    function: NewProjectModal
-
-## installed-apps/pm/ui/components/ExpertChatPanel.tsx [tsx]
-  Imports:
-    * ← react
-    * ← @paaw-ui/components/MarkdownText
-  Exports:
-    default function: ExpertChatPanel
-  Functions:
-    function ExpertChatPanel({ agentId, placeholder }: { agentId: string; placeholder?: string })
-    arrow onKey(e: React.KeyboardEvent<HTMLTextAreaElement>)
-  React Components:
-    function: ExpertChatPanel
-
-## installed-apps/pm/ui/components/SheetPreview.tsx [tsx]
-  Imports:
-    * ← react
-  Exports:
-    default function: SheetPreview
-  Functions:
-    function SheetPreview({ category, file, onClose }: { category: string; file: string; onClose: () => void })
-  React Components:
-    function: SheetPreview
-
-## installed-apps/pm/server/entry.mjs [javascript]
-  Exports:
-    default function: handler
-  Functions:
-    async function handler(req, res)
-
-## installed-apps/pm/server/routes/briefing.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← ./shared.mjs
-  Exports:
-    default value: handler
-  Functions:
-    function today()
-    arrow pad
-    function diffDays(iso)
-    function stripFences(md)
-    function readMd(dir, f)
-    function countItems(md)
-    function scanAll()
-    function handler(req, res)
-    arrow json(code, obj)
-
-## installed-apps/pm/server/routes/dossiers.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← ./shared.mjs
-  Exports:
-    default function: handler
-  Functions:
-    async function parseBody(req)
-    arrow DOSSIER_DIR(proj)
-    function ensureBuiltinFunctions()
-    function safeName(n)
-    function safeProj(proj, registry)
-    function loadRegistry()
-    async function handler(req, res)
-    arrow json(code, obj)
-    arrow pushDir(c)
-  React Components:
-    arrow: DOSSIER_DIR
-
-## installed-apps/pm/server/routes/projects.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← ./shared.mjs
-  Exports:
-    function: scaffoldCrew
-    function: scaffoldTemplates
-    default function: handler
-  Functions:
-    async function parseBody(req)
-    function load()
-    function save(list)
-    arrow slug(s)
-    function scaffoldCrew({ id, name, emoji, goal, owner })
-    function scaffoldTemplates({ id, name, emoji, goal, owner, start, end })
-    async function handler(req, res)
-    arrow json(code, obj)
-
-## installed-apps/pm/server/routes/shared.mjs [javascript]
-  Imports:
-    * ← url
-    * ← path
-  Exports:
-    named: readBody
-    named: normalizePath
-    variable: PAAW_ROOT
-    variable: TPAW_REPO_ROOT
-
-## installed-apps/pm/server/routes/sheets.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← ./shared.mjs
-  Exports:
-    default function: handler
-  Functions:
-    async function parseBody(req)
-    async function handler(req, res)
-    arrow json(code, obj)
-
-## installed-apps/learning/ui/pages/LearningSpace.tsx [tsx]
-  Imports:
-    * ← react
-    * ← @paaw-ui/theme
-    * ← @paaw-ui/i18n
-    * ← @paaw-ui/components/ui/uiFeedback
-    * ← @paaw-ui/utils
-    * ← @paaw-ui/components/Icon
-    * ← @paaw-ui/components/JsonViewer
-    * ← @paaw-ui/components/FileEmoji
-    * ← highlight.js
-    * ← highlight.js/styles/github.css
-    * ← @paaw-ui/api
-    * ← @paaw-ui/components/ModelSelector
-    * ← @paaw-ui/components/ChatMessages
-    * ← ../components/LearningPractice
-    * ← ../components/quiz/QuizWorkspace
-    * ← ../components/ExamVault
-    * ← ../components/CurriculumView
-    * ← ../components/CurriculumView
-    * ← @paaw-ui/utils/pasteFiles
-    * ← @paaw-ui/pages/FileViewer
-  Exports:
-    default function: LearningSpace
-  Functions:
-    arrow crewToAgentId(crewId: string)
-    function getFileIcon(name: string)
-    function getLanguage(name: string)
-    function getHljsLang(name: string)
-    function escapeHtml(str: string)
-    function fmtTime(iso: string)
-    function fmtBytes(n: number)
-    function EditorTabContent({ tabId, filePath, tabData, isActive, isEditing, textareaRef, lineNumWidth, handleContentChange, stopEditing, handleCodeViewClick, startEditing, tk, tt, openFile }: {
-  tabId: string;
-  filePath: string;
-  tabData: OpenTab | undefined;
-  isActive: boolean;
-  isEditing: boolean;
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
-  lineNumWidth: number;
-  handleContentChange: (v: string) => void;
-  stopEditing: () => void;
-  handleCodeViewClick: (e: React.MouseEvent) => void;
-  startEditing: () => void;
-  tk: any;
-  tt: (k: string) => string;
-  openFile: (path: string) => void;
-})
-    function LearningSpace()
-    arrow handler(e: MouseEvent)
-    arrow _collapseRunningUi()
-    async arrow poll()
-    arrow handler(e: KeyboardEvent)
-    arrow onMove(ev: MouseEvent)
-    arrow onUp()
-    function highlightMatch(text: string, query: string, caseSensitive: boolean)
-  React Components:
-    function: EditorTabContent
-    function: LearningSpace
-
-## installed-apps/learning/ui/components/CurriculumView.tsx [tsx]
-  Imports:
-    * ← react
-    * ← @paaw-ui/components/MarkdownText
-    * ← ./TeacherChatPanel
-    * ← ./SplitChatLayout
-    * ← @paaw-ui/i18n
-  Exports:
-    type: CurriculumConcept
-    type: CurriculumUnit
-    type: CurriculumSubject
-    type: CurriculumTarget
-    variable: SUBJECT_EMOJI
-    variable: SUBJECT_TEACHER
-    default function: CurriculumView
-  Functions:
-    function QuizPanel({ conceptId }: { conceptId: number })
-    async arrow pick(q: QuizQ, choice: number)
-    function gradeLabel(g: number)
-    function semLabel(s: number)
-    function Crumb({ children, onClick }: { children: React.ReactNode; onClick?: () => void })
-    function UnitRow({ u, onClick, wrongCount, onWrong }: { u: CurriculumUnit; onClick: () => void; wrongCount?: number; onWrong?: () => void })
-    function UnitPager({ prev, next, goUnit }: { prev?: CurriculumUnit; next?: CurriculumUnit; goUnit: (id: number) => void })
-    function CurriculumView({ curriculum, target, visible, onPractice, onOpenFile, wrongCounts, onOpenWrongBook, rootPath }: Props)
-    arrow wrongCount(u?: CurriculumUnit)
-    arrow openWrong(u: CurriculumUnit)
-    arrow goSubject()
-    arrow goUnit(unitId: number)
-    arrow goConcept(unitId: number, conceptId: number)
-  React Components:
-    function: QuizPanel
-    function: Crumb
-    function: UnitRow
-    function: UnitPager
-    function: CurriculumView
-
-## installed-apps/learning/ui/components/ExamVault.tsx [tsx]
-  Imports:
-    * ← react
-    * ← @paaw-ui/i18n
-    * ← @paaw-ui/components/ui/uiFeedback
-    * ← ./TeacherChatPanel
-    * ← ./SplitChatLayout
-    * ← ./CurriculumView
-  Exports:
-    default function: ExamVault
-  Functions:
-    async function normalizeImage(file: File)
-    async function api(path: string, init?: RequestInit)
-    function ExamVault({ visible, theme, jump }: { visible: boolean; theme: Theme; jump?: { subject: string; unit: string; seq: number } | null })
-    arrow flash(m: string | null, e?: string | null)
-    async arrow addFiles(files: FileList | null)
-    async arrow submitInbox()
-    async arrow openReview(id: string)
-    async arrow saveQ(qid: string, patch: Record<string, unknown>)
-    async arrow saveExamMeta(id: string, patch: Record<string, unknown>)
-    async arrow publish(id: string)
-    async arrow delExam(id: string)
-    async arrow doBackup()
-    async arrow openWrongImg(w: WrongRow)
-    arrow askTeacher(w: WrongRow, mode: "explain" | "variants")
-    arrow statusBadge(s: string)
-    arrow statusText(s: string)
-    arrow suspectScore(q: Q)
-    function QuestionCard({ q, units, theme, t, onSave, examPublished }: {
-  q: Q; units: Unit[]; theme: Theme; t: (k: string) => string;
-  onSave: (qid: string, patch: Record<string, unknown>) => void; examPublished: boolean;
-})
-  React Components:
-    function: ExamVault
-    function: QuestionCard
-
-## installed-apps/learning/ui/components/LearningPractice.tsx [tsx]
-  Imports:
-    * ← react
-    * ← @paaw-ui/i18n
-  Exports:
-    default function: LearningPractice
-  Functions:
-    function getSessionId()
-    function LearningPractice({ rootPath, visible, theme, subjectOverride }: { rootPath?: string; visible: boolean; theme: Theme; subjectOverride?: string })
-    async arrow submit(answer: string)
-    arrow next()
-  React Components:
-    function: LearningPractice
-
-## installed-apps/learning/ui/components/SplitChatLayout.tsx [tsx]
-  Imports:
-    * ← react
-  Exports:
-    default function: SplitChatLayout
-  Functions:
-    function SplitChatLayout({ chat, chatOpen, storageKey, borderLight, children }: {
-  chat: ReactNode;
-  chatOpen: boolean;
-  storageKey: string;
-  borderLight: string;
-  children: ReactNode;
-})
-  React Components:
-    function: SplitChatLayout
-
-## installed-apps/learning/ui/components/TeacherChatPanel.tsx [tsx]
-  Imports:
-    * ← react
-    * ← @paaw-ui/components/MarkdownText
-    * ← @paaw-ui/i18n
-    * ← @paaw-ui/utils/pasteFiles
-  Exports:
-    default function: TeacherChatPanel
-  Functions:
-    function formatTime(ts?: string)
-    function Avatar({ role, imageUrl, emoji }: { role: string; imageUrl?: string; emoji?: string })
-    function MessageRow({ msg, assistantName, imageUrl }: {
-  msg: Msg; assistantName: string; imageUrl?: string;
-})
-    function ThinkingDots({ label }: { label: string })
-    function TeacherChatPanel({ teacherName, agentId, unitLabel, pageMd, onClose, kickoff, fitContainer, rootPath }: {
-  agentId: string;
-  /** 學生目前位置（動態：科目總覽／單元／知識點），換頁即更新 */
-  unitLabel: string;
-  /** 學生正在看的該頁教學內容 — 每則訊息注入，讓老師對話聚焦該頁 */
-  pageMd?: string;
-  onClose: () => void;
-  /** 開面板自動送出的第一則訊息（錯題講解/變形題用；seq 遞增可重觸） */
-  kickoff?: { text: string; seq: number };
-  /** 塞進 SplitChatLayout 這種自適寬容器用（根元素改 w-full） */
-  fitContainer?: boolean;
-  teacherName?: string; // 顯示名（/api/crew 端點不存在，本地 fallback 用）
-  /** 專案根（有的話啟用對話持久化：存 .paaw/conversations/<hash>/classroom-{agentId}/） */
-  rootPath?: string;
-})
-    arrow doReset()
-    arrow addImages(files: File[])
-    arrow addTextFiles(files: File[])
-    async function send(overrideText?: string)
-    arrow onKey(e: React.KeyboardEvent<HTMLTextAreaElement>)
-  React Components:
-    function: Avatar
-    function: MessageRow
-    function: ThinkingDots
-    function: TeacherChatPanel
-
-## installed-apps/learning/ui/components/quiz/QuizComposer.tsx [tsx]
-  Imports:
-    * ← react
-    * ← @paaw-ui/i18n
-    * ← ./types
-  Exports:
-    default function: QuizComposer
-  Functions:
-    function QuizComposer({ visible, theme, onCreated, onCancel }: Props)
-    arrow card(selected: boolean)
-  React Components:
-    function: QuizComposer
-
-## installed-apps/learning/ui/components/quiz/QuizReport.tsx [tsx]
-  Imports:
-    * ← react
-    * ← @paaw-ui/i18n
-    * ← ./types
-    * ← ./types
-  Exports:
-    default function: QuizReport
-  Functions:
-    function fmtDate(iso: string | null)
-    function fmtDuration(sec: number)
-    function QuizReport({ examId, visible, theme, onBack, onJumpCurriculum }: Props)
-  React Components:
-    function: QuizReport
-
-## installed-apps/learning/ui/components/quiz/QuizRunner.tsx [tsx]
-  Imports:
-    * ← react
-    * ← @paaw-ui/i18n
-    * ← ./types
-    * ← ./types
-  Exports:
-    default function: QuizRunner
-  Functions:
-    function fmtClock(sec: number)
-    function QuizRunner({ examId, visible, theme, onDone, onExit }: Props)
-  React Components:
-    function: QuizRunner
-
-## installed-apps/learning/ui/components/quiz/QuizWorkspace.tsx [tsx]
-  Imports:
-    * ← react
-    * ← @paaw-ui/i18n
-    * ← @paaw-ui/components/ui/uiFeedback
-    * ← ./types
-    * ← ./QuizComposer
-    * ← ./QuizRunner
-    * ← ./QuizReport
-  Exports:
-    default function: QuizWorkspace
-  Functions:
-    function QuizWorkspace({ visible, theme, onJumpCurriculum }: Props)
-  React Components:
-    function: QuizWorkspace
-
-## installed-apps/learning/ui/components/quiz/types.ts [typescript]
-  Exports:
-    type: QuizStatus
-    type: QuizMode
-    type: QuizTheme
-    type: ScopeOptions
-    type: QuizSnapshot
-    type: ExamResponse
-    type: StartResponse
-    type: QuizExamRow
-    type: SubmitSummary
-    type: QuizReportData
-    variable: CHOICES
-    function: encodeAnswer
-    function: decodeAnswer
-  Functions:
-    function encodeAnswer(hasOptions: boolean, letter: string)
-    function decodeAnswer(raw: string | null | undefined, hasOptions: boolean)
-
-## installed-apps/learning/server/data-home.mjs [javascript]
-  Imports:
-    * ← url
-    * ← path
-  Exports:
-    variable: DATA_HOME
-
-## installed-apps/learning/server/entry.mjs [javascript]
-  Imports:
-    * ← ./routes/exam-vault.mjs
-    * ← ./routes/quiz-session.mjs
-    * ← ./routes/learning-practice.mjs
-  Exports:
-    default function: handler
-  Functions:
-    async function handler(req, res)
-
-## installed-apps/learning/server/routes/exam-vault.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← fs/promises
-    * ← path
-    * ← child_process
-    * ← ../lib/stable-hash.mjs
-    * ← url
-    * ← node:sqlite
-    * ← ./shared.mjs
-    * ← ../data-home.mjs
-    * ← ../lib/coding-security.mjs
-  Exports:
-    default function: examVaultRoutes
-  Functions:
-    function db()
-    function json(res, code, data)
-    async function readJson(req)
-    arrow now()
-    arrow rid(p)
-    async function listSubjects()
-    async function subjectUnits(subjectId)
-    arrow norm(s)
-    function validateUnit(units, guess)
-    function validateConcept(units, unitName, guess)
-    function providerConfig()
-    function resolveVision(cfg)
-    async function parsePageImage(vision, dataUrl, { subjectName, unitNames })
-    async function runParse(examId)
-    async function writeExamSnapshot(examId)
-    function triggerBackup()
-    async function saveDataUrl(dataUrl, dir, idx)
-    async function fetchImageUrl(url, dir, idx)
-    async function createExam({ subject, title, examDate, grade, semester, source, sourceUrl, pages })
-    async function examVaultRoutes(req, res)
-
-## installed-apps/learning/server/routes/learning-practice.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← node:sqlite
-    * ← ./shared.mjs
-  Exports:
-    default function: learningPracticeRoute
-  Functions:
-    function db()
-    function json(res, code, data)
-    function reviewDueQuestions(subject, limit)
-    function newQuestions(subject, limit)
-    function questionPayload(rows)
-    async function learningPracticeRoute(req, res)
-    arrow norm
-  Routes:
-    GET /api/learning/curriculum
-    GET /api/learning/crop
-    GET /api/learning/practice/today
-    GET /api/learning/practice/last
-    POST /api/learning/practice/submit
-    GET /api/learning/practice/stats
-
-## installed-apps/learning/server/routes/quiz-session.mjs [javascript]
-  Imports:
-    * ← fs
-    * ← path
-    * ← node:sqlite
-    * ← ./shared.mjs
-  Exports:
-    default function: quizSessionRoute
-  Functions:
-    function db()
-    function ensureColumns(dbx, table, cols)
-    function ensureQuizSchema(dbx)
-    function json(res, code, data)
-    async function readJson(req)
-    arrow now()
-    function fnv1a(str)
-    function mulberry32(seed)
-    function seededShuffle(arr, examId)
-    arrow newExamId()
-    arrow clampCount(v, dflt)
-    arrow clampDuration(v)
-    function capSnapshot(q)
-    function conceptSnapshot(cq)
-    function unitPool(unitId)
-    function capPool(subjectKey)
-    function parseSnapshot(s)
-    function snapshotForClient(snapshot, status)
-    function examResponse(sessionRow, sectionRows, itemRows)
-    arrow normAnswer(s)
-    function gradeItem(it)
-    function masteryLevel(pct)
-    arrow pct1(part, total)
-    async function quizSessionRoute(req, res)
-
-## installed-apps/learning/server/routes/shared.mjs [javascript]
-  Imports:
-    * ← url
-    * ← path
-  Exports:
-    named: readBody
-    variable: PAAW_ROOT
-
-## installed-apps/learning/scripts/import-cap-vault.py [python]
-  Imports:
-    argparse ← argparse
-    json ← json
-    os ← os
-    re ← re
-    shutil ← shutil
-    sqlite3 ← sqlite3
-    sys ← sys
-    datetime, timezone ← datetime
-    pymupdf ← pymupdf
-  Exports:
-    function: parse_answers
-    function: booklet_for
-    function: render_pages
-    function: main
-  Functions:
-    function parse_answers(pdf_path)
-    function _is_pdf(p)
-    function booklet_for(roc, candidates)
-    function render_pages(pdf_path, out_dir, dpi)
-    function main()
 
 ## data/skills/physical-skill/nextjs-backend-best-practices/templates/app-router-async-params.tsx [tsx]
   Imports:
@@ -8495,6 +8835,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     variable: dynamic
     variable: revalidate
   Functions:
+    async function fetchJson(url: string, fallback: T)
     async function PostPage({
   params,
   searchParams
@@ -8517,6 +8858,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← next/headers
     * ← @/components/dynamic-user-info
     * ← next/cache
+    * ← next/cache
     * ← next/headers
   Exports:
     function: CachedProductList
@@ -8524,7 +8866,6 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function: ProductPage
     function: generateStaticParams
     default function: BlogPost
-    function: DynamicUserInfo
     default function: DashboardPage
     function: getPopularPosts
     function: getRealtimeMetrics
@@ -8562,13 +8903,17 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
 
 ## data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx [tsx]
   Imports:
+    * ← next/link
     * ← next/headers
+    * ← next/navigation
+    * ← next/link
     * ← next/navigation
     * ← next/navigation
   Exports:
     default function: RootLayout
     default function: LoginModal
     default function: ModalDefault
+    default function: RootDefault
     default function: HomePage
     default function: DashboardLayout
     default function: AnalyticsOverview
@@ -8587,20 +8932,23 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     default function: AnalyticsLoading
     default function: NotificationsLoading
     default function: AnalyticsError
-    function: DefaultNull
-    function: DefaultSkeleton
-    function: DefaultFallback
-    function: DefaultRedirect
+    default function: DefaultNull
+    default function: DefaultSkeleton
+    default function: DefaultFallback
+    default function: DefaultRedirect
   Functions:
     function RootLayout({
   children,
   modal,
+  banner,
 }: {
   children: React.ReactNode
   modal: React.ReactNode
+  banner: React.ReactNode
 })
     function LoginModal()
     function ModalDefault()
+    function RootDefault()
     function HomePage()
     function DashboardLayout({
   children,
@@ -8626,10 +8974,14 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   reviews: React.ReactNode
   recommendations: React.ReactNode
 })
-    async function ProductReviews({ params }: { params: Promise<{ id: string }> })
+    async function ProductReviews({
+  params,
+}: {
+  params: Promise<{ id: string }>
+})
     function ReviewsDefault()
     function RecommendationsDefault()
-    async function AuthDefault()
+    function AuthDefault()
     async function ProfilePage()
     function Layout({
   children,
@@ -8657,6 +9009,7 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function: RootLayout
     function: LoginModal
     function: ModalDefault
+    function: RootDefault
     function: HomePage
     function: DashboardLayout
     function: AnalyticsOverview
@@ -8710,29 +9063,18 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   Imports:
     * ← next/server
     * ← next/headers
-    * ← next/headers
     * ← fs/promises
     * ← path
   Exports:
     function: GET
     function: POST
-    function: GET
     function: PATCH
     function: DELETE
-    function: SEARCH
-    function: LOGIN
-    function: ME
-    function: WEBHOOK
-    function: STREAM
-    function: UPLOAD
     function: OPTIONS
-    function: CORS_GET
-    function: ERROR_HANDLING
-    function: RATE_LIMITED
   Functions:
     async function GET()
     async function POST(request: Request)
-    async function GET(
+    async function getPostById(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 )
@@ -8744,34 +9086,24 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 )
-    async function SEARCH(request: Request)
-    async function LOGIN(request: Request)
-    async function ME()
-    async function WEBHOOK(request: Request)
-    async function handlePaymentSuccess(paymentIntent: any)
-    async function handlePaymentFailure(paymentIntent: any)
-    async function STREAM()
-    async function UPLOAD(request: Request)
+    async function searchPosts(request: Request)
+    async function login(request: Request)
+    async function getCurrentUser()
+    async function stripeWebhook(request: Request)
+    async function handlePaymentSuccess(paymentIntent: { id: string })
+    async function handlePaymentFailure(paymentIntent: { id: string })
+    async function sseStream()
+    async function uploadFile(request: Request)
     async function OPTIONS()
-    async function CORS_GET()
-    async function ERROR_HANDLING()
-    async function RATE_LIMITED()
+    async function helloWithCors()
+    async function getWithErrorHandling()
+    async function rateLimitedGet()
   React Components:
     function: GET
     function: POST
-    function: GET
     function: PATCH
     function: DELETE
-    function: SEARCH
-    function: LOGIN
-    function: ME
-    function: WEBHOOK
-    function: STREAM
-    function: UPLOAD
     function: OPTIONS
-    function: CORS_GET
-    function: ERROR_HANDLING
-    function: RATE_LIMITED
 
 ## data/skills/physical-skill/nextjs-backend-best-practices/templates/server-action-form.tsx [tsx]
   Imports:
@@ -8791,17 +9123,12 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     * ← zod
     * ← next/cache
     * ← next/navigation
-    * ← react-dom
-    * ← next/cache
-    * ← react
-    * ← ./actions
+    * ← next/headers
     * ← fs/promises
     * ← path
     * ← react
-    * ← ./actions
     * ← react-dom
-    * ← react
-    * ← next/headers
+    * ← next/image
   Exports:
     function: createPost
     function: CreatePostForm
@@ -8828,14 +9155,14 @@ Languages: typescript(58), javascript(255), tsx(118), python(1)
     function ValidatedPostForm()
     async function likePost(postId: string)
     function LikeButton({ postId, initialLikes }: { postId: string; initialLikes: number })
-    async function handleLike()
+    function handleLike()
     async function uploadImage(formData: FormData)
     function ImageUploadForm()
     async function handleSubmit(formData: FormData)
     async function subscribe(formData: FormData)
     function SubscribeForm()
     function EnhancedSubscribeForm()
-    async function submitMultiStepForm(data: FormData)
+    async function submitMultiStepForm(data: MultiStepFormData)
     function MultiStepForm()
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>)
     async function submitContactForm(formData: FormData)

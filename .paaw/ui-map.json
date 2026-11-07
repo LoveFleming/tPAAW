@@ -1,0 +1,3220 @@
+[
+  {
+    "id": "U20261107-001",
+    "category": "對話與助理",
+    "route": "/chat",
+    "name": "對話主頁",
+    "description": "與 AI 助理進行多輪對話、切換模型、管理對話歷史與附件上傳。",
+    "uiFlow": [
+      {
+        "step": "側欄選擇或新增對話",
+        "action": "載入該對話訊息並可建立/刪除對話",
+        "component": "ChatView"
+      },
+      {
+        "step": "輸入訊息並送出",
+        "action": "呼叫聊天 API 串流回覆，顯示工具徽章與審批卡",
+        "component": "ChatInputBar / ChatMessages"
+      },
+      {
+        "step": "切換模型或編輯助理設定",
+        "action": "開啟模型選擇器與助理個人檔案/技能彈窗",
+        "component": "ModelSelector / AssistantProfileModal / AssistantSkillsModal"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/ChatView.tsx",
+      "packages/ui/src/components/ChatInputBar.tsx",
+      "packages/ui/src/components/ChatMessages.tsx",
+      "packages/ui/src/components/ModelSelector.tsx",
+      "packages/ui/src/components/AssistantProfileModal.tsx",
+      "packages/ui/src/components/AssistantSkillsModal.tsx"
+    ],
+    "stateMgmt": "local state（useState/useEffect）搭配 api client 呼叫 server",
+    "apiCalls": [
+      "POST /api/chat",
+      "POST /api/uploads",
+      "GET /api/assistant",
+      "GET /api/assistant-skills"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/ChatView.tsx",
+      "packages/ui/src/components/ChatInputBar.tsx",
+      "packages/ui/src/components/ChatMessages.tsx",
+      "packages/ui/src/components/ModelSelector.tsx",
+      "packages/ui/src/components/AssistantProfileModal.tsx",
+      "packages/ui/src/components/AssistantSkillsModal.tsx",
+      "packages/ui/src/api.ts",
+      "packages/ui/src/utils/pasteFiles.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/chat.mjs",
+      "packages/server/src/routes/uploads.mjs",
+      "packages/server/src/routes/assistant.mjs",
+      "packages/server/src/routes/assistant-skills.mjs",
+      "packages/server/src/lib/paaw-agent-loop.mjs",
+      "packages/server/src/lib/assistant-skills.mjs"
+    ],
+    "tests": [
+      "tests/unit/chatview.test.mjs",
+      "tests/unit/chat-uploads-routes.test.mjs",
+      "tests/e2e/06-chat.spec.ts"
+    ],
+    "severity": "high",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-002",
+    "category": "技能管理",
+    "route": "/skills",
+    "name": "技能列表",
+    "description": "瀏覽、建立、編輯、匯出與匯入技能定義。",
+    "uiFlow": [
+      {
+        "step": "載入技能清單",
+        "action": "從後端取得技能並列表顯示",
+        "component": "SkillsPage"
+      },
+      {
+        "step": "新增或編輯技能",
+        "action": "開啟編輯表單填寫技能欄位並儲存",
+        "component": "SkillsPage"
+      },
+      {
+        "step": "匯出/匯入技能",
+        "action": "下載或上傳技能檔",
+        "component": "SkillsPage"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/SkillsPage.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/skills",
+      "GET /api/skill"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/SkillsPage.tsx",
+      "packages/ui/src/api.ts",
+      "packages/ui/src/types/index.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/skills-api.mjs",
+      "packages/server/src/routes/skill.mjs"
+    ],
+    "tests": [
+      "tests/e2e/07-skills.spec.ts"
+    ],
+    "severity": "high",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-003",
+    "category": "技能管理",
+    "route": "/skill-builder",
+    "name": "技能建構器",
+    "description": "以步驟式表單或 AI 生成方式建立技能並測試發佈。",
+    "uiFlow": [
+      {
+        "step": "填寫技能基本欄位與輸入欄位",
+        "action": "逐步建立技能內容",
+        "component": "SkillBuilder"
+      },
+      {
+        "step": "AI 生成或預覽提示",
+        "action": "呼叫後端生成技能草稿並顯示",
+        "component": "SkillBuilder / AgentConsole"
+      },
+      {
+        "step": "測試與發佈技能",
+        "action": "執行測試提示並發佈技能",
+        "component": "SkillBuilder"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/SkillBuilder.tsx",
+      "packages/ui/src/components/AgentConsole.tsx",
+      "packages/ui/src/components/ModelSelector.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/skills",
+      "GET /api/skill"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/SkillBuilder.tsx",
+      "packages/ui/src/components/AgentConsole.tsx",
+      "packages/ui/src/components/ModelSelector.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/skills-api.mjs",
+      "packages/server/src/routes/skill.mjs"
+    ],
+    "tests": [
+      "tests/e2e/07-skills.spec.ts"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-004",
+    "category": "應用管理",
+    "route": "/app-builder",
+    "name": "應用建構器",
+    "description": "建立與預覽 AI 應用，選擇技能並輪詢建置狀態。",
+    "uiFlow": [
+      {
+        "step": "填寫應用設定與選擇技能",
+        "action": "開啟技能選擇對話框並設定應用",
+        "component": "AppBuilder / SkillPickerDialog"
+      },
+      {
+        "step": "預覽提示與建置",
+        "action": "呼叫後端建置並輪詢狀態",
+        "component": "AppBuilder / AgentConsole"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/AppBuilder.tsx",
+      "packages/ui/src/components/AgentConsole.tsx",
+      "packages/ui/src/components/ModelSelector.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/apps"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/AppBuilder.tsx",
+      "packages/ui/src/components/AgentConsole.tsx",
+      "packages/ui/src/components/ModelSelector.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/apps.mjs"
+    ],
+    "tests": [
+      "tests/e2e/08-apps.spec.ts"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-005",
+    "category": "應用管理",
+    "route": "/app-pool",
+    "name": "應用池",
+    "description": "列出已發佈應用，支援下架與刪除。",
+    "uiFlow": [
+      {
+        "step": "載入應用清單",
+        "action": "從後端取得應用列表",
+        "component": "AppPool"
+      },
+      {
+        "step": "下架或刪除應用",
+        "action": "呼叫後端變更應用狀態",
+        "component": "AppPool"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/AppPool.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/apps"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/AppPool.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/apps.mjs"
+    ],
+    "tests": [
+      "tests/e2e/08-apps.spec.ts"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-006",
+    "category": "排程管理",
+    "route": "/cron-jobs",
+    "name": "排程工作",
+    "description": "管理 cron 排程工作，編輯參數、啟停與立即執行。",
+    "uiFlow": [
+      {
+        "step": "載入排程清單",
+        "action": "從後端取得 cron 工作",
+        "component": "CronJobsPage"
+      },
+      {
+        "step": "新增/編輯排程",
+        "action": "填寫 cron 與參數並儲存",
+        "component": "CronJobsPage"
+      },
+      {
+        "step": "啟停或立即執行",
+        "action": "呼叫後端切換狀態或觸發執行",
+        "component": "CronJobsPage"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/CronJobsPage.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "POST /api/cron-jobs"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/CronJobsPage.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/scheduler/cron-jobs.mjs"
+    ],
+    "tests": [],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-007",
+    "category": "開發工作台",
+    "route": "/coding",
+    "name": "Coding IDE",
+    "description": "整合式開發工作台：檔案樹、編輯器、終端機、Git、任務板、功能地圖、API 測試與多個 AI 面板。",
+    "uiFlow": [
+      {
+        "step": "瀏覽檔案樹並開啟檔案",
+        "action": "載入目錄與檔案內容到編輯分頁",
+        "component": "SidebarFileTree / DirectoryExplorer / FileViewer"
+      },
+      {
+        "step": "使用終端機與 Git 面板",
+        "action": "執行 shell 指令、檢視 diff 與提交",
+        "component": "ShellTerminal / GitPanel"
+      },
+      {
+        "step": "檢視功能地圖與 API 測試",
+        "action": "載入功能/API 對照並發送測試請求",
+        "component": "FeatureMap / ApiTesterTabs / ApiRequestTabSheet"
+      },
+      {
+        "step": "管理任務、問題與發佈",
+        "action": "建立/更新任務、問題、發佈請求與交接",
+        "component": "TaskBoard / IssueTracker / ReleaseManagerPanel / HandoverPanel"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/CodingIDE.tsx",
+      "packages/ui/src/components/SidebarFileTree.tsx",
+      "packages/ui/src/components/DirectoryExplorer.tsx",
+      "packages/ui/src/components/ShellTerminal.tsx",
+      "packages/ui/src/components/git/GitPanel.tsx",
+      "packages/ui/src/components/FeatureMap.tsx",
+      "packages/ui/src/components/ApiTesterTabs.tsx",
+      "packages/ui/src/components/ApiRequestTabSheet.tsx",
+      "packages/ui/src/components/TaskBoard.tsx",
+      "packages/ui/src/components/IssueTracker.tsx",
+      "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "packages/ui/src/components/HandoverPanel.tsx",
+      "packages/ui/src/components/EMDashboard.tsx",
+      "packages/ui/src/components/CodeIntelPage.tsx",
+      "packages/ui/src/components/TestsPage.tsx",
+      "packages/ui/src/components/SecurityTab.tsx",
+      "packages/ui/src/components/TroubleshootingPanel.tsx",
+      "packages/ui/src/components/CodeReviewBoardPanel.tsx",
+      "packages/ui/src/components/ProjectMdPage.tsx",
+      "packages/ui/src/components/browser/BrowserPanel.tsx"
+    ],
+    "stateMgmt": "local state（大量 useState/useEffect）搭配 api client",
+    "apiCalls": [
+      "GET /api/coding/features",
+      "GET /api/coding/tasks",
+      "GET /api/coding/health",
+      "GET /api/coding/error-codes",
+      "GET /api/coding/review-board",
+      "GET /api/coding/releases",
+      "GET /api/coding/handover",
+      "GET /api/coding/evidence",
+      "GET /api/coding/issues",
+      "GET /api/coding/trouble",
+      "GET /api/coding/ops",
+      "GET /api/coding/memory",
+      "GET /api/coding/doc-coverage",
+      "GET /api/coding/c4-model",
+      "GET /api/coding/auto-dispatch",
+      "GET /api/coding/auto-dispatch-config",
+      "GET /api/coding/auto-dispatch-prompts",
+      "GET /api/coding/em-config",
+      "GET /api/coding/ru-skills",
+      "GET /api/coding/skill-suggest",
+      "GET /api/coding/staged-changes",
+      "GET /api/coding/reports",
+      "GET /api/coding/db",
+      "GET /api/vibe/fs",
+      "GET /api/vibe/sessions",
+      "GET /api/browser",
+      "GET /api/api-tester",
+      "GET /api/context",
+      "GET /api/crew",
+      "GET /api/execution-plan",
+      "GET /api/janitor",
+      "GET /api/llm-logs",
+      "GET /api/release-unit"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/CodingIDE.tsx",
+      "packages/ui/src/pages/FileViewer.tsx",
+      "packages/ui/src/components/SidebarFileTree.tsx",
+      "packages/ui/src/components/DirectoryExplorer.tsx",
+      "packages/ui/src/components/ShellTerminal.tsx",
+      "packages/ui/src/components/ConsoleLogView.tsx",
+      "packages/ui/src/components/JanitorPanel.tsx",
+      "packages/ui/src/components/JsonViewer.tsx",
+      "packages/ui/src/components/FileEmoji.tsx",
+      "packages/ui/src/components/CodeIntelPage.tsx",
+      "packages/ui/src/components/TestsPage.tsx",
+      "packages/ui/src/components/EMDashboard.tsx",
+      "packages/ui/src/components/RuCloneModal.tsx",
+      "packages/ui/src/components/RuOnboardingModal.tsx",
+      "packages/ui/src/components/git/GitPanel.tsx",
+      "packages/ui/src/components/git/GitStatusView.tsx",
+      "packages/ui/src/components/git/GitDiffView.tsx",
+      "packages/ui/src/components/git/GitCommitBar.tsx",
+      "packages/ui/src/components/git/GitFileGroup.tsx",
+      "packages/ui/src/components/git/FeatureGroupCard.tsx",
+      "packages/ui/src/components/git/DecisionCard.tsx",
+      "packages/ui/src/components/git/git-helpers.ts",
+      "packages/ui/src/components/browser/BrowserPanel.tsx",
+      "packages/ui/src/components/DiffViewer.tsx",
+      "packages/ui/src/components/SessionHistory.tsx",
+      "packages/ui/src/components/DecisionLog.tsx",
+      "packages/ui/src/components/ProjectMdPage.tsx",
+      "packages/ui/src/components/ModelSelector.tsx",
+      "packages/ui/src/components/ChatMessages.tsx",
+      "packages/ui/src/components/IssueTracker.tsx",
+      "packages/ui/src/components/QaRecords.tsx",
+      "packages/ui/src/components/DispatchReports.tsx",
+      "packages/ui/src/components/TaskBoard.tsx",
+      "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "packages/ui/src/components/ReleaseRequests.tsx",
+      "packages/ui/src/components/CodeReviewBoardPanel.tsx",
+      "packages/ui/src/components/HandoverPanel.tsx",
+      "packages/ui/src/components/TroubleshootingPanel.tsx",
+      "packages/ui/src/components/TabErrorBoundary.tsx",
+      "packages/ui/src/components/FeatureMap.tsx",
+      "packages/ui/src/components/ApiMapSidebar.tsx",
+      "packages/ui/src/components/ApiTesterTabs.tsx",
+      "packages/ui/src/components/ApiRequestTabSheet.tsx",
+      "packages/ui/src/components/AgentSideChat.tsx",
+      "packages/ui/src/components/ColResizer.tsx",
+      "packages/ui/src/components/CrewManager.tsx",
+      "packages/ui/src/components/SecurityTab.tsx",
+      "packages/ui/src/components/useRuModel.ts",
+      "packages/ui/src/utils/pasteFiles.ts",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding.mjs",
+      "packages/server/src/routes/coding-features.mjs",
+      "packages/server/src/routes/coding-tasks.mjs",
+      "packages/server/src/routes/coding-health.mjs",
+      "packages/server/src/routes/coding-error-codes.mjs",
+      "packages/server/src/routes/coding-review-board.mjs",
+      "packages/server/src/routes/coding-releases.mjs",
+      "packages/server/src/routes/coding-handover.mjs",
+      "packages/server/src/routes/coding-evidence.mjs",
+      "packages/server/src/routes/coding-issues.mjs",
+      "packages/server/src/routes/coding-trouble.mjs",
+      "packages/server/src/routes/coding-ops.mjs",
+      "packages/server/src/routes/coding-memory.mjs",
+      "packages/server/src/routes/coding-doc-coverage.mjs",
+      "packages/server/src/routes/coding-c4-model.mjs",
+      "packages/server/src/routes/coding-auto-dispatch.mjs",
+      "packages/server/src/routes/coding-auto-dispatch-config.mjs",
+      "packages/server/src/routes/coding-auto-dispatch-prompts.mjs",
+      "packages/server/src/routes/coding-em-config.mjs",
+      "packages/server/src/routes/coding-ru-skills.mjs",
+      "packages/server/src/routes/coding-skill-suggest.mjs",
+      "packages/server/src/routes/coding-staged-changes.mjs",
+      "packages/server/src/routes/coding-reports.mjs",
+      "packages/server/src/routes/coding-db.mjs",
+      "packages/server/src/routes/vibe-fs.mjs",
+      "packages/server/src/routes/vibe-sessions.mjs",
+      "packages/server/src/routes/browser.mjs",
+      "packages/server/src/routes/api-tester.mjs",
+      "packages/server/src/routes/context.mjs",
+      "packages/server/src/routes/crew.mjs",
+      "packages/server/src/routes/execution-plan-routes.mjs",
+      "packages/server/src/routes/janitor.mjs",
+      "packages/server/src/routes/llm-logs.mjs",
+      "packages/server/src/routes/release-unit.mjs",
+      "packages/server/src/lib/feature-map-store.mjs",
+      "packages/server/src/lib/code-intelligence.mjs",
+      "packages/server/src/lib/release-unit/model.mjs",
+      "packages/server/src/lib/release-evidence.mjs",
+      "packages/server/src/lib/release-requests.mjs",
+      "packages/server/src/lib/auto-dispatch-manager.mjs",
+      "packages/server/src/lib/em-orchestrator.mjs",
+      "packages/server/src/lib/em-task-store.mjs",
+      "packages/server/src/lib/coding-db/index.mjs",
+      "packages/server/src/lib/coding-db/features.repo.mjs",
+      "packages/server/src/lib/coding-db/tasks.repo.mjs",
+      "packages/server/src/lib/coding-db/api-features.repo.mjs",
+      "packages/server/src/lib/coding-db/ui-features.repo.mjs",
+      "packages/server/src/lib/coding-db/docs.repo.mjs"
+    ],
+    "tests": [
+      "tests/e2e/09-coding.spec.ts",
+      "tests/unit/coding-ops.test.mjs",
+      "tests/unit/coding-issues.test.mjs",
+      "tests/unit/coding-trouble.test.mjs",
+      "tests/unit/coding-handover.test.mjs",
+      "tests/unit/coding-evidence.test.mjs",
+      "tests/unit/coding-review-board.test.mjs",
+      "tests/unit/coding-auto-dispatch.test.mjs",
+      "tests/unit/feature-map-store.test.mjs",
+      "tests/unit/release-evidence.test.mjs",
+      "tests/unit/release-requests-delta.test.mjs",
+      "tests/unit/release-requests-lineage.test.mjs"
+    ],
+    "severity": "high",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-008",
+    "category": "簡報播放",
+    "route": "/briefing",
+    "name": "簡報播放器",
+    "description": "以 markdown 與程式碼高亮呈現簡報，支援路徑引用浮層。",
+    "uiFlow": [
+      {
+        "step": "載入簡報內容",
+        "action": "解析 markdown 並渲染投影片",
+        "component": "BriefingPlayer"
+      },
+      {
+        "step": "點擊路徑引用",
+        "action": "顯示引用浮層",
+        "component": "RefOverlay"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/BriefingPlayer.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [],
+    "codeFiles": [
+      "packages/ui/src/pages/BriefingPlayer.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-009",
+    "category": "心智圖",
+    "route": "/mindmap",
+    "name": "心智圖檢視器",
+    "description": "以 markmap 渲染 markdown 心智圖。",
+    "uiFlow": [
+      {
+        "step": "載入心智圖資料",
+        "action": "取得 markdown 並轉為 markmap 圖",
+        "component": "MindMapViewer"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/MindMapViewer.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/mindmap"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/MindMapViewer.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/mindmap.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-010",
+    "category": "筆記",
+    "route": "/notes",
+    "name": "筆記本",
+    "description": "管理筆記本、章節與筆記，支援標籤與 AI 側邊對話。",
+    "uiFlow": [
+      {
+        "step": "載入筆記本與標籤",
+        "action": "取得筆記本清單與標籤",
+        "component": "Notes"
+      },
+      {
+        "step": "建立筆記本/章節/筆記",
+        "action": "呼叫後端建立對應項目",
+        "component": "Notes"
+      },
+      {
+        "step": "開啟 AI 側邊對話",
+        "action": "與助理討論筆記內容",
+        "component": "AgentSideChat"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/Notes.tsx",
+      "packages/ui/src/components/AgentSideChat.tsx",
+      "packages/ui/src/components/ColResizer.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/notes/notebooks",
+      "GET /api/notes/tags",
+      "POST /api/notes/create",
+      "POST /api/notes/notebooks",
+      "POST /api/notes/sections"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/Notes.tsx",
+      "packages/ui/src/components/AgentSideChat.tsx",
+      "packages/ui/src/components/ColResizer.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/notes.mjs"
+    ],
+    "tests": [
+      "tests/unit/notes.test.mjs",
+      "tests/e2e/03-notes.spec.ts"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-011",
+    "category": "專案管理",
+    "route": "/projects",
+    "name": "專案看板",
+    "description": "管理專案、分類、任務與里程碑，含甘特圖與 AI 面板。",
+    "uiFlow": [
+      {
+        "step": "載入專案清單",
+        "action": "取得專案並顯示看板",
+        "component": "ProjectBoard"
+      },
+      {
+        "step": "新增/編輯專案、分類、任務、里程碑",
+        "action": "呼叫後端建立或更新",
+        "component": "ProjectBoard / 各 Modal"
+      },
+      {
+        "step": "檢視甘特圖與 AI 面板",
+        "action": "渲染時間軸與側邊 AI 對話",
+        "component": "GanttChart / ProjectAiPanel"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/ProjectBoard.tsx",
+      "packages/ui/src/pages/GanttChart.tsx",
+      "packages/ui/src/components/ProjectAiPanel.tsx",
+      "packages/ui/src/components/ColResizer.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/projects",
+      "POST /api/projects"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/ProjectBoard.tsx",
+      "packages/ui/src/pages/GanttChart.tsx",
+      "packages/ui/src/components/ProjectAiPanel.tsx",
+      "packages/ui/src/components/ColResizer.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/projects.mjs"
+    ],
+    "tests": [
+      "tests/e2e/04-pages.spec.ts"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-012",
+    "category": "檔案編輯",
+    "route": "/file-editor",
+    "name": "檔案編輯器",
+    "description": "編輯單一檔案內容並儲存。",
+    "uiFlow": [
+      {
+        "step": "載入檔案內容",
+        "action": "取得檔案並顯示於編輯器",
+        "component": "FileEditor"
+      },
+      {
+        "step": "儲存變更",
+        "action": "呼叫後端寫入檔案",
+        "component": "FileEditor"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/FileEditor.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/vibe/fs"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/FileEditor.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/vibe-fs.mjs"
+    ],
+    "tests": [],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-013",
+    "category": "外掛管理",
+    "route": "/plugins",
+    "name": "外掛管理",
+    "description": "列出並管理外掛。",
+    "uiFlow": [
+      {
+        "step": "載入外掛清單",
+        "action": "取得外掛並顯示",
+        "component": "PluginManager"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/PluginManager.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/plugins"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/PluginManager.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/plugins.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-014",
+    "category": "新手引導",
+    "route": "/onboarding",
+    "name": "新手引導",
+    "description": "引導使用者設定 API key、provider 與備份設定。",
+    "uiFlow": [
+      {
+        "step": "輸入 API key 與 base URL",
+        "action": "更新 provider 設定",
+        "component": "OnboardingPage"
+      },
+      {
+        "step": "儲存備份設定並完成",
+        "action": "呼叫後端儲存設定",
+        "component": "OnboardingPage"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/OnboardingPage.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/ai-settings",
+      "POST /api/ai-settings",
+      "GET /api/backup"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/OnboardingPage.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/ai-settings.mjs",
+      "packages/server/src/routes/backup.mjs"
+    ],
+    "tests": [
+      "tests/e2e/01-smoke.spec.ts"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-015",
+    "category": "帳號設定",
+    "route": "/settings",
+    "name": "設定頁",
+    "description": "管理 provider/模型、安全模式、備份、starter kits 與外掛等設定。",
+    "uiFlow": [
+      {
+        "step": "切換設定分頁",
+        "action": "載入對應分頁內容",
+        "component": "SettingsPage"
+      },
+      {
+        "step": "編輯 provider 與模型",
+        "action": "新增/移除 provider、模型與定價並儲存",
+        "component": "SettingsPage / ModelSelector"
+      },
+      {
+        "step": "管理安全模式與審批",
+        "action": "切換 dev mode、檢視/撤銷 always approvals",
+        "component": "SettingsPage / SecurityTab"
+      },
+      {
+        "step": "備份與 starter kits",
+        "action": "執行備份/還原與管理 starter kits",
+        "component": "BackupSettings / StarterKitsSettings / PluginManager"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/SettingsPage.tsx",
+      "packages/ui/src/pages/BackupSettings.tsx",
+      "packages/ui/src/pages/StarterKitsSettings.tsx",
+      "packages/ui/src/pages/PluginManager.tsx",
+      "packages/ui/src/components/ModelSelector.tsx",
+      "packages/ui/src/components/SecurityTab.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/ai-settings",
+      "POST /api/ai-settings",
+      "GET /api/backup",
+      "GET /api/starter-kits",
+      "GET /api/plugins",
+      "GET /api/log-retention"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/SettingsPage.tsx",
+      "packages/ui/src/pages/BackupSettings.tsx",
+      "packages/ui/src/pages/StarterKitsSettings.tsx",
+      "packages/ui/src/pages/PluginManager.tsx",
+      "packages/ui/src/components/ModelSelector.tsx",
+      "packages/ui/src/components/SecurityTab.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/ai-settings.mjs",
+      "packages/server/src/routes/backup.mjs",
+      "packages/server/src/routes/starter-kits.mjs",
+      "packages/server/src/routes/plugins.mjs",
+      "packages/server/src/routes/log-retention.mjs",
+      "packages/server/src/lib/security-mode.mjs",
+      "packages/server/src/lib/exec-approvals.mjs"
+    ],
+    "tests": [
+      "tests/e2e/02-settings.spec.ts",
+      "tests/unit/ai-settings.test.mjs"
+    ],
+    "severity": "high",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-016",
+    "category": "帳號設定",
+    "route": "/ai-settings",
+    "name": "AI 設定",
+    "description": "管理 AI provider 與模型設定。",
+    "uiFlow": [
+      {
+        "step": "載入設定",
+        "action": "取得 provider 與模型清單",
+        "component": "AISettingsPage"
+      },
+      {
+        "step": "新增/編輯/刪除 provider",
+        "action": "呼叫後端儲存設定",
+        "component": "AISettingsPage"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/AISettingsPage.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/ai-settings",
+      "POST /api/ai-settings"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/AISettingsPage.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/ai-settings.mjs"
+    ],
+    "tests": [
+      "tests/unit/ai-settings.test.mjs",
+      "tests/e2e/02-settings.spec.ts"
+    ],
+    "severity": "high",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-017",
+    "category": "服務台",
+    "route": "/helpdesk",
+    "name": "服務台",
+    "description": "檢視 A2A 任務與客服工單，支援 markdown 回覆。",
+    "uiFlow": [
+      {
+        "step": "載入工單與 A2A 任務",
+        "action": "取得清單並顯示詳情",
+        "component": "HelpDesk / A2aTaskDetail"
+      }
+    ],
+    "components": [
+      "packages/ui/src/pages/HelpDesk.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/helpdesk",
+      "POST /api/a2a"
+    ],
+    "codeFiles": [
+      "packages/ui/src/pages/HelpDesk.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/helpdesk.mjs",
+      "packages/server/src/routes/a2a.mjs"
+    ],
+    "tests": [
+      "tests/unit/helpdesk.test.mjs",
+      "tests/unit/a2a-routes.test.mjs"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-018",
+    "category": "共用層",
+    "route": "packages/ui/src/App.tsx",
+    "name": "應用外殼與導覽",
+    "description": "側欄導覽、分頁管理、主題與 i18n 提供者，掛載所有頁面。",
+    "uiFlow": [
+      {
+        "step": "側欄選擇項目",
+        "action": "開啟對應分頁或頁面",
+        "component": "App / SidebarSection / NavItem"
+      },
+      {
+        "step": "切換主題或語言",
+        "action": "更新 ThemeProvider 與 I18nProvider",
+        "component": "ThemeProvider / I18nProvider"
+      }
+    ],
+    "components": [
+      "packages/ui/src/App.tsx",
+      "packages/ui/src/components/ui/shared.tsx",
+      "packages/ui/src/components/Icon.tsx",
+      "packages/ui/src/theme.tsx",
+      "packages/ui/src/i18n/index.tsx"
+    ],
+    "stateMgmt": "context（ThemeProvider / I18nProvider）搭配 local state",
+    "apiCalls": [],
+    "codeFiles": [
+      "packages/ui/src/App.tsx",
+      "packages/ui/src/main.tsx",
+      "packages/ui/src/components/ui/shared.tsx",
+      "packages/ui/src/components/Icon.tsx",
+      "packages/ui/src/theme.tsx",
+      "packages/ui/src/i18n/index.tsx",
+      "packages/ui/src/api.ts",
+      "packages/ui/src/utils/index.ts",
+      "packages/ui/src/types/index.ts"
+    ],
+    "backendFiles": [],
+    "tests": [
+      "tests/e2e/11-nav-comprehensive.spec.ts",
+      "tests/unit/i18n-consistency.test.ts",
+      "tests/unit/ui-utils.test.ts"
+    ],
+    "severity": "high",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-019",
+    "category": "共用層",
+    "route": "packages/ui/src/components/ui/uiFeedback.ts",
+    "name": "UI 回饋元件",
+    "description": "提供 alert/confirm/prompt 等全域對話框工具。",
+    "uiFlow": [
+      {
+        "step": "呼叫 uiAlert/uiConfirm/uiPrompt",
+        "action": "動態建立對話框容器並回傳結果",
+        "component": "uiFeedback"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/ui/uiFeedback.ts"
+    ],
+    "stateMgmt": "無（純函式操作 DOM）",
+    "apiCalls": [],
+    "codeFiles": [
+      "packages/ui/src/components/ui/uiFeedback.ts"
+    ],
+    "backendFiles": [],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-020",
+    "category": "共用層",
+    "route": "packages/ui/src/components/AgentSideChat.tsx",
+    "name": "AI 側邊對話",
+    "description": "可重用的側邊 AI 對話面板，供多個頁面嵌入。",
+    "uiFlow": [
+      {
+        "step": "輸入訊息",
+        "action": "呼叫聊天 API 並串流回覆",
+        "component": "AgentSideChat / ChatInputBar / ChatMessages"
+      },
+      {
+        "step": "切換模型",
+        "action": "選擇模型後套用",
+        "component": "ModelSelector"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/AgentSideChat.tsx",
+      "packages/ui/src/components/ChatInputBar.tsx",
+      "packages/ui/src/components/ChatMessages.tsx",
+      "packages/ui/src/components/ModelSelector.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "POST /api/chat"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/AgentSideChat.tsx",
+      "packages/ui/src/components/ChatInputBar.tsx",
+      "packages/ui/src/components/ChatMessages.tsx",
+      "packages/ui/src/components/ModelSelector.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/chat.mjs",
+      "packages/server/src/lib/paaw-agent-loop.mjs"
+    ],
+    "tests": [
+      "tests/unit/chatview.test.mjs"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-021",
+    "category": "共用層",
+    "route": "packages/ui/src/components/AgentConsole.tsx",
+    "name": "代理主控台",
+    "description": "可重用的代理對話與中斷控制面板。",
+    "uiFlow": [
+      {
+        "step": "送出訊息",
+        "action": "呼叫聊天 API 並顯示串流",
+        "component": "AgentConsole / ChatMessages"
+      },
+      {
+        "step": "中斷執行",
+        "action": "停止當前代理執行",
+        "component": "AgentConsole"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/AgentConsole.tsx",
+      "packages/ui/src/components/ChatMessages.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "POST /api/chat"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/AgentConsole.tsx",
+      "packages/ui/src/components/ChatMessages.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/chat.mjs",
+      "packages/server/src/lib/paaw-agent-loop.mjs"
+    ],
+    "tests": [],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-022",
+    "category": "共用層",
+    "route": "packages/ui/src/components/KnowledgeTree.tsx",
+    "name": "知識樹",
+    "description": "可重用的知識庫檔案樹，支援新增、改名、移動與匯入。",
+    "uiFlow": [
+      {
+        "step": "瀏覽與展開節點",
+        "action": "載入目錄內容",
+        "component": "KnowledgeTree"
+      },
+      {
+        "step": "新增/改名/移動/匯入",
+        "action": "呼叫後端檔案 API",
+        "component": "KnowledgeTree / FileImportPicker / MoveFolderPicker"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/KnowledgeTree.tsx",
+      "packages/ui/src/components/FileImportPicker.tsx",
+      "packages/ui/src/components/MoveFolderPicker.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/vibe/fs"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/KnowledgeTree.tsx",
+      "packages/ui/src/components/FileImportPicker.tsx",
+      "packages/ui/src/components/MoveFolderPicker.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/vibe-fs.mjs"
+    ],
+    "tests": [],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-023",
+    "category": "共用層",
+    "route": "packages/ui/src/components/SidebarFileTree.tsx",
+    "name": "側欄檔案樹",
+    "description": "可重用的側欄檔案樹，支援右鍵選單、改名、新增與移動。",
+    "uiFlow": [
+      {
+        "step": "展開目錄與開啟檔案",
+        "action": "載入目錄並回傳選取檔案",
+        "component": "SidebarFileTree"
+      },
+      {
+        "step": "右鍵操作",
+        "action": "顯示 ContextMenu 執行改名/新增/移動",
+        "component": "SidebarFileTree / ContextMenu"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/SidebarFileTree.tsx",
+      "packages/ui/src/components/FileImportPicker.tsx",
+      "packages/ui/src/components/MoveFolderPicker.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/vibe/fs"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/SidebarFileTree.tsx",
+      "packages/ui/src/components/FileImportPicker.tsx",
+      "packages/ui/src/components/MoveFolderPicker.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/vibe-fs.mjs"
+    ],
+    "tests": [],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-024",
+    "category": "共用層",
+    "route": "packages/ui/src/components/CrewManager.tsx",
+    "name": "團隊管理",
+    "description": "管理代理團隊成員、模型、技能與護欄設定。",
+    "uiFlow": [
+      {
+        "step": "載入團隊成員",
+        "action": "取得 crew 設定",
+        "component": "CrewManager"
+      },
+      {
+        "step": "編輯模型/技能/護欄",
+        "action": "呼叫後端儲存設定",
+        "component": "CrewManager / SkillPicker / RuSkillManagerModal / SkillSuggestModal"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/CrewManager.tsx",
+      "packages/ui/src/components/SkillPicker.tsx",
+      "packages/ui/src/components/RuSkillManagerModal.tsx",
+      "packages/ui/src/components/SkillSuggestModal.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/crew",
+      "GET /api/coding/ru-skills",
+      "GET /api/coding/skill-suggest"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/CrewManager.tsx",
+      "packages/ui/src/components/SkillPicker.tsx",
+      "packages/ui/src/components/RuSkillManagerModal.tsx",
+      "packages/ui/src/components/SkillSuggestModal.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/crew.mjs",
+      "packages/server/src/routes/coding-ru-skills.mjs",
+      "packages/server/src/routes/coding-skill-suggest.mjs",
+      "packages/server/src/lib/project-crew.mjs",
+      "packages/server/src/lib/ru-skills.mjs"
+    ],
+    "tests": [
+      "tests/unit/ru-skills.test.mjs"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-025",
+    "category": "共用層",
+    "route": "packages/ui/src/components/UsageReportPanel.tsx",
+    "name": "用量報表",
+    "description": "顯示模型用量、成本與每日堆疊圖表。",
+    "uiFlow": [
+      {
+        "step": "載入用量資料",
+        "action": "取得 llm logs 並彙總",
+        "component": "UsageReportPanel / StackedDailyChart"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/UsageReportPanel.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/llm-logs"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/UsageReportPanel.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/llm-logs.mjs"
+    ],
+    "tests": [
+      "tests/unit/usage-report-panel.test.mjs"
+    ],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-026",
+    "category": "共用層",
+    "route": "packages/ui/src/components/AuditLogPanel.tsx",
+    "name": "稽核日誌",
+    "description": "顯示稽核事件清單。",
+    "uiFlow": [
+      {
+        "step": "載入稽核日誌",
+        "action": "取得稽核事件並列表",
+        "component": "AuditLogPanel"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/AuditLogPanel.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/audit-log"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/AuditLogPanel.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/audit-log.mjs",
+      "packages/server/src/lib/audit-log.mjs"
+    ],
+    "tests": [
+      "tests/unit/audit-log-route.test.mjs",
+      "tests/unit/audit-log.test.mjs"
+    ],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-027",
+    "category": "共用層",
+    "route": "packages/ui/src/components/AgentLogs.tsx",
+    "name": "代理日誌",
+    "description": "顯示代理任務步驟、耗時、token 與成本。",
+    "uiFlow": [
+      {
+        "step": "載入代理日誌",
+        "action": "取得任務日誌並展開步驟",
+        "component": "AgentLogs / StepRow"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/AgentLogs.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/agent-logs"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/AgentLogs.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/agent-logs.mjs",
+      "packages/server/src/lib/agent-exec-logger.mjs"
+    ],
+    "tests": [
+      "tests/unit/agent-logs.test.mjs"
+    ],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-028",
+    "category": "共用層",
+    "route": "packages/ui/src/components/SkillsUsagePanel.tsx",
+    "name": "技能使用統計",
+    "description": "顯示技能使用次數與最近使用時間。",
+    "uiFlow": [
+      {
+        "step": "載入技能使用資料",
+        "action": "取得統計並列表",
+        "component": "SkillsUsagePanel"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/SkillsUsagePanel.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/skills"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/SkillsUsagePanel.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/skills-api.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-029",
+    "category": "共用層",
+    "route": "packages/ui/src/components/LlmLogTab.tsx",
+    "name": "LLM 日誌分頁",
+    "description": "顯示 LLM 呼叫日誌與耗時/token。",
+    "uiFlow": [
+      {
+        "step": "載入 LLM 日誌",
+        "action": "取得日誌並格式化顯示",
+        "component": "LlmLogTab"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/LlmLogTab.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/llm-logs"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/LlmLogTab.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/llm-logs.mjs"
+    ],
+    "tests": [
+      "tests/unit/llm-logs.test.mjs"
+    ],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-030",
+    "category": "共用層",
+    "route": "packages/ui/src/components/FeatureCockpit.tsx",
+    "name": "功能駕駛艙",
+    "description": "顯示功能入口、呼叫鏈與相關檔案。",
+    "uiFlow": [
+      {
+        "step": "載入功能資料",
+        "action": "取得功能地圖並展開呼叫鏈",
+        "component": "FeatureCockpit / CallChainTree"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/FeatureCockpit.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/features"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/FeatureCockpit.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-features.mjs",
+      "packages/server/src/lib/feature-map-store.mjs"
+    ],
+    "tests": [
+      "tests/unit/feature-map-store.test.mjs"
+    ],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-031",
+    "category": "共用層",
+    "route": "packages/ui/src/components/ReleaseRequests.tsx",
+    "name": "發佈請求",
+    "description": "管理發佈請求、檢查清單、基線與 AI 建議。",
+    "uiFlow": [
+      {
+        "step": "載入發佈請求",
+        "action": "取得清單與詳情",
+        "component": "ReleaseRequests"
+      },
+      {
+        "step": "建立/更新/審查",
+        "action": "呼叫後端建立或更新請求",
+        "component": "ReleaseRequests / RrDetail"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/ReleaseRequests.tsx",
+      "packages/ui/src/components/AgentSideChat.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/release-unit",
+      "GET /api/coding/releases"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/ReleaseRequests.tsx",
+      "packages/ui/src/components/AgentSideChat.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/release-unit.mjs",
+      "packages/server/src/routes/coding-releases.mjs",
+      "packages/server/src/lib/release-requests.mjs"
+    ],
+    "tests": [
+      "tests/unit/release-requests-delta.test.mjs",
+      "tests/unit/release-requests-lineage.test.mjs"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-032",
+    "category": "共用層",
+    "route": "packages/ui/src/components/QaRecords.tsx",
+    "name": "QA 記錄",
+    "description": "顯示與管理 QA 記錄，支援簽核。",
+    "uiFlow": [
+      {
+        "step": "載入 QA 記錄",
+        "action": "取得記錄並列表",
+        "component": "QaRecords"
+      },
+      {
+        "step": "更新或簽核",
+        "action": "呼叫後端更新記錄",
+        "component": "QaRecords"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/QaRecords.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/evidence"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/QaRecords.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-evidence.mjs",
+      "packages/server/src/lib/qa-results.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-033",
+    "category": "共用層",
+    "route": "packages/ui/src/components/DispatchReports.tsx",
+    "name": "派工報告",
+    "description": "列出、檢視與刪除自動派工報告。",
+    "uiFlow": [
+      {
+        "step": "載入報告清單",
+        "action": "取得報告並顯示 markdown",
+        "component": "DispatchReports"
+      },
+      {
+        "step": "刪除報告",
+        "action": "呼叫後端刪除",
+        "component": "DispatchReports"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/DispatchReports.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/auto-dispatch"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/DispatchReports.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-auto-dispatch.mjs",
+      "packages/server/src/lib/auto-dispatch-shared.mjs"
+    ],
+    "tests": [
+      "tests/unit/auto-dispatch-run-history.test.mjs"
+    ],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-034",
+    "category": "共用層",
+    "route": "packages/ui/src/components/DecisionLog.tsx",
+    "name": "決策日誌",
+    "description": "解析並顯示 ADR 決策記錄，支援新增。",
+    "uiFlow": [
+      {
+        "step": "載入決策",
+        "action": "解析 ADR 並列表",
+        "component": "DecisionLog"
+      },
+      {
+        "step": "新增決策",
+        "action": "呼叫後端寫入",
+        "component": "DecisionLog"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/DecisionLog.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/context"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/DecisionLog.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/context.mjs",
+      "packages/server/src/lib/context-providers.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-035",
+    "category": "共用層",
+    "route": "packages/ui/src/components/SessionHistory.tsx",
+    "name": "工作階段歷史",
+    "description": "列出 vibe 工作階段與大小。",
+    "uiFlow": [
+      {
+        "step": "載入工作階段",
+        "action": "取得 sessions 並列表",
+        "component": "SessionHistory"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/SessionHistory.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/vibe/sessions"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/SessionHistory.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/vibe-sessions.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-036",
+    "category": "共用層",
+    "route": "packages/ui/src/components/JanitorPanel.tsx",
+    "name": "清理面板",
+    "description": "設定與執行 janitor 清理工作。",
+    "uiFlow": [
+      {
+        "step": "載入設定",
+        "action": "取得 janitor 設定",
+        "component": "JanitorPanel"
+      },
+      {
+        "step": "儲存或立即執行",
+        "action": "呼叫後端儲存或觸發清理",
+        "component": "JanitorPanel"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/JanitorPanel.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/janitor"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/JanitorPanel.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/janitor.mjs",
+      "packages/server/src/lib/janitor.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-037",
+    "category": "共用層",
+    "route": "packages/ui/src/components/ConsoleLogView.tsx",
+    "name": "主控台日誌",
+    "description": "輪詢並顯示執行日誌。",
+    "uiFlow": [
+      {
+        "step": "輪詢日誌",
+        "action": "定期取得日誌並顯示",
+        "component": "ConsoleLogView"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/ConsoleLogView.tsx"
+    ],
+    "stateMgmt": "local state（輪詢）",
+    "apiCalls": [
+      "GET /api/agent-logs"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/ConsoleLogView.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/agent-logs.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-038",
+    "category": "共用層",
+    "route": "packages/ui/src/components/ProjectMdPage.tsx",
+    "name": "專案說明頁",
+    "description": "檢視、編輯與重新生成 PROJECT.md。",
+    "uiFlow": [
+      {
+        "step": "載入專案說明",
+        "action": "取得 PROJECT.md 內容",
+        "component": "ProjectMdPage"
+      },
+      {
+        "step": "儲存或重新生成",
+        "action": "呼叫後端寫入或生成",
+        "component": "ProjectMdPage"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/ProjectMdPage.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/context"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/ProjectMdPage.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/context.mjs",
+      "packages/server/src/lib/project-md.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-039",
+    "category": "共用層",
+    "route": "packages/ui/src/components/TroubleshootingPanel.tsx",
+    "name": "疑難排解面板",
+    "description": "顯示疑難排解資訊並可與 AI 對話。",
+    "uiFlow": [
+      {
+        "step": "載入疑難排解資料",
+        "action": "取得 trouble 資料",
+        "component": "TroubleshootingPanel"
+      },
+      {
+        "step": "與 AI 討論",
+        "action": "開啟側邊對話",
+        "component": "AgentSideChat"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/TroubleshootingPanel.tsx",
+      "packages/ui/src/components/AgentSideChat.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/trouble"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/TroubleshootingPanel.tsx",
+      "packages/ui/src/components/AgentSideChat.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-trouble.mjs"
+    ],
+    "tests": [
+      "tests/unit/coding-trouble.test.mjs"
+    ],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-040",
+    "category": "共用層",
+    "route": "packages/ui/src/components/CodeReviewBoardPanel.tsx",
+    "name": "程式碼審查板",
+    "description": "以 API 分組顯示程式碼審查會議記錄。",
+    "uiFlow": [
+      {
+        "step": "載入審查記錄",
+        "action": "取得 review board 資料",
+        "component": "CodeReviewBoardPanel"
+      },
+      {
+        "step": "切換分組方式",
+        "action": "依 API 或會議分組顯示",
+        "component": "CodeReviewBoardPanel"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/CodeReviewBoardPanel.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/review-board"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/CodeReviewBoardPanel.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-review-board.mjs",
+      "packages/server/src/lib/coding-review-runner.mjs"
+    ],
+    "tests": [
+      "tests/unit/coding-review-board.test.mjs"
+    ],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-041",
+    "category": "共用層",
+    "route": "packages/ui/src/components/HandoverPanel.tsx",
+    "name": "交接面板",
+    "description": "顯示交接狀態與知識，支援 AI 對話。",
+    "uiFlow": [
+      {
+        "step": "載入交接狀態",
+        "action": "取得 handover 資料",
+        "component": "HandoverPanel"
+      },
+      {
+        "step": "與 AI 討論",
+        "action": "開啟側邊對話",
+        "component": "AgentSideChat"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/HandoverPanel.tsx",
+      "packages/ui/src/components/AgentSideChat.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/handover"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/HandoverPanel.tsx",
+      "packages/ui/src/components/AgentSideChat.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-handover.mjs",
+      "packages/server/src/lib/release-unit/handover-state.mjs"
+    ],
+    "tests": [
+      "tests/unit/coding-handover.test.mjs"
+    ],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-042",
+    "category": "共用層",
+    "route": "packages/ui/src/components/EMDashboard.tsx",
+    "name": "EM 儀表板",
+    "description": "管理 EM 設定、派工與代理對話。",
+    "uiFlow": [
+      {
+        "step": "載入 EM 設定",
+        "action": "取得 em-config",
+        "component": "EMDashboard"
+      },
+      {
+        "step": "調整設定或派工",
+        "action": "呼叫後端更新設定或觸發派工",
+        "component": "EMDashboard"
+      },
+      {
+        "step": "與 EM 對話",
+        "action": "送出訊息並串流回覆",
+        "component": "EMDashboard / ChatMessages"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/EMDashboard.tsx",
+      "packages/ui/src/components/ChatMessages.tsx",
+      "packages/ui/src/components/ModelSelector.tsx",
+      "packages/ui/src/components/SkillPicker.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/em-config",
+      "GET /api/coding/auto-dispatch",
+      "POST /api/chat"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/EMDashboard.tsx",
+      "packages/ui/src/components/ChatMessages.tsx",
+      "packages/ui/src/components/ModelSelector.tsx",
+      "packages/ui/src/components/SkillPicker.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-em-config.mjs",
+      "packages/server/src/routes/coding-auto-dispatch.mjs",
+      "packages/server/src/routes/chat.mjs",
+      "packages/server/src/lib/em-config.mjs",
+      "packages/server/src/lib/em-orchestrator.mjs",
+      "packages/server/src/lib/auto-dispatch-manager.mjs"
+    ],
+    "tests": [
+      "tests/unit/em-foreman.test.mjs",
+      "tests/unit/coding-auto-dispatch.test.mjs"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-043",
+    "category": "共用層",
+    "route": "packages/ui/src/components/TaskBoard.tsx",
+    "name": "任務板",
+    "description": "管理任務、分解、筆記與 Git 暫存/提交/還原。",
+    "uiFlow": [
+      {
+        "step": "載入任務",
+        "action": "取得任務清單",
+        "component": "TaskBoard"
+      },
+      {
+        "step": "建立/更新/刪除任務",
+        "action": "呼叫後端變更任務",
+        "component": "TaskBoard"
+      },
+      {
+        "step": "Git 操作",
+        "action": "暫存、提交、還原或檢視 diff",
+        "component": "TaskBoard / DiffViewer"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/TaskBoard.tsx",
+      "packages/ui/src/components/DiffViewer.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/tasks",
+      "GET /api/coding/staged-changes"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/TaskBoard.tsx",
+      "packages/ui/src/components/DiffViewer.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-tasks.mjs",
+      "packages/server/src/routes/coding-staged-changes.mjs",
+      "packages/server/src/lib/em-task-store.mjs"
+    ],
+    "tests": [
+      "tests/unit/coding-issues.test.mjs"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-044",
+    "category": "共用層",
+    "route": "packages/ui/src/components/IssueTracker.tsx",
+    "name": "問題追蹤",
+    "description": "建立、更新、刪除問題與筆記，支援匯入。",
+    "uiFlow": [
+      {
+        "step": "載入問題清單",
+        "action": "取得 issues",
+        "component": "IssueTracker"
+      },
+      {
+        "step": "建立/更新/刪除/加註",
+        "action": "呼叫後端變更問題",
+        "component": "IssueTracker"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/IssueTracker.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/issues"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/IssueTracker.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-issues.mjs"
+    ],
+    "tests": [
+      "tests/unit/coding-issues.test.mjs"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-045",
+    "category": "共用層",
+    "route": "packages/ui/src/components/SecurityTab.tsx",
+    "name": "安全分頁",
+    "description": "顯示安全掃描結果與嚴重度。",
+    "uiFlow": [
+      {
+        "step": "載入安全資料",
+        "action": "取得安全掃描結果",
+        "component": "SecurityTab"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/SecurityTab.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/ops"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/SecurityTab.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-ops.mjs",
+      "packages/server/src/lib/coding-security.mjs"
+    ],
+    "tests": [
+      "tests/unit/coding-security.test.mjs",
+      "tests/unit/coding-security-extended.test.mjs"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-046",
+    "category": "共用層",
+    "route": "packages/ui/src/components/TestsPage.tsx",
+    "name": "測試頁",
+    "description": "顯示測試覆蓋與缺口，支援 AI 討論。",
+    "uiFlow": [
+      {
+        "step": "載入測試資料",
+        "action": "取得測試與覆蓋資訊",
+        "component": "TestsPage"
+      },
+      {
+        "step": "與 AI 討論缺口",
+        "action": "開啟側邊對話",
+        "component": "AgentSideChat"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/TestsPage.tsx",
+      "packages/ui/src/components/AgentSideChat.tsx",
+      "packages/ui/src/components/useRuModel.ts"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/reports"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/TestsPage.tsx",
+      "packages/ui/src/components/AgentSideChat.tsx",
+      "packages/ui/src/components/useRuModel.ts",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-reports.mjs",
+      "packages/server/src/lib/test-runner.mjs",
+      "packages/server/src/lib/test-report-reader.mjs"
+    ],
+    "tests": [
+      "tests/unit/test-runner-coverage.test.mjs",
+      "tests/unit/test-report-reader.test.mjs"
+    ],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-047",
+    "category": "共用層",
+    "route": "packages/ui/src/components/CodeIntelPage.tsx",
+    "name": "程式碼智慧頁",
+    "description": "顯示 C4 模型與程式碼智慧，支援 AI 討論。",
+    "uiFlow": [
+      {
+        "step": "載入 C4 模型",
+        "action": "取得 c4-model 並整理顯示",
+        "component": "CodeIntelPage"
+      },
+      {
+        "step": "與 AI 討論",
+        "action": "開啟側邊對話",
+        "component": "AgentSideChat"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/CodeIntelPage.tsx",
+      "packages/ui/src/components/AgentSideChat.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/c4-model"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/CodeIntelPage.tsx",
+      "packages/ui/src/components/AgentSideChat.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-c4-model.mjs",
+      "packages/server/src/lib/c4-model-scan.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-048",
+    "category": "共用層",
+    "route": "packages/ui/src/components/ApiTesterTabs.tsx",
+    "name": "API 測試分頁",
+    "description": "管理 API 測試分頁、歷史與 collection。",
+    "uiFlow": [
+      {
+        "step": "開啟/關閉分頁",
+        "action": "管理測試分頁狀態",
+        "component": "ApiTesterTabs"
+      },
+      {
+        "step": "載入歷史或 collection",
+        "action": "取得 payload 詳情",
+        "component": "ApiTesterTabs / ApiMapSidebar"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/ApiTesterTabs.tsx",
+      "packages/ui/src/components/ApiMapSidebar.tsx",
+      "packages/ui/src/components/ApiRequestTabSheet.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/api-tester"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/ApiTesterTabs.tsx",
+      "packages/ui/src/components/ApiMapSidebar.tsx",
+      "packages/ui/src/components/ApiRequestTabSheet.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/api-tester.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-049",
+    "category": "共用層",
+    "route": "packages/ui/src/components/ApiRequestTabSheet.tsx",
+    "name": "API 請求分頁",
+    "description": "編輯並發送 API 請求，顯示回應與歷史。",
+    "uiFlow": [
+      {
+        "step": "編輯請求",
+        "action": "設定 method/path/headers/body",
+        "component": "ApiRequestTabSheet"
+      },
+      {
+        "step": "發送請求",
+        "action": "呼叫後端 API 並顯示回應",
+        "component": "ApiRequestTabSheet / ApiResponseBody"
+      },
+      {
+        "step": "存入 collection",
+        "action": "儲存請求並刷新清單",
+        "component": "ApiRequestTabSheet"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/ApiRequestTabSheet.tsx",
+      "packages/ui/src/components/JsonViewer.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/api-tester"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/ApiRequestTabSheet.tsx",
+      "packages/ui/src/components/JsonViewer.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/api-tester.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-050",
+    "category": "共用層",
+    "route": "packages/ui/src/components/FeatureMap.tsx",
+    "name": "功能/API 地圖",
+    "description": "以分類顯示 API 與 UI 功能對照。",
+    "uiFlow": [
+      {
+        "step": "載入功能地圖",
+        "action": "取得 features 並分組顯示",
+        "component": "ApiMapView / Section"
+      },
+      {
+        "step": "檢視 API/UI 詳情",
+        "action": "展開顯示檔案與細節",
+        "component": "ApiDetail / UiDetail"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/FeatureMap.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/features"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/FeatureMap.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-features.mjs",
+      "packages/server/src/lib/feature-map-store.mjs"
+    ],
+    "tests": [
+      "tests/unit/feature-map-store.test.mjs"
+    ],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-051",
+    "category": "共用層",
+    "route": "packages/ui/src/components/RuSkillManagerModal.tsx",
+    "name": "RU 技能管理",
+    "description": "管理 RU 技能同步與檢視。",
+    "uiFlow": [
+      {
+        "step": "載入技能狀態",
+        "action": "取得 ru-skills",
+        "component": "RuSkillManagerModal"
+      },
+      {
+        "step": "同步或檢視技能",
+        "action": "呼叫後端同步或讀取內容",
+        "component": "RuSkillManagerModal"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/RuSkillManagerModal.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/ru-skills"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/RuSkillManagerModal.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-ru-skills.mjs",
+      "packages/server/src/lib/ru-skills.mjs"
+    ],
+    "tests": [
+      "tests/unit/ru-skills.test.mjs"
+    ],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-052",
+    "category": "共用層",
+    "route": "packages/ui/src/components/SkillSuggestModal.tsx",
+    "name": "技能建議",
+    "description": "依專案偵測建議技能並套用。",
+    "uiFlow": [
+      {
+        "step": "載入建議",
+        "action": "取得 skill-suggest",
+        "component": "SkillSuggestModal"
+      },
+      {
+        "step": "套用建議",
+        "action": "呼叫後端套用技能",
+        "component": "SkillSuggestModal"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/SkillSuggestModal.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/skill-suggest"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/SkillSuggestModal.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-skill-suggest.mjs",
+      "packages/server/src/lib/skill-suggest.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-053",
+    "category": "共用層",
+    "route": "packages/ui/src/components/RuOnboardingModal.tsx",
+    "name": "RU 引導",
+    "description": "引導 RU 專案初始化與技能建議。",
+    "uiFlow": [
+      {
+        "step": "載入引導資訊",
+        "action": "取得 RU 狀態",
+        "component": "RuOnboardingModal"
+      },
+      {
+        "step": "套用技能建議",
+        "action": "開啟 SkillSuggestModal",
+        "component": "SkillSuggestModal"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/RuOnboardingModal.tsx",
+      "packages/ui/src/components/SkillSuggestModal.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/ru-skills",
+      "GET /api/coding/skill-suggest"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/RuOnboardingModal.tsx",
+      "packages/ui/src/components/SkillSuggestModal.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-ru-skills.mjs",
+      "packages/server/src/routes/coding-skill-suggest.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-054",
+    "category": "共用層",
+    "route": "packages/ui/src/components/RuCloneModal.tsx",
+    "name": "RU 複製",
+    "description": "複製 RU 專案設定。",
+    "uiFlow": [
+      {
+        "step": "填寫複製設定",
+        "action": "送出複製請求",
+        "component": "RuCloneModal"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/RuCloneModal.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/ru-skills"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/RuCloneModal.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-ru-skills.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-055",
+    "category": "共用層",
+    "route": "packages/ui/src/components/RuQaSection.tsx",
+    "name": "RU QA 區塊",
+    "description": "顯示 RU QA 狀態與操作。",
+    "uiFlow": [
+      {
+        "step": "載入 QA 狀態",
+        "action": "取得 QA 資料",
+        "component": "RuQaSection"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/RuQaSection.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/evidence"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/RuQaSection.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-evidence.mjs",
+      "packages/server/src/lib/qa-results.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-056",
+    "category": "共用層",
+    "route": "packages/ui/src/components/AgentBuilder.tsx",
+    "name": "代理建構器",
+    "description": "建立代理並選擇工具。",
+    "uiFlow": [
+      {
+        "step": "選擇工具並建立代理",
+        "action": "呼叫後端建立代理",
+        "component": "AgentBuilder"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/AgentBuilder.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/crew"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/AgentBuilder.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/crew.mjs",
+      "packages/server/src/lib/project-crew.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-057",
+    "category": "共用層",
+    "route": "packages/ui/src/components/AssistantProfileModal.tsx",
+    "name": "助理個人檔案",
+    "description": "編輯助理頭像與基本資料。",
+    "uiFlow": [
+      {
+        "step": "上傳頭像與編輯資料",
+        "action": "儲存助理設定",
+        "component": "AssistantProfileModal"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/AssistantProfileModal.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/assistant"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/AssistantProfileModal.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/assistant.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-058",
+    "category": "共用層",
+    "route": "packages/ui/src/components/AssistantSkillsModal.tsx",
+    "name": "助理技能",
+    "description": "選擇助理綁定的技能。",
+    "uiFlow": [
+      {
+        "step": "勾選技能並儲存",
+        "action": "更新助理技能綁定",
+        "component": "AssistantSkillsModal"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/AssistantSkillsModal.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/assistant-skills"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/AssistantSkillsModal.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/assistant-skills.mjs",
+      "packages/server/src/lib/assistant-skills.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-059",
+    "category": "共用層",
+    "route": "packages/ui/src/components/SkillPicker.tsx",
+    "name": "技能選擇器",
+    "description": "可重用的技能多選元件。",
+    "uiFlow": [
+      {
+        "step": "勾選技能",
+        "action": "回傳選取技能清單",
+        "component": "SkillPicker"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/SkillPicker.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/skills"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/SkillPicker.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/skills-api.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-060",
+    "category": "共用層",
+    "route": "packages/ui/src/components/ModelSelector.tsx",
+    "name": "模型選擇器",
+    "description": "可重用的模型選擇元件，含偏好快取。",
+    "uiFlow": [
+      {
+        "step": "載入模型清單",
+        "action": "取得 ai-settings 並顯示",
+        "component": "ModelSelector"
+      },
+      {
+        "step": "選擇模型",
+        "action": "儲存偏好並回傳",
+        "component": "ModelSelector"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/ModelSelector.tsx"
+    ],
+    "stateMgmt": "local state + 模組層快取",
+    "apiCalls": [
+      "GET /api/ai-settings",
+      "POST /api/ai-settings"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/ModelSelector.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/ai-settings.mjs"
+    ],
+    "tests": [
+      "tests/unit/ai-settings.test.mjs"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-061",
+    "category": "共用層",
+    "route": "packages/ui/src/components/JsonViewer.tsx",
+    "name": "JSON 檢視器",
+    "description": "可重用的 JSON 樹狀檢視與搜尋。",
+    "uiFlow": [
+      {
+        "step": "展開節點與搜尋",
+        "action": "渲染 JSON 樹並高亮搜尋",
+        "component": "JsonViewer / JsonTree"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/JsonViewer.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [],
+    "codeFiles": [
+      "packages/ui/src/components/JsonViewer.tsx",
+      "packages/ui/src/utils/index.ts"
+    ],
+    "backendFiles": [],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-062",
+    "category": "共用層",
+    "route": "packages/ui/src/components/DiffViewer.tsx",
+    "name": "差異檢視器",
+    "description": "解析 unified diff 並顯示檔案差異。",
+    "uiFlow": [
+      {
+        "step": "解析並顯示 diff",
+        "action": "渲染檔案差異與行",
+        "component": "DiffViewer / FileDiff / DiffLineRow"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/DiffViewer.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [],
+    "codeFiles": [
+      "packages/ui/src/components/DiffViewer.tsx"
+    ],
+    "backendFiles": [],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-063",
+    "category": "共用層",
+    "route": "packages/ui/src/components/MarkdownText.tsx",
+    "name": "Markdown 文字",
+    "description": "可重用的 markdown 渲染元件，支援 mermaid。",
+    "uiFlow": [
+      {
+        "step": "渲染 markdown",
+        "action": "轉為 HTML 並渲染 mermaid 區塊",
+        "component": "MarkdownText / MermaidBlock"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/MarkdownText.tsx",
+      "packages/ui/src/components/MermaidBlock.tsx"
+    ],
+    "stateMgmt": "無",
+    "apiCalls": [],
+    "codeFiles": [
+      "packages/ui/src/components/MarkdownText.tsx",
+      "packages/ui/src/components/MermaidBlock.tsx"
+    ],
+    "backendFiles": [],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-064",
+    "category": "共用層",
+    "route": "packages/ui/src/components/ShellTerminal.tsx",
+    "name": "終端機",
+    "description": "以 xterm 呈現的 shell 終端機。",
+    "uiFlow": [
+      {
+        "step": "輸入指令",
+        "action": "透過 WebSocket 執行並顯示輸出",
+        "component": "ShellTerminal"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/ShellTerminal.tsx"
+    ],
+    "stateMgmt": "local state（xterm 實例）",
+    "apiCalls": [],
+    "codeFiles": [
+      "packages/ui/src/components/ShellTerminal.tsx"
+    ],
+    "backendFiles": [
+      "packages/server/src/websocket/ws-handler.mjs",
+      "packages/server/src/lib/shell-exec.mjs"
+    ],
+    "tests": [
+      "tests/unit/shell-exec.test.mjs"
+    ],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-065",
+    "category": "共用層",
+    "route": "packages/ui/src/components/browser/BrowserPanel.tsx",
+    "name": "瀏覽器面板",
+    "description": "遠端瀏覽器畫面串流與輸入控制。",
+    "uiFlow": [
+      {
+        "step": "載入瀏覽器畫面",
+        "action": "取得 browser 狀態並串流截圖",
+        "component": "BrowserPanel"
+      },
+      {
+        "step": "點擊/輸入/導覽",
+        "action": "送出輸入事件與導覽指令",
+        "component": "BrowserPanel"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/browser/BrowserPanel.tsx"
+    ],
+    "stateMgmt": "local state（輪詢/串流）",
+    "apiCalls": [
+      "GET /api/browser"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/browser/BrowserPanel.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/browser.mjs",
+      "packages/server/src/lib/browser-session.mjs",
+      "packages/server/src/lib/browser-executor.mjs"
+    ],
+    "tests": [],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-066",
+    "category": "共用層",
+    "route": "packages/ui/src/components/ColResizer.tsx",
+    "name": "欄寬調整器",
+    "description": "可重用的欄寬拖曳調整 hook 與元件。",
+    "uiFlow": [
+      {
+        "step": "拖曳調整欄寬",
+        "action": "更新寬度狀態",
+        "component": "ColResizer / useColResize"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/ColResizer.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [],
+    "codeFiles": [
+      "packages/ui/src/components/ColResizer.tsx"
+    ],
+    "backendFiles": [],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-067",
+    "category": "共用層",
+    "route": "packages/ui/src/components/TabErrorBoundary.tsx",
+    "name": "分頁錯誤邊界",
+    "description": "捕捉分頁內錯誤並顯示 fallback。",
+    "uiFlow": [
+      {
+        "step": "捕捉子元件錯誤",
+        "action": "顯示錯誤 fallback",
+        "component": "TabErrorBoundary"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/TabErrorBoundary.tsx"
+    ],
+    "stateMgmt": "class component state",
+    "apiCalls": [],
+    "codeFiles": [
+      "packages/ui/src/components/TabErrorBoundary.tsx"
+    ],
+    "backendFiles": [],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-068",
+    "category": "共用層",
+    "route": "packages/ui/src/components/FileImportPicker.tsx",
+    "name": "檔案匯入選擇器",
+    "description": "瀏覽目錄並選擇要匯入的檔案。",
+    "uiFlow": [
+      {
+        "step": "瀏覽目錄",
+        "action": "載入目錄內容",
+        "component": "FileImportPicker"
+      },
+      {
+        "step": "確認匯入",
+        "action": "回傳選取檔案",
+        "component": "FileImportPicker"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/FileImportPicker.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/vibe/fs"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/FileImportPicker.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/vibe-fs.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-069",
+    "category": "共用層",
+    "route": "packages/ui/src/components/MoveFolderPicker.tsx",
+    "name": "移動資料夾選擇器",
+    "description": "瀏覽目錄並選擇移動目標。",
+    "uiFlow": [
+      {
+        "step": "瀏覽目錄",
+        "action": "載入目錄內容",
+        "component": "MoveFolderPicker"
+      },
+      {
+        "step": "選擇目標",
+        "action": "回傳目標路徑",
+        "component": "MoveFolderPicker"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/MoveFolderPicker.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/vibe/fs"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/MoveFolderPicker.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/vibe-fs.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-070",
+    "category": "共用層",
+    "route": "packages/ui/src/components/DirectoryExplorer.tsx",
+    "name": "目錄瀏覽器",
+    "description": "瀏覽目錄並回傳選取路徑。",
+    "uiFlow": [
+      {
+        "step": "瀏覽目錄",
+        "action": "載入目錄內容",
+        "component": "DirectoryExplorer"
+      },
+      {
+        "step": "選取路徑",
+        "action": "回傳選取路徑",
+        "component": "DirectoryExplorer"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/DirectoryExplorer.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/vibe/fs"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/DirectoryExplorer.tsx",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/vibe-fs.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-071",
+    "category": "共用層",
+    "route": "packages/ui/src/components/ChatInputBar.tsx",
+    "name": "聊天輸入列",
+    "description": "可重用的聊天輸入列，支援貼上圖片/檔案。",
+    "uiFlow": [
+      {
+        "step": "輸入文字或貼上檔案",
+        "action": "整理待送訊息與附件",
+        "component": "ChatInputBar"
+      },
+      {
+        "step": "送出",
+        "action": "觸發送出回呼",
+        "component": "ChatInputBar"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/ChatInputBar.tsx"
+    ],
+    "stateMgmt": "local state（imperative handle）",
+    "apiCalls": [],
+    "codeFiles": [
+      "packages/ui/src/components/ChatInputBar.tsx",
+      "packages/ui/src/utils/pasteFiles.ts"
+    ],
+    "backendFiles": [],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-072",
+    "category": "共用層",
+    "route": "packages/ui/src/components/ChatMessages.tsx",
+    "name": "聊天訊息列表",
+    "description": "可重用的訊息列表，含工具徽章、審批卡與安全提示。",
+    "uiFlow": [
+      {
+        "step": "渲染訊息",
+        "action": "顯示 markdown、工具徽章與審批卡",
+        "component": "ChatMessages / ToolBadges / ApprovalCard / SecurityNoticeCard"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/ChatMessages.tsx",
+      "packages/ui/src/components/MermaidBlock.tsx"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [],
+    "codeFiles": [
+      "packages/ui/src/components/ChatMessages.tsx",
+      "packages/ui/src/components/MermaidBlock.tsx",
+      "packages/ui/src/utils/index.ts"
+    ],
+    "backendFiles": [],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-073",
+    "category": "共用層",
+    "route": "packages/ui/src/components/Icon.tsx",
+    "name": "圖示元件",
+    "description": "可重用的圖示與圖示標籤元件。",
+    "uiFlow": [
+      {
+        "step": "渲染圖示",
+        "action": "依名稱顯示對應圖示",
+        "component": "Icon / IconLabel / CliIcon / ApprovalIcon"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/Icon.tsx"
+    ],
+    "stateMgmt": "無",
+    "apiCalls": [],
+    "codeFiles": [
+      "packages/ui/src/components/Icon.tsx"
+    ],
+    "backendFiles": [],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-074",
+    "category": "共用層",
+    "route": "packages/ui/src/components/FileEmoji.tsx",
+    "name": "檔案表情符號",
+    "description": "依副檔名回傳對應 emoji。",
+    "uiFlow": [
+      {
+        "step": "取得 emoji",
+        "action": "依檔名回傳 emoji",
+        "component": "fileEmoji"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/FileEmoji.tsx"
+    ],
+    "stateMgmt": "無",
+    "apiCalls": [],
+    "codeFiles": [
+      "packages/ui/src/components/FileEmoji.tsx"
+    ],
+    "backendFiles": [],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-075",
+    "category": "共用層",
+    "route": "packages/ui/src/components/CrewAvatar.tsx",
+    "name": "團隊頭像",
+    "description": "顯示團隊成員頭像。",
+    "uiFlow": [
+      {
+        "step": "渲染頭像",
+        "action": "依成員顯示頭像",
+        "component": "CrewAvatar"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/CrewAvatar.tsx"
+    ],
+    "stateMgmt": "無",
+    "apiCalls": [],
+    "codeFiles": [
+      "packages/ui/src/components/CrewAvatar.tsx"
+    ],
+    "backendFiles": [],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-076",
+    "category": "共用層",
+    "route": "packages/ui/src/components/useRuModel.ts",
+    "name": "RU 模型 hook",
+    "description": "載入 RU 功能模型並提供名稱對照。",
+    "uiFlow": [
+      {
+        "step": "載入模型",
+        "action": "取得 features 並建立名稱對照",
+        "component": "useRuModel"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/useRuModel.ts"
+    ],
+    "stateMgmt": "local state（hook）",
+    "apiCalls": [
+      "GET /api/coding/features"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/useRuModel.ts",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-features.mjs"
+    ],
+    "tests": [],
+    "severity": "low",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  },
+  {
+    "id": "U20261107-077",
+    "category": "共用層",
+    "route": "packages/ui/src/components/git/GitPanel.tsx",
+    "name": "Git 面板",
+    "description": "整合 Git 狀態、差異與提交列。",
+    "uiFlow": [
+      {
+        "step": "檢視狀態與差異",
+        "action": "載入 git 狀態與 diff",
+        "component": "GitPanel / GitStatusView / GitDiffView"
+      },
+      {
+        "step": "提交變更",
+        "action": "填寫訊息並提交",
+        "component": "GitCommitBar"
+      }
+    ],
+    "components": [
+      "packages/ui/src/components/git/GitPanel.tsx",
+      "packages/ui/src/components/git/GitStatusView.tsx",
+      "packages/ui/src/components/git/GitDiffView.tsx",
+      "packages/ui/src/components/git/GitCommitBar.tsx",
+      "packages/ui/src/components/git/GitFileGroup.tsx",
+      "packages/ui/src/components/git/FeatureGroupCard.tsx",
+      "packages/ui/src/components/git/DecisionCard.tsx",
+      "packages/ui/src/components/git/git-helpers.ts"
+    ],
+    "stateMgmt": "local state",
+    "apiCalls": [
+      "GET /api/coding/staged-changes"
+    ],
+    "codeFiles": [
+      "packages/ui/src/components/git/GitPanel.tsx",
+      "packages/ui/src/components/git/GitStatusView.tsx",
+      "packages/ui/src/components/git/GitDiffView.tsx",
+      "packages/ui/src/components/git/GitCommitBar.tsx",
+      "packages/ui/src/components/git/GitFileGroup.tsx",
+      "packages/ui/src/components/git/FeatureGroupCard.tsx",
+      "packages/ui/src/components/git/DecisionCard.tsx",
+      "packages/ui/src/components/git/git-helpers.ts",
+      "packages/ui/src/components/git/index.ts",
+      "packages/ui/src/api.ts"
+    ],
+    "backendFiles": [
+      "packages/server/src/routes/coding-staged-changes.mjs",
+      "packages/server/src/lib/task-git.mjs"
+    ],
+    "tests": [],
+    "severity": "medium",
+    "custom": {},
+    "createdAt": "2026-11-07T07:42:37.483Z",
+    "updatedAt": "2026-11-07T07:42:37.483Z"
+  }
+]

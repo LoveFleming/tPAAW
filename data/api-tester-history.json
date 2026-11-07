@@ -1,5 +1,145 @@
 [
   {
+    "id": "req-1794035995868",
+    "ts": "2026-11-07T07:19:55.868Z",
+    "method": "GET",
+    "url": "http://localhost:4408/api/ai-settings",
+    "status": 404,
+    "elapsed": 5,
+    "headers": [
+      {
+        "key": "Content-Type",
+        "value": "application/json",
+        "enabled": true
+      }
+    ],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 404,
+      "statusText": "Not Found",
+      "headers": {
+        "access-control-allow-headers": "Content-Type",
+        "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+        "access-control-allow-origin": "*",
+        "connection": "keep-alive",
+        "content-type": "application/json",
+        "date": "Sat, 07 Nov 2026 07:19:55 GMT",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": "{\"error\":\"Not found\",\"path\":\"/api/ai-settings\"}",
+      "elapsed": 5,
+      "size": 47
+    },
+    "source": "human"
+  },
+  {
+    "id": "req-1794035153433",
+    "ts": "2026-11-07T07:05:53.433Z",
+    "method": "GET",
+    "url": "http://localhost:4408/api/cron-jobs",
+    "status": 200,
+    "elapsed": 6,
+    "headers": [
+      {
+        "key": "Content-Type",
+        "value": "application/json",
+        "enabled": true
+      }
+    ],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "access-control-allow-headers": "Content-Type",
+        "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+        "access-control-allow-origin": "*",
+        "connection": "keep-alive",
+        "content-type": "application/json",
+        "date": "Sat, 07 Nov 2026 07:05:53 GMT",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": "[{\"id\":\"system-daily-backup\",\"name\":\"📦 每日資料備份\",\"type\":\"reminder\",\"reminderText\":\"[系統排程] 每日資料備份正在執行。\",\"skillId\":\"\",\"schedule\":\"0 0 * * *\",\"prompt\":\"\",\"params\":{},\"outputTarget\":\"chat\",\"outputPath\":\"\",\"enabled\":true,\"createdAt\":\"2026-09-18T12:24:33.236Z\",\"lastRun\":\"2026-10-25T16:00:08.935Z\",\"lastStatus\":\"done\",\"_systemBackup\":true},{\"id\":\"system-daily-log-purge\",\"name\":\"🧹 清理舊日誌（依保留政策）\",\"type\":\"reminder\",\"reminderText\":\"\",\"skillId\":\"\",\"schedule\":\"0 3 * * *\",\"prompt\":\"\",\"params\":{},\"outputTarget\":\"none\",\"outputPath\":\"\",\"enabled\":true,\"createdAt\":\"2026-09-18T12:24:33.237Z\",\"lastRun\":\"2026-10-25T19:00:09.498Z\",\"lastStatus\":\"done\",\"_systemLogPurge\":true}]",
+      "elapsed": 6,
+      "size": 658
+    },
+    "source": "human"
+  },
+  {
+    "id": "req-1794034844881",
+    "ts": "2026-11-07T07:00:44.881Z",
+    "method": "GET",
+    "url": "http://localhost:4408/api/a2a/agent-card",
+    "status": 200,
+    "elapsed": 1,
+    "headers": [
+      {
+        "key": "Content-Type",
+        "value": "application/json",
+        "enabled": true
+      }
+    ],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "access-control-allow-headers": "Content-Type",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-origin": "*",
+        "connection": "keep-alive",
+        "content-type": "application/json",
+        "date": "Sat, 07 Nov 2026 07:00:44 GMT",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": "{\"ok\":true,\"data\":{\"protocolVersion\":\"0.3.0\",\"name\":\"PAAW Agent\",\"description\":\"Personal AI Assistant Workspace — A2A-enabled agent that can execute skills, manage data apps, and collaborate with other agents.\",\"url\":\"http://localhost:4408/a2a\",\"version\":\"1.0.0\",\"capabilities\":{\"streaming\":true,\"pushNotifications\":true,\"stateTransition\":true},\"defaultInputModes\":[\"text\"],\"defaultOutputModes\":[\"text\"],\"skills\":[{\"id\":\"paaw-helpdesk\",\"name\":\"PAAW HelpDesk\",\"description\":\"Customer service — ask any question about PAAW features, architecture, usage, or report issues. Other agents can submit questions and get answers.\",\"tags\":[\"helpdesk\",\"support\",\"faq\",\"customer-service\",\"agent-to-agent\"],\"inputModes\":[\"text\"],\"outputModes\":[\"text\"],\"endpoints\":{\"ask\":\"http://localhost:4408/api/helpdesk/ask\",\"tickets\":\"http://localhost:4408/api/helpdesk/tickets\",\"knowledge\":\"http://localhost:4408/api/helpdesk/knowledge\"}}],\"authentication\":{\"schemes\":[\"none\"]}}}",
+      "elapsed": 1,
+      "size": 955
+    },
+    "source": "human"
+  },
+  {
+    "id": "req-1794034826899",
+    "ts": "2026-11-07T07:00:26.899Z",
+    "method": "GET",
+    "url": "http://localhost:4408/api/exam-vault",
+    "status": 404,
+    "elapsed": 8,
+    "headers": [
+      {
+        "key": "Content-Type",
+        "value": "application/json",
+        "enabled": true
+      }
+    ],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 404,
+      "statusText": "Not Found",
+      "headers": {
+        "access-control-allow-headers": "Content-Type",
+        "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+        "access-control-allow-origin": "*",
+        "connection": "keep-alive",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Sat, 07 Nov 2026 07:00:26 GMT",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": "{\"error\":\"unknown exam-vault route\"}",
+      "elapsed": 8,
+      "size": 36
+    },
+    "source": "human"
+  },
+  {
     "id": "req-1793364129310",
     "ts": "2026-10-30T12:42:09.310Z",
     "method": "GET",
