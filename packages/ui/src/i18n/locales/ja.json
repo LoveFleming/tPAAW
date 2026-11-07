@@ -2076,7 +2076,7 @@
   "rm.apiColApi": "API",
   "rm.apiColName": "名前",
   "rm.apiColFrontend": "フロント参照",
-  "rm.apiColTests": "テスト",
+  "rm.apiColTests": "Unit Test",
   "rm.apiColChanged": "変更",
   "rm.apiNoTest": "テスト無し",
   "rm.apiHasTest": "テスト有り",

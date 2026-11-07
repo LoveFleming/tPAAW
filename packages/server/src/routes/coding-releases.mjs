@@ -43,6 +43,39 @@ import { loadFeatures } from "../lib/feature-registry.mjs";
 
 const PHASES_BEFORE_COMMIT = ["spec", "implement", "review", "test", "qa", "docs"];
 
+// 2026-11-07 Fleming：e2e 內容覆蓋 checker（測試檔 corpus 內容含 API path = deterministic 覆蓋證據）—
+// evidence-by-api / api-status 共用（原本 readiness + evidence-by-api 各一份，第三份出現前先抽共用）
+function _apiE2eCoverageChecker(root) {
+  let corpus = null;
+  const build = () => {
+    let buf = "";
+    const TEST_DIR = new Set(["tests", "test", "e2e", "__tests__"]);
+    const SKIP = new Set(["node_modules", "dist", "build", "coverage", "versions", "raw", "crops", ".paaw"]);
+    const isTestFile = (n) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(n) || /^test[-_]/.test(n);
+    const walk = (dir, depth) => {
+      if (depth > 5) return;
+      let ents; try { ents = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+      for (const e of ents) {
+        if (e.name.startsWith(".") || SKIP.has(e.name)) continue;
+        const p2 = join(dir, e.name);
+        if (e.isDirectory()) walk(p2, depth + 1);
+        else if (isTestFile(e.name) || dir.split(/[\\/]/).some((seg2) => TEST_DIR.has(seg2))) {
+          try { const c = readFileSync(p2, "utf-8"); if (c.length < 500000) buf += "\n" + c; } catch {}
+        }
+      }
+    };
+    walk(root, 0);
+    return buf;
+  };
+  return (apiPath) => {
+    if (!apiPath) return false;
+    if (corpus === null) corpus = build();
+    const norm = apiPath.replace(/\/<[^/>]+>/g, "/__P__").replace(/\/:[A-Za-z0-9_]+/g, "/__P__");
+    const re = new RegExp(norm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/__P__/g, "[^/]+")); // nosemgrep: detect-non-literal-regexp
+    return re.test(corpus);
+  };
+}
+
 // ── TASKS.json 原檔讀寫（保留 top-level 欄位如 loopMode）──
 
 async function readTasksFile(projectPath) {
@@ -578,6 +611,9 @@ export default async function releaseRoutes(req, res, next) {
   const _buildApiStatus = async (projectPath) => {
     const root = resolve(projectPath);
     const { readApiFeatures, readUiFeatures } = await import("../lib/coding-db/reads.mjs");
+    const { loadSecurityScan, sgForFeature } = await import("../lib/release-evidence.mjs");
+    let scan = null; try { scan = await loadSecurityScan(projectPath); } catch { /* 未掃 → null 如實回 */ }
+    const apiCovered = _apiE2eCoverageChecker(root);
     const apis = readApiFeatures(root);
     const uis = readUiFeatures(root);
     // baseline：上次 release（無 = 首發，全視為新）— 與 readiness 同邏輯但輕量（只拿檔案清單）
@@ -592,9 +628,16 @@ export default async function releaseRoutes(req, res, next) {
     const rows = apis.map(a => {
       const refs = uis.filter(u => (u.apiCalls || []).some(c => String(c).toLowerCase() === String(a.entry).toLowerCase()));
       const changed = changedSet ? (a.codeFiles || []).some(f => changedSet.has(String(f).replace(/\\/g, "/"))) : null;
-      return { entry: a.entry, name: a.name, category: a.category, tests: (a.tests || []).length, frontendRefs: refs.map(u => u.route), changed };
+      // 2026-11-07 Fleming：API 現況只要 5 欄（API/名稱/unit test/E2E/SG）— e2e + SG 補齊
+      const files = (a.codeFiles || []).map(f => String(f).replace(/\\/g, "/"));
+      const sg = sgForFeature(scan, files);
+      const tests = (a.tests || []).map(x => (typeof x === "string" ? x : x?.file)).filter(Boolean);
+      return { entry: a.entry, name: a.name, category: a.category, tests, testCount: tests.length,
+        frontendRefs: refs.map(u => u.route), changed,
+        e2eCovered: apiCovered(a.entry),
+        sg: { ok: sg.ok, high: sg.high ?? 0, total: sg.total ?? 0, reason: sg.reason || null } };
     });
-    const withTests = rows.filter(r => r.tests > 0).length;
+    const withTests = rows.filter(r => r.testCount > 0).length;
     const changedCount = rows.filter(r => r.changed === true).length;
     return {
       ok: true,
@@ -605,6 +648,9 @@ export default async function releaseRoutes(req, res, next) {
         orphanCalls: [...new Set(uis.flatMap(u => u.apiCalls || []))].filter(c => !rows.some(r => r.entry.toLowerCase() === String(c).toLowerCase())).slice(0, 20),
       },
       changedSinceRelease: changedSet ? changedCount : null,
+      e2eCovered: rows.filter(r => r.e2eCovered).length,
+      sgHigh: rows.filter(r => !r.sg.ok).length,
+      sgScannedAt: scan?.scannedAt || null,
       apis: rows,
       generatedAt: new Date().toISOString(),
     };
@@ -645,37 +691,8 @@ export default async function releaseRoutes(req, res, next) {
       let scan = null; try { scan = await loadSecurityScan(projectPath); } catch { /* 未掃 → null 如實回 */ }
       // Code Review 委員會紀錄（2026-11-07 Fleming：by API — 掃過該 API 檔案的會議次數 + 最新一次時間/結論）
       let board = null; try { board = await loadReviewBoard(projectPath); } catch { /* 無紀錄 → null */ }
-      // e2e 內容覆蓋（與 readiness 同手法：測試檔 corpus 內容含 API path = deterministic 覆蓋證據）
-      const apiCovered = (() => {
-        let corpus = null;
-        const build = () => {
-          let buf = "";
-          const TEST_DIR = new Set(["tests", "test", "e2e", "__tests__"]);
-          const SKIP = new Set(["node_modules", "dist", "build", "coverage", "versions", "raw", "crops", ".paaw"]);
-          const isTestFile = (n) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(n) || /^test[-_]/.test(n);
-          const walk = (dir, depth) => {
-            if (depth > 5) return;
-            let ents; try { ents = readdirSync(dir, { withFileTypes: true }); } catch { return; }
-            for (const e of ents) {
-              if (e.name.startsWith(".") || SKIP.has(e.name)) continue;
-              const p2 = join(dir, e.name);
-              if (e.isDirectory()) walk(p2, depth + 1);
-              else if (isTestFile(e.name) || dir.split(/[\\/]/).some((seg2) => TEST_DIR.has(seg2))) {
-                try { const c = readFileSync(p2, "utf-8"); if (c.length < 500000) buf += "\n" + c; } catch {}
-              }
-            }
-          };
-          walk(root, 0);
-          return buf;
-        };
-        return (apiPath) => {
-          if (!apiPath) return false;
-          if (corpus === null) corpus = build();
-          const norm = apiPath.replace(/\/<[^/>]+>/g, "/__P__").replace(/\/:[A-Za-z0-9_]+/g, "/__P__");
-          const re = new RegExp(norm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/__P__/g, "[^/]+")); // nosemgrep: detect-non-literal-regexp
-          return re.test(corpus);
-        };
-      })();
+      // e2e 內容覆蓋（共用 helper）
+      const apiCovered = _apiE2eCoverageChecker(root);
       const rows = [];
       for (const a of apis) {
         const files = (a.codeFiles || []).map((f) => String(f).replace(/\\/g, "/"));

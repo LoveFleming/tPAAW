@@ -354,15 +354,16 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                       </span>
                     </div>
                     <div className="max-h-64 overflow-y-auto rounded-lg border bg-white" style={{ borderColor: tk.borderLight }}>
-                      <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 py-1 sticky top-0 bg-white border-b" style={{ gridTemplateColumns: "1.8fr 1.6fr 0.9fr 0.6fr", borderColor: tk.borderLight }}>
-                        <span>{t("rm.apiColApi")}</span><span>{t("rm.apiColName")}</span><span>{t("rm.apiColFrontend")}</span><span>{t("rm.apiColTests")}</span>
+                      <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 py-1 sticky top-0 bg-white border-b" style={{ gridTemplateColumns: "2.1fr 1.4fr 0.8fr 0.6fr 0.7fr", borderColor: tk.borderLight }}>
+                        <span>{t("rm.apiColApi")}</span><span>{t("rm.apiColName")}</span><span>Unit Test</span><span>E2E</span><span>SG</span><span>{t("rm.ev.reviewCol")}</span>
                       </div>
                       {(apiStatus.apis || []).map((a: any, i: number) => (
-                        <div key={i} className="grid gap-1 items-center px-2 py-1 text-[10px] hover:bg-stone-50" style={{ gridTemplateColumns: "1.8fr 1.6fr 0.9fr 0.6fr" }}>
+                        <div key={i} className="grid gap-1 items-center px-2 py-1 text-[10px] hover:bg-stone-50" style={{ gridTemplateColumns: "2.1fr 1.4fr 0.8fr 0.6fr 0.7fr" }}>
                           <span className="font-mono font-bold text-stone-700 truncate" title={a.entry}>{a.entry}</span>
                           <span className="text-stone-500 truncate" title={a.name}>{a.name}</span>
-                          <span className="text-stone-500 truncate" title={(a.frontendRefs || []).join(", ")}>{a.frontendRefs?.length ? `${a.frontendRefs.length} ${t("rm.apiYes")}` : <span className="text-stone-300">—</span>}</span>
-                          <span className={`font-mono font-bold ${a.tests > 0 ? "text-green-600" : "text-red-500"}`}>{a.tests > 0 ? `✓${a.tests}` : "✗"}</span>
+                          <span className={`font-mono font-bold ${(a.testCount ?? a.tests?.length ?? 0) > 0 ? "text-green-600" : "text-red-500"}`} title={(a.tests || []).join("\n") || t("rm.ev.noTest")}>{(a.testCount ?? a.tests?.length ?? 0) > 0 ? `✓${a.testCount ?? a.tests.length}` : "✗"}</span>
+                          <span className={`font-mono font-bold ${a.e2eCovered ? "text-green-600" : "text-stone-300"}`}>{a.e2eCovered ? "✓" : "—"}</span>
+                          <span className={`font-mono font-bold ${a.sg?.ok ? ((a.sg.total ?? 0) > 0 ? "text-amber-600" : "text-green-600") : "text-red-500"}`} title={a.sg?.reason || `${a.sg?.total ?? 0} findings（high ${a.sg?.high ?? 0}）`}>{a.sg ? (a.sg.ok ? ((a.sg.total ?? 0) > 0 ? `⚠${a.sg.total}` : "✓0") : `✗${a.sg.high}hi`) : "—"}</span>
                         </div>
                       ))}
                     </div>
@@ -391,7 +392,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                       </span>
                     </div>
                     <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 pb-1" style={{ gridTemplateColumns: "1.9fr 1.3fr 0.7fr 0.6fr 0.7fr 1.1fr" }}>
-                      <span>API</span><span>{t("rm.apiColName")}</span><span>Tests</span><span>E2E</span><span>SG</span><span>{t("rm.ev.reviewCol")}</span>
+                      <span>{t("rm.apiColApi")}</span><span>{t("rm.apiColName")}</span><span>Unit Test</span><span>E2E</span><span>SG</span>
                     </div>
                     <div className="max-h-72 overflow-y-auto">
                       {evApi.apis.map((a: any, i: number) => {

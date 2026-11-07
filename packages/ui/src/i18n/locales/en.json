@@ -2076,7 +2076,7 @@
   "rm.apiColApi": "API",
   "rm.apiColName": "Name",
   "rm.apiColFrontend": "Frontend refs",
-  "rm.apiColTests": "Tests",
+  "rm.apiColTests": "Unit Test",
   "rm.apiColChanged": "Changed",
   "rm.apiNoTest": "no tests",
   "rm.apiHasTest": "tested",
