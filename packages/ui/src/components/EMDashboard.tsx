@@ -7,6 +7,7 @@
  */
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import API_BASE from "../api";
+import DispatchWizard from "./DispatchWizard";
 import ChatMessages from "./ChatMessages"; // kept for reference — EM chat now uses custom rich renderer
 import ModelSelector from "./ModelSelector";
 import { stableStringify, cn } from "../utils";
@@ -82,6 +83,8 @@ interface EMDashboardProps {
 }
 
 export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, openMainTab, adRefreshTrigger = 0, model, onModelChange, cuModalRequest = 0, prefillMessage, onOpenDispatchReports }: EMDashboardProps) {
+  // 🚀 派工精靈（2026-11-07 Fleming）
+  const [showDispatchWizard, setShowDispatchWizard] = useState(false);
   // ── EM Profile (avatar from crew API) ──
   const [emProfile, setEmProfile] = useState<{ codename?: string; imageUrl?: string; emoji?: string }>({});
   useEffect(() => {
@@ -742,6 +745,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   if (!rootPath) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
+      {showDispatchWizard && <DispatchWizard rootPath={rootPath} theme={tk} onClose={() => setShowDispatchWizard(false)} />}
         <span className="text-5xl opacity-40">🎖️</span>
         <p className="text-sm text-stone-400">開啟專案後即可查看 EM 大總管 Dashboard</p>
       </div>
@@ -770,6 +774,13 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
             </div>
             <div className="flex items-center gap-1 shrink-0">
               {/* 2026-09-12 Fleming：agent chat icon 排統一 accent 色外框，跟 CodingIDE 主 chat / 林雨晴視窗一致 */}
+                            {/* 🚀 派工精靈（2026-11-07） */}
+              <button
+                onClick={() => setShowDispatchWizard(true)}
+                className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50"
+                style={{ borderColor: tk.accentBorder || tk.accent, color: tk.accent }}
+                title={t("dw.title")}
+              >🚀 {t("dw.title")}</button>
               {/* EM Settings */}
               <button
                 onClick={() => { if (!showEmConfig) fetchEmConfig(); setShowEmConfig(!showEmConfig); }}

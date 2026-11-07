@@ -1213,6 +1213,55 @@ if (url.startsWith("/api/coding-crew/action-log") && method === "GET") {
   return true;
 }
 
+
+// ── POST /api/coding-crew/em-job — EM 工單入口（cu-scan/security-fix/test-gen/release-prep）2026-11-07 派工精靈用 ──
+if (url === "/api/coding-crew/em-job" && method === "POST") {
+  let body;
+  try { body = JSON.parse(await readBody(req)); } catch {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Invalid JSON" }));
+    return true;
+  }
+  const { cwd, job, action = "run", maxTickets = 5 } = body;
+  if (!["cu-scan", "security-fix", "test-gen", "release-prep"].includes(job)) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "job 必須是 cu-scan / security-fix / test-gen / release-prep" }));
+    return true;
+  }
+  const root = cwd ? resolve(cwd) : resolve(projectPath || PAAW_ROOT);
+  try {
+    const { runJobEntrypoint, triageToTickets, JOB_TYPE_META } = await import("../lib/em-job-entrypoints.mjs");
+    const result = await runJobEntrypoint(root, job);
+    if (!result.ok) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `${job} 入口失敗：${result.error}` }));
+      return true;
+    }
+    const head = { job, label: JOB_TYPE_META[job].label, emoji: JOB_TYPE_META[job].emoji, summary: result.summary, durationMs: result.durationMs, findingsCount: result.findings?.length || 0, meta: result.meta || {} };
+    if (!result.findings?.length) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, ...head, tickets: [], message: "掃描乾淨，沒有值得開單的 findings" }));
+      return true;
+    }
+    const triage = await triageToTickets({
+      rootDir: root, type: job, result,
+      maxTickets: Math.max(1, Math.min(10, Number(maxTickets) || 5)),
+      sendSSE: () => {}, dryRun: action === "preview",
+    });
+    if (!triage.ok) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, ...head, tickets: [], message: `triage 失敗：${triage.error}（掃描結果如上）` }));
+      return true;
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, ...head, tickets: triage.tickets || [], skipped: triage.skipped || 0, dryRun: action === "preview", message: action === "preview" ? "preview：單未落地，確認後再 run" : "已開單" }));
+  } catch (err) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+  return true;
+}
+
 // ── POST /api/coding-crew/em-plan — EM Plan only (no execute) ──
 if (url === "/api/coding-crew/em-plan" && method === "POST") {
   const body = await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); });
