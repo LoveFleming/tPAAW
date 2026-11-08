@@ -93,6 +93,9 @@ const STALE_TOLERANCE_MS = 2000; // 同步競態容差
 // watermark commit..HEAD 實際變更檔，只認 walker 同一套 source 規則（cu-source-scan 單一事實來源）；
 // 純 doc/圖/locale 變更不觸發。非 git / 無 watermark commit / git 失敗 → 逐步驟 fallback mtime。
 const _mechanicalRescanBusy = new Set(); // cu-status 觸發的背景機械層重掃（同 root 防重入）
+// 2026-11-08 Fleming：智慧層（LLM 步驟）也自動化 — 偵測 stale 就背景自呼 ai-initial 增量重跑，不再用 UI 訊息叫人按鈕
+const _smartRerunBusy = new Set();
+const _smartRerunLast = new Map(); // root → last trigger ms（失敗 cooldown 10 分鐘防重試風暴）
 
 export async function computeCuStaleness(root, steps, codeLastModifiedMs) {
   // 逐步驟 git watermark（codeCommit）：所有 done step 取最大共用一次 git diff 快取
@@ -1972,6 +1975,27 @@ export default async function projectRoute(req, res) {
             } catch (e) {
               console.warn(`[cu] auto mechanical rescan failed (${root}):`, e.message);
             } finally { _mechanicalRescanBusy.delete(root); }
+          })();
+        }
+        // 智慧層自動增量重跑（2026-11-08 Fleming）：CU/code tree 過期不勞人 — 背景 localhost 自呼 ai-initial（增量：只重跑 stale 步驟）
+        const staleSmartNow = staleSteps.filter(s => !s.mechanical && !s.manual).length;
+        if (staleSmartNow > 0 && !_smartRerunBusy.has(root) && Date.now() - (_smartRerunLast.get(root) || 0) > 10 * 60_000) {
+          _smartRerunBusy.add(root); _smartRerunLast.set(root, Date.now());
+          console.log(`[cu] 🧠 智慧層自動增量重跑（背景）：${root} stale=${staleSmartNow}`);
+          (async () => {
+            try {
+              const { Agent } = await import("undici");
+              const dispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
+              const r = await fetch(`http://127.0.0.1:${PORT}/api/coding-project/ai-initial?path=${encodeURIComponent(root)}`, {
+                method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", dispatcher,
+              });
+              if (r.body) { const rd = r.body.getReader(); while (true) { const { done } = await rd.read(); if (done) break; } }
+              const { importCodingDb } = await import("../lib/coding-db/import.mjs");
+              importCodingDb(root);
+              console.log(`[cu] 🧠 智慧層自動重跑完成：${root}`);
+            } catch (e) {
+              console.warn(`[cu] smart auto rerun failed (${root}):`, e.message);
+            } finally { _smartRerunBusy.delete(root); }
           })();
         }
         res.writeHead(200, { "Content-Type": "application/json" });
