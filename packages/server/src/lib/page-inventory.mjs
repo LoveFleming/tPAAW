@@ -186,6 +186,52 @@ function fileBasedRoutes(files) {
   return routes;
 }
 
+/** Tab-based UI fallback（2026-11-08 Fleming：learning-space page 盤點空）：
+ *  沒 router 的 SPA — 抓 conditional tab render「{ xxx === "id" && (<Comp ...)」
+ *  tab id → 實作 component（import 反解檔案）；inline JSX 的 tab → page 檔 = 所在檔。route 顯示 tab:<id> */
+function tabRoutes(files, filesByRel) {
+  const out = [];
+  for (const f of files) {
+    if (!/\.(tsx|jsx)$/.test(f.rel) || isTestFileName(f.rel.split("/").pop())) continue;
+    const src = readSafe(f.full);
+    if (!src) continue;
+    // import 表：Component 名 → 檔案 rel
+    const imports = new Map();
+    for (const m of src.matchAll(/import\s+([^"']+?)\s+from\s*["']([^"']+)["']/g)) {
+      const clause = m[1], spec = m[2];
+      const target = resolveImport(f.rel, spec, filesByRel) || resolveAlias(spec, filesByRel);
+      if (!target) continue;
+      for (const n of clause.split(",")) {
+        const name = n.replace(/\b(import|type)\b/g, "").trim().split(/\s+as\s+/).pop()?.trim();
+        if (name && /^[A-Z]/.test(name)) imports.set(name, target);
+      }
+    }
+    const seen = new Set();
+    for (const m of src.matchAll(/\{\s*[\w$]+\s*===\s*["']([\w-]+)["']\s*&&\s*\(?\s*<([A-Z][\w$]*)/g)) {
+      const id = m[1], comp = m[2];
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push({ route: `tab:${id}`, kind: "tab-view", page: imports.get(comp) || f.rel, sources: [imports.get(comp) || f.rel] });
+      if (out.length >= 60) return out;
+    }
+    // inline tab（無獨立 component，內容寫在殼檔內）：tab 殼檔（有 conditional render 或 NAV 陣列）內的
+    // case "id" / { id: "x", emoji 也算 page（page 檔 = 殼檔本身）
+    const hasTabShell = seen.size > 0 || /Array<\{\s*id:\s*\w+,\s*emoji/.test(src) || /\{\s*id:\s*["'][\w-]+["'],\s*emoji\s*:/.test(src);
+    if (hasTabShell) {
+      const maybe = new Set();
+      for (const m of src.matchAll(/\n\s*case\s+["']([\w-]+)["']:/g)) maybe.add(m[1]);
+      for (const m of src.matchAll(/\{\s*id:\s*["']([\w-]+)["'],\s*emoji\s*:/g)) maybe.add(m[1]);
+      for (const id of maybe) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        out.push({ route: `tab:${id}`, kind: "tab-view-inline", page: f.rel, sources: [f.rel] });
+        if (out.length >= 60) return out;
+      }
+    }
+  }
+  return out;
+}
+
 /** 找出「router 定義檔」：含 <Route / createBrowserRouter / new Router / routes 陣列 且抽得到 path */
 function findRouterFiles(files) {
   const out = [];
@@ -322,6 +368,13 @@ export function buildPageInventory(root, apis = [], opts = {}) {
     for (const rt of rf.routes) {
       if (rows.has(rt)) { rows.get(rt).kind = rows.get(rt).kind === "next-app" || rows.get(rt).kind === "next-pages" ? rows.get(rt).kind : rf.kind; rows.get(rt).sources.push(rf.file.rel); continue; }
       rows.set(rt, { route: rt, kind: rf.kind, page: rf.file.rel, sources: [rf.file.rel] });
+    }
+  }
+
+  // 1b) 2026-11-08 Fleming：tab-based UI fallback — 沒抓到 router route 時，conditional tab render 當 page
+  if (rows.size === 0) {
+    for (const r of tabRoutes(files, filesByRel)) {
+      rows.set(r.route, { route: r.route, kind: r.kind, page: r.page, sources: r.sources });
     }
   }
 
