@@ -128,7 +128,9 @@ export function buildE2EInventory(root, apis = [], opts = {}) {
   const signalFiles = files.filter((f) => f.testCount > 0 || f.urlCount > 0);
 
   const linkedUrls = files.flatMap((f) => f.urls).filter((u) => u.apis.length > 0);
-  const orphanFiles = signalFiles.filter((f) => !f.urls.some((u) => u.apis.length));
+  // 2026-11-08 區分：孤兒=有打路徑但全對不上 API；黑盒=完全無路徑字面值（UI 驅動測試）— Fleming 問「無路徑字面值是有測試還是沒測試」
+  const orphanFiles = signalFiles.filter((f) => f.urlCount > 0 && !f.urls.some((u) => u.apis.length));
+  const blackboxFiles = signalFiles.filter((f) => f.urlCount === 0);
   const coveredApis = new Set(linkedUrls.flatMap((u) => u.apis));
   return {
     files: signalFiles,
@@ -138,6 +140,7 @@ export function buildE2EInventory(root, apis = [], opts = {}) {
       totalUrls: files.reduce((n, f) => n + f.urlCount, 0),
       linkedUrls: linkedUrls.length,
       orphanTestFiles: orphanFiles.length,
+      blackboxTestFiles: blackboxFiles.length,
       coveredApis: coveredApis.size,
       apiTotal: apiEntries.length,
     },

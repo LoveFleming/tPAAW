@@ -371,6 +371,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                     <span className="px-1.5 py-1 rounded bg-teal-50 text-teal-700">{t("rm.e2eInvCovered")} {e2eInv.summary.coveredApis}/{e2eInv.summary.apiTotal}</span>
                     <span className="px-1.5 py-1 rounded bg-stone-100 text-stone-500">{t("rm.e2eInvLinked")} {e2eInv.summary.linkedUrls}/{e2eInv.summary.totalUrls}</span>
                     <span className="px-1.5 py-1 rounded bg-amber-50 text-amber-700">{t("rm.e2eInvOrphan")} {e2eInv.summary.orphanTestFiles}</span>
+                    {typeof e2eInv.summary.blackboxTestFiles === "number" && <span className="px-1.5 py-1 rounded bg-stone-100 text-stone-500">{t("rm.e2eInvBlackbox")} {e2eInv.summary.blackboxTestFiles}</span>}
+                    {typeof e2eInv.summary.blackboxTestFiles === "number" && <span className="px-1.5 py-1 rounded bg-stone-100 text-stone-500">{t("rm.e2eInvBlackbox")} {e2eInv.summary.blackboxTestFiles}</span>}
                   </div>
                   <div className="max-h-72 overflow-auto rounded-lg border bg-white text-[10px]" style={{ borderColor: tk.borderLight }}>
                     <table className="w-full">
