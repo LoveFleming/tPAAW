@@ -338,6 +338,7 @@ if (url === "/api/coding-crew/dispatch" && method === "POST") {
     "doc-writer": "coding.doc-writer",
     qa: "coding.qa",
     helpdesk: "coding.helpdesk",
+    em: "coding.em", // 2026-11-08：dispatch_agent/直接 dispatch EM 過去 404
   };
   const crewId = agentMap[agentId] || agentId;
   // 2026-11-07 修：coding.* crew 定義在 packages/modules/coding/crews/（data/crews 只有 sre.*）→ 兩處都要找
