@@ -1296,6 +1296,8 @@ export default async function projectRoute(req, res) {
         // Read model override from request body
         let cuModelOverride = null;
         try { const cuBody = JSON.parse(await readBody(req) || "{}"); cuModelOverride = cuBody.model || null; } catch {}
+        // 2026-11-08 Fleming 公司報案：log 看到的 model 跟 EM UI 選的不一樣 — 明講用哪個（body 沒帶 = providers defaultModel）
+        cuLog("bulk", `model = ${cuModelOverride || "(未指定 → providers.json defaultModel)"}`);
 
         // Gather project info for context
         // 2026-11-07 多語言：不只 package.json — go.mod / Cargo.toml / pom.xml / build.gradle / requirements.txt / pyproject.toml

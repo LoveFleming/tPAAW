@@ -46,7 +46,7 @@ import SessionHistory from "../components/SessionHistory";
 
 import DecisionLog from "../components/DecisionLog";
 import ProjectMdPage from "../components/ProjectMdPage"; // 📖 PROJECT.md（schema v2 — 2026-10-09）
-import ModelSelector from "../components/ModelSelector";
+import ModelSelector, { getModelForFeature } from "../components/ModelSelector";
 import { ChatMessages, type ChatMessageItem } from "../components/ChatMessages";
 import IssueTracker from "../components/IssueTracker";
 import QaRecords from "../components/QaRecords";
@@ -661,7 +661,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
   const startAiInitialize = useCallback(async (forceRerun = false) => {
     if (!rootPath || aiInitializing) return;
     setAiInitializing(true);
-    const currentModel = emModelRef.current || emModel;
+    const currentModel = emModelRef.current || emModel || (await getModelForFeature("sideChat.em")); // 2026-11-08：ModelSelector 選沒載入完時 race → CU 派錯 model（公司報案）
     const steps = [
       { id: "scan", name: "🔍 掃描專案結構" },
       { id: "api-map", name: "🌐 API Map" },
@@ -694,23 +694,30 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
             try {
               if (line.startsWith("data: ")) {
                 const data = JSON.parse(line.slice(6));
+                // 2026-11-08 Fleming 公司報案：server CU 有 8 步（feature-map/ui-map），前端寫死 6 步 →
+                // 這兩步在跑時 UI 沒卡片，看起來像卡死。改 upsert：沒見過的 step 動態補卡（之後 server 加步驟前端零改）
+                const upsertStep = (id: string, patch: Partial<{ status: "pending" | "running" | "done" | "error" | "skip"; name?: string; error?: string; progress?: string; size?: number }>) =>
+                  setAiInitSteps(prev => {
+                    if (prev.some(s => s.id === id)) return prev.map(s => s.id === id ? { ...s, ...patch } : s);
+                    return [...prev, { id, name: (patch as any).name || id, status: "running" as const, ...patch } as any];
+                  });
                 // Handle events based on the event type from the previous line
                 if (data.step) {
                   if (data.reason) {
                     // step_skip
-                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "skip" as const } : s));
+                    upsertStep(data.step, { status: "skip" as const, name: data.name });
                   } else if (data.error) {
                     // step_error
-                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "error" as const, error: data.error } : s));
+                    upsertStep(data.step, { status: "error" as const, name: data.name, error: data.error });
                   } else if (data.message) {
                     // step_progress（2026-09-06：抓進度文字，如「🤖 feature 41/64」）
-                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "running" as const, progress: data.message } : s));
+                    upsertStep(data.step, { status: "running" as const, name: data.name, progress: data.message });
                   } else if (data.preview !== undefined) {
                     // step_done
-                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "done" as const, size: data.size, progress: undefined } : s));
+                    upsertStep(data.step, { status: "done" as const, name: data.name, size: data.size, progress: undefined });
                   } else {
                     // step_start
-                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "running" as const, progress: undefined } : s));
+                    upsertStep(data.step, { status: "running" as const, name: data.name, progress: undefined });
                   }
                 }
                 if (data.message === "Code Understanding complete") {

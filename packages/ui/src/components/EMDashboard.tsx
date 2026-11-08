@@ -350,6 +350,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
     { id: "scan", name: "🔍 掃描專案結構", file: "scan.json" },
     { id: "feature-map", name: "🗺️ Feature Map", file: "features/FEATURES.json" },
     { id: "api-map", name: "🌐 API Map", file: "api-map.json" }, // API-first（2026-11-01）：marker 檔 api-map.json
+    { id: "ui-map", name: "🖥️ UI Map", file: "api-map.json" }, // 2026-11-08：server ui-map 步驟補上（marker 同 api-map，看 cu-status 為準）
     { id: "code-intelligence", name: "🧠 Code Intelligence", file: "code-intelligence/summary.json" },
     { id: "test-intelligence", name: "🧪 Test Intelligence", file: "code-intelligence/test-intelligence.json" },
     { id: "error-codes", name: "🔢 Error Codes", file: "error-codes.json" },
