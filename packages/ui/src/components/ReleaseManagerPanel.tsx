@@ -436,7 +436,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                       <tbody>
                         {pageInv.rows.slice(0, 200).map((r: any, i: number) => (
                           <tr key={i} className="border-t hover:bg-violet-50/40" style={{ borderColor: tk.borderLight }}>
-                            <td className="px-2 py-1 font-mono text-violet-700 whitespace-nowrap">{r.route}<span className="text-stone-400 ml-1">{r.kind}</span></td>
+                            <td className="px-2 py-1 font-mono text-violet-700 whitespace-nowrap">{r.route}{r.kind && <span className="text-stone-400 ml-1.5 text-[10px]">{({ "react-router": "router", "router-config": "router", "next-app": "next", "next-pages": "next", tanstack: "tanstack", "tab-view": "tab", "tab-view-inline": "tab" } as any)[r.kind] || r.kind}</span>}</td>
                             <td className="px-2 py-1 text-stone-700 max-w-[140px] truncate" title={`${r.category || ""}${r.name ? " · " + r.name : ""}`}>{r.name ? <span><span className="text-stone-400">{r.category} · </span>{r.name}</span> : <span className="text-stone-300">—</span>}</td>
                             <td className="px-2 py-1 font-mono text-stone-600 max-w-[200px] truncate" title={r.page}>{r.page}</td>
                             <td className="px-2 py-1 text-center text-stone-600" title={r.components?.slice(0, 20).join("\n")}>{r.componentCount}</td>
