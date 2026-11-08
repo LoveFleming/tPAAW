@@ -1,5 +1,63 @@
 [
   {
+    "id": "req-1794117341138",
+    "ts": "2026-11-08T05:55:41.139Z",
+    "method": "GET",
+    "url": "http://localhost:4097/health",
+    "status": 200,
+    "elapsed": 6,
+    "headers": [
+      {
+        "key": "Content-Type",
+        "value": "application/json",
+        "enabled": true
+      }
+    ],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "access-control-allow-headers": "Content-Type",
+        "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+        "access-control-allow-origin": "*",
+        "cache-control": "no-cache",
+        "connection": "keep-alive",
+        "content-type": "text/html; charset=utf-8",
+        "date": "Sun, 08 Nov 2026 05:55:41 GMT",
+        "keep-alive": "timeout=5",
+        "transfer-encoding": "chunked"
+      },
+      "body": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>PAAW - Personal AI Assistant Workspace</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-BBF1nG24.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-8OGxoFRg.css\">\n  </head>\n  <body class=\"bg-zinc-50\">\n    <div id=\"root\"></div>\n  </body>\n</html>\n",
+      "elapsed": 6,
+      "size": 442
+    },
+    "source": "human"
+  },
+  {
+    "id": "req-1794105888829",
+    "ts": "2026-11-08T02:44:48.829Z",
+    "method": "GET",
+    "url": "http://localhost:4318/api/space/skills",
+    "status": 0,
+    "elapsed": 3,
+    "headers": [],
+    "body": "",
+    "streamMode": false,
+    "response": {
+      "status": 0,
+      "statusText": "Network Error",
+      "headers": {},
+      "body": "fetch failed",
+      "elapsed": 3,
+      "size": 0,
+      "error": true
+    },
+    "source": "agent",
+    "agent": "cu-feature"
+  },
+  {
     "id": "req-1794035995868",
     "ts": "2026-11-07T07:19:55.868Z",
     "method": "GET",

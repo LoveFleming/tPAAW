@@ -1,20 +1,21 @@
 /**
- * HandoverPanel — 🤝 交接頁
+ * HandoverPanel — 🤝 交接頁（v2 — 2026-11-08 Fleming 改版）
  *
- * 「人要可以很容易懂、可以接手、指揮 AI 開發和維運」
+ * 面向式交接文件（AI 一鍵生成，人不介入）：
+ *   專案定位 / 技術棧 / Storage / 外部服務與金鑰 / 認證 / Cache / 高風險區
+ *   / AI 開發方式（SA 開 task → EM 派工）/ 怎麼跑起來 / 疑難排解 FAQ（helpdesk agent）
+ *   + ✍️ Remarks 人員注記（人工資產 — 重生成永不覆蓋）
  *
- * 左：交接包（專案是什麼/為什麼這樣設計/最近改什麼/進行中/怎麼跑）
- *     + 一鍵生成 .paaw/HANDOVER.md
+ * 移除（Fleming 2026-11-08）：Git 演進史、進行中工作（不需要）、舊 brief 摘要卡
+ *
  * 右：Handover AI 助理（新人問答，context 帶知識庫）
- *
- * 空狀態：.paaw/ 不存在或知識檔案缺 → 引導先跑 Code Understanding。
  */
 
 import React, { useState, useEffect, useCallback, Component, useMemo, useRef } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
-import { useColResize, ColResizer } from "./ColResizer"; // 2026-10-09：side chat 左右 splitter
+import { useColResize, ColResizer } from "./ColResizer";
 import MarkdownText from "./MarkdownText";
 
 class HandoverErrorBoundary extends Component<{ children: React.ReactNode }, { error: Error | null }> {
@@ -39,12 +40,8 @@ class HandoverErrorBoundary extends Component<{ children: React.ReactNode }, { e
 function SafeMarkdown({ content }: { content: string }) {
   const [parseError, setParseError] = useState<string | null>(null);
   const sanitized = useMemo(() => {
-    // Pre-sanitize: escape patterns known to crash react-markdown 10
-    // 1. Remove raw HTML that might break the parser
-    // 2. Ensure code blocks are properly closed
     try {
       let md = content;
-      // Count code fences — if odd, append closing fence
       const fenceCount = (md.match(/```/g) || []).length;
       if (fenceCount % 2 !== 0) md += "\n```";
       return md;
@@ -87,11 +84,32 @@ interface HandoverBundle {
   hasKnowledge: boolean;
 }
 
+// Handover 文件 v2（2026-11-08 Fleming）：面向式交接 — 與 server HO_DOC_SECTIONS 對齊
+const DOC_SECTIONS: { key: string; icon: string }[] = [
+  { key: "positioning", icon: "🎯" },
+  { key: "techStack", icon: "🧱" },
+  { key: "storage", icon: "💾" },
+  { key: "externalServices", icon: "🔌" },
+  { key: "auth", icon: "🔐" },
+  { key: "cache", icon: "⚡" },
+  { key: "risks", icon: "⚠️" },
+  { key: "aiWorkflow", icon: "🛠️" },
+  { key: "quickstart", icon: "▶️" },
+];
+
+interface HandoverDoc {
+  version: number;
+  generatedAt: string;
+  sections: Record<string, string>;
+  faq: string;
+  meta?: Record<string, any>;
+}
+
 interface Props {
   rootPath: string;
   theme: any;
   onOpenEMDashboard?: () => void;
-  /** 2026-10-09：keep-mounted 下切回 tab 時要重新拉 state（commit 後畫面不再停在舊快照） */
+  /** keep-mounted 下切回 tab 時要重新拉 state */
   active?: boolean;
 }
 
@@ -100,17 +118,16 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
   const [bundle, setBundle] = useState<HandoverBundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandSection, setExpandSection] = useState<string | null>(null);
-  // 2026-10-10 Fleming：新人 12 問 tab 移除（過度設計）— 單欄交接包 + AI 摘要 + 人員注記
-  // AI 摘要包（brief）：懶生成 — 進頁 GET，無快取自動 POST 生成（平時/CU 不燒 token）
-  const [brief, setBrief] = useState<any | null>(null);
-  const [briefLoading, setBriefLoading] = useState(false);
+  // Handover 文件 v2（2026-11-08）：一鍵生成 — 人不介入
+  const [doc, setDoc] = useState<HandoverDoc | null>(null);
+  const [docLoading, setDocLoading] = useState(false);
+  const [docError, setDocError] = useState<string | null>(null);
   const [remarks, setRemarks] = useState<{ id: string; target: string; text: string; author: string; at: string }[]>([]);
   const [remarkText, setRemarkText] = useState("");
   const [remarkSaving, setRemarkSaving] = useState(false);
   const chatRef = useRef<AgentSideChatHandle>(null);
   const composingRef = useRef(false); // IME composition 三層保護（2026-07-04 紀律）
-  // 2026-10-09 Fleming：Handover side chat 左右 splitter + 對話持久化 + model selector（跟 QA browser 同款）
-  const hoPane = useColResize(520, 300, 760); // 2026-10-09：與 Troubleshooting/Release Manager 統一
+  const hoPane = useColResize(520, 300, 760);
 
   const refresh = useCallback(async () => {
     if (!rootPath) return;
@@ -124,7 +141,6 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
         return;
       }
       const data = await res.json();
-      // Validate shape
       if (!data || typeof data !== "object" || !("initialized" in data)) {
         console.error("[Handover] unexpected bundle shape:", data);
         setBundle(null);
@@ -141,85 +157,38 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
   }, [rootPath]);
 
   useEffect(() => { refresh(); }, [refresh]);
-  // 2026-10-09 Fleming：keep-mounted 模式下切回 handover tab 時重新拉 — 否則 commit 後畫面還在舊快照（「都 commit 了為何還有 9 個未提交」）
   useEffect(() => { if (active) refresh(); }, [active, refresh]);
 
-  const section = (key: string, icon: string, title: string, content: string | null) => {
-    const has = !!content?.trim();
-    const isOpen = expandSection === key;
-    // 2026-10-09 Fleming：knowledge 顯示清洗 — schema marker/元資料/placeholder 濾掉、連續重複行去重、標題降兩級（字體跟其他區塊一致）
-    const cleanKnowledge = (raw: string) => {
-      const lines = raw.split("\n").filter(l => {
-        const s = l.trim();
-        if (/^<!--[\s\S]*-->$/.test(s)) return false;              // <!-- ... --> marker 註解
-        if (/^>\s*📄/.test(l)) return false;                          // > 📄 Schema v2 ·… 元資料
-        if (/^（人在 UI 或直接編輯/.test(s)) return false;               // user 區 placeholder
-        return true;
-      });
-      const dedup: string[] = [];
-      for (const l of lines) {
-        if (l.trim() !== "" && dedup.length && dedup[dedup.length - 1].trim() === l.trim()) continue;
-        dedup.push(l);
-      }
-      return dedup.join("\n")
-        .replace(/^### /gm, "##### ")   // 先長後短（避免二次替換）
-        .replace(/^## /gm, "#### ")
-        .replace(/^# /gm, "### ");
-    };
-    const shown = has ? cleanKnowledge(content!) : null;
-    return (
-      <div key={key} className="border rounded-xl overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
-        <button onClick={() => setExpandSection(isOpen ? null : key)}
-          className="w-full flex items-center gap-2 px-3.5 py-2.5 hover:bg-stone-50 text-left">
-          <span>{icon}</span>
-          <span className="text-xs font-bold text-stone-700">{title}</span>
-          {!has && <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-400">{t("ho.missing")}</span>}
-          <span className="ml-auto text-[10px] text-stone-400">{isOpen ? "▾" : "▸"}</span>
-        </button>
-        {isOpen && (
-          <div className="border-t px-3.5 py-2.5" style={{ borderColor: tk.borderLight }}>
-            {shown ? (
-              /* 2026-10-09 Fleming：main info 內容字級與 Troubleshooting/Release Manager 對齊（11px）—
-                 MarkdownText root 的 text-sm(14px) 會蓋掉外層，這裡用 arbitrary variants 壓回來（不動共用元件） */
-              <div className="text-[11px] text-stone-600 leading-relaxed [&_.md-content]:!text-[11px] [&_.md-content_h1]:!text-xs [&_.md-content_h2]:!text-xs [&_.md-content_h3]:!text-[11px] [&_.md-content_h4]:!text-[11px] [&_.md-content_h5]:!text-[11px] [&_.md-content_p]:!text-[11px] [&_.md-content_li]:!text-[11px] [&_.md-content_td]:!text-[11px]">
-                <SafeMarkdown content={shown} />
-              </div>
-            ) : (
-              <div className="text-[11px] text-stone-400">{t("ho.missingDesc")}</div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // ── brief 懶生成（2026-10-10 16:20 Fleming 修正：進頁只讀快取，不自動生成 — 按按鈕才觸發）──
-  const loadBrief = useCallback(async () => {
+  // Handover 文件 v2：讀快取（進頁零 Token）+ 一鍵生成（POST — 掃專案生最新）
+  const loadDoc = useCallback(async () => {
     if (!rootPath) return;
     try {
-      const r = await fetch(`${API_BASE}/api/coding-handover/brief?path=${encodeURIComponent(rootPath)}`);
+      const r = await fetch(`${API_BASE}/api/coding-handover/doc?path=${encodeURIComponent(rootPath)}`);
       if (r.ok) {
         const d = await r.json();
-        setBrief(d.brief || null); setRemarks(d.remarks || []);
+        setDoc(d.doc || null);
+        if (d.remarks) setRemarks(d.remarks || []);
       }
     } catch { /* silent */ }
   }, [rootPath]);
 
-  const generateBrief = useCallback(async () => {
-    if (!rootPath || briefLoading) return;
-    setBriefLoading(true);
+  const generateDoc = useCallback(async () => {
+    if (!rootPath || docLoading) return;
+    setDocLoading(true); setDocError(null);
     try {
-      const r = await fetch(`${API_BASE}/api/coding-handover/brief?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+      const r = await fetch(`${API_BASE}/api/coding-handover/doc?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
       if (r.ok) {
         const d = await r.json();
-        setBrief(d.brief); setRemarks(d.remarks || []);
+        setDoc(d.doc);
+        if (d.remarks) setRemarks(d.remarks || []);
+      } else {
+        setDocError((await r.json().catch(() => ({}))).error || t("ho.doc.failed"));
       }
-    } catch { /* 生成失敗 — 顯示 deterministic 區不受影響 */ }
-    setBriefLoading(false);
-  }, [rootPath, briefLoading]);
+    } catch { setDocError(t("ho.doc.failed")); }
+    setDocLoading(false);
+  }, [rootPath, docLoading, t]);
 
-  // 進頁：只讀快取 + remarks，絕不碰 LLM
-  useEffect(() => { if (active && bundle?.initialized && bundle.hasKnowledge) loadBrief(); }, [active, bundle?.initialized, bundle?.hasKnowledge, loadBrief]);
+  useEffect(() => { if (active && bundle?.initialized) loadDoc(); }, [active, bundle?.initialized, loadDoc]);
 
   const addRemark = useCallback(async () => {
     const text = remarkText.trim();
@@ -243,6 +212,28 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
     } catch { /* silent */ }
   }, [rootPath]);
 
+  /** 面向 section 卡（AI 產生內容） */
+  const docSection = (key: string, icon: string, content: string) => {
+    const isOpen = expandSection === key;
+    return (
+      <div key={key} className="border rounded-xl overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
+        <button onClick={() => setExpandSection(isOpen ? null : key)}
+          className="w-full flex items-center gap-2 px-3.5 py-2.5 hover:bg-stone-50 text-left">
+          <span>{icon}</span>
+          <span className="text-xs font-bold text-stone-700">{t(`ho.doc.sec.${key}`)}</span>
+          <span className="ml-auto text-[10px] text-stone-400">{isOpen ? "▾" : "▸"}</span>
+        </button>
+        {isOpen && (
+          <div className="border-t px-3.5 py-2.5" style={{ borderColor: tk.borderLight }}>
+            <div className="text-[11px] text-stone-600 leading-relaxed [&_.md-content]:!text-[11px] [&_.md-content_h1]:!text-xs [&_.md-content_h2]:!text-xs [&_.md-content_h3]:!text-[11px] [&_.md-content_h4]:!text-[11px] [&_.md-content_p]:!text-[11px] [&_.md-content_li]:!text-[11px] [&_.md-content_code]:!text-[10px]">
+              <SafeMarkdown content={content} />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <HandoverErrorBoundary>
     <div className="flex h-full min-h-0">
@@ -256,17 +247,13 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
 
         {loading && <div className="p-8 text-center text-xs text-stone-400 animate-pulse">{t("common.loading")}</div>}
 
-        {/* ═══ 空狀態：未初始化或無知識 ═══ */}
-        {!loading && bundle && (!bundle.initialized || !bundle.hasKnowledge) && (
+        {/* ═══ 空狀態：未初始化 ═══ */}
+        {!loading && bundle && !bundle.initialized && (
           <div className="p-8">
             <div className="max-w-md mx-auto text-center border rounded-xl p-6 bg-stone-50" style={{ borderColor: tk.borderLight }}>
-              <div className="text-3xl mb-2">{bundle.initialized ? "📖" : "🌱"}</div>
-              <h3 className="text-sm font-bold text-stone-700 mb-1">
-                {bundle.initialized ? t("ho.emptyNoKnowledge.title") : t("ho.emptyInit.title")}
-              </h3>
-              <p className="text-xs text-stone-500 leading-relaxed mb-4">
-                {bundle.initialized ? t("ho.emptyNoKnowledge.desc") : t("ho.emptyInit.desc")}
-              </p>
+              <div className="text-3xl mb-2">🌱</div>
+              <h3 className="text-sm font-bold text-stone-700 mb-1">{t("ho.emptyInit.title")}</h3>
+              <p className="text-xs text-stone-500 leading-relaxed mb-4">{t("ho.emptyInit.desc")}</p>
               {onOpenEMDashboard && (
                 <button onClick={onOpenEMDashboard}
                   className="text-xs px-4 py-2 rounded-lg text-white" style={{ backgroundColor: tk.accent }}>
@@ -277,126 +264,60 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
           </div>
         )}
 
-        {/* ═══ 交接包（2026-10-10：12 問 tab 移除 — 單欄）═══ */}
-        {!loading && bundle?.initialized && bundle.hasKnowledge && (
+        {/* ═══ Handover 文件 v2（2026-11-08 Fleming：面向式 — 一鍵生成，人不介入）═══ */}
+        {!loading && bundle?.initialized && (
           <div>
           <div className="p-5 space-y-4">
 
-            {/* ── 🧠 AI 摘要包（brief：懶生成 — 進頁觸發一次）── */}
+            {/* ── 一鍵生成 header card ── */}
             <div className="border rounded-xl overflow-hidden bg-gradient-to-b from-blue-50/60 to-white" style={{ borderColor: tk.borderLight }}>
               <div className="flex items-center gap-2 px-3.5 py-2.5">
                 <span>🧠</span>
-                <span className="text-xs font-bold text-stone-700">{t("ho.brief.title")}</span>
+                <span className="text-xs font-bold text-stone-700">{t("ho.title")} — AI 交接文件</span>
                 <span className="ml-auto flex items-center gap-2">
-                  {brief?.generatedAt && <span className="text-[10px] text-stone-400">{brief.generatedAt.slice(0, 16).replace("T", " ")}</span>}
-                  {brief && <button onClick={generateBrief} disabled={briefLoading}
-                    className="text-[10px] px-2 py-0.5 rounded border disabled:opacity-40 hover:bg-stone-50" style={{ borderColor: tk.borderLight }}>
-                    {briefLoading ? "…" : `↻ ${t("ho.brief.regenerate")}`}
-                  </button>}
+                  {doc?.generatedAt && <span className="text-[10px] text-stone-400">{doc.generatedAt.slice(0, 16).replace("T", " ")}</span>}
+                  <button onClick={generateDoc} disabled={docLoading}
+                    className="text-[10px] px-2.5 py-1 rounded border disabled:opacity-40 hover:bg-stone-50 font-medium" style={{ borderColor: tk.borderLight }}>
+                    {docLoading ? "⏳ …" : `🔄 ${doc ? t("ho.doc.regenerate") : t("ho.doc.generate")}`}
+                  </button>
                 </span>
               </div>
-              <div className="border-t px-3.5 py-2.5 space-y-2.5" style={{ borderColor: tk.borderLight }}>
-                {briefLoading && !brief && <div className="text-[11px] text-stone-400 animate-pulse">{t("ho.brief.generating")}</div>}
-                {!briefLoading && !brief && (
+              <div className="border-t px-3.5 py-2.5" style={{ borderColor: tk.borderLight }}>
+                {docLoading && <div className="text-[11px] text-stone-400 animate-pulse">{t("ho.doc.generating")}</div>}
+                {!docLoading && !doc && (
                   <div className="flex items-center gap-3">
-                    <span className="text-[11px] text-stone-400">{t("ho.brief.none")}</span>
-                    <button onClick={generateBrief} className="text-[11px] px-3 py-1.5 rounded-lg text-white font-medium" style={{ backgroundColor: tk.accent }}>✨ {t("ho.brief.generate")}</button>
+                    <span className="text-[11px] text-stone-400">{t("ho.doc.none")}</span>
+                    <button onClick={generateDoc} className="text-[11px] px-3 py-1.5 rounded-lg text-white font-medium" style={{ backgroundColor: tk.accent }}>{t("ho.doc.generate")}</button>
                   </div>
                 )}
-                {brief?.ai?.error && <div className="text-[11px] text-amber-600">⚠️ {brief.ai.error}</div>}
-                {brief?.ai?.summary && <div className="text-[12px] text-stone-700 font-medium leading-relaxed">{brief.ai.summary}</div>}
-                {brief?.ai?.dangerZones?.length > 0 && (
-                  <div className="bg-red-50 rounded-lg p-2 space-y-0.5">
-                    <div className="text-[10px] font-bold text-red-700">⚠️ {t("ho.brief.danger")}</div>
-                    {brief.ai.dangerZones.map((z: string, i: number) => <div key={i} className="text-[11px] text-red-600">• {z}</div>)}
-                  </div>
-                )}
-                {brief?.ai?.quickstart && (brief.ai.quickstart.steps?.length > 0 || brief.ai.quickstart.env?.length > 0) && (
-                  <div>
-                    <div className="text-[10px] font-bold text-stone-500 mb-0.5">▶️ {t("ho.brief.quickstart")}</div>
-                    {brief.ai.quickstart.env?.length > 0 && <div className="text-[10px] text-stone-500 mb-1">{brief.ai.quickstart.env.join(" · ")}</div>}
-                    {brief.ai.quickstart.steps?.map((st: string, i: number) => (
-                      <div key={i} className="text-[11px] text-stone-600 flex gap-1.5"><span className="text-stone-400 font-mono">{i + 1}.</span><span>{st}</span></div>
-                    ))}
-                  </div>
-                )}
-                {brief?.ai?.decisions?.length > 0 && (
-                  <div>
-                    <div className="text-[10px] font-bold text-stone-500 mb-0.5">🏛 {t("ho.brief.decisions")}</div>
-                    {brief.ai.decisions.map((d: any, i: number) => (
-                      <div key={i} className="text-[11px] text-stone-600 leading-relaxed">
-                        • <span className="font-medium">{d.title}</span>{d.gap ? <span className="text-amber-600">（{t("ho.brief.gap")}）</span> : null}
-                        <span className="text-stone-500"> — {d.why}</span>
-                        {d.evidence && !d.gap && <span className="text-stone-400 font-mono text-[10px]"> [{d.evidence.slice(0, 40)}]</span>}
-                      </div>
-                    ))}
-                  </div>
+                {docError && <div className="text-[11px] text-red-600">⚠️ {docError}</div>}
+                {doc && !docLoading && Object.keys(doc.sections).length < DOC_SECTIONS.length - 1 && (
+                  <div className="text-[10px] text-amber-600">{t("ho.doc.partial")}</div>
                 )}
               </div>
             </div>
-            {section("project", "🎯", t("ho.sec.project"), bundle.knowledge.project)}
 
-            {/* Git 歷史 */}
-            <div className="border rounded-xl overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
-              <button onClick={() => setExpandSection(expandSection === "git" ? null : "git")}
-                className="w-full flex items-center gap-2 px-3.5 py-2.5 hover:bg-stone-50 text-left">
-                <span>🔄</span>
-                <span className="text-xs font-bold text-stone-700">{t("ho.sec.gitLog")}</span>
-                <span className="ml-auto text-[10px] text-stone-400">{expandSection === "git" ? "▾" : "▸"}</span>
-              </button>
-              {expandSection === "git" && (
-                <div className="border-t px-3.5 py-2.5 max-h-56 overflow-y-auto" style={{ borderColor: tk.borderLight }}>
-                  {bundle.git.log.length ? (
-                    <pre className="text-[10px] font-mono text-stone-600 leading-relaxed">{bundle.git.log.join("\n")}</pre>
-                  ) : (
-                    <div className="text-[11px] text-stone-400">{t("ho.noGit")}</div>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* ── 各面向 section（AI 產生，有內容才顯示）── */}
+            {doc && DOC_SECTIONS.map(({ key, icon }) => {
+              const content = doc.sections?.[key];
+              if (!content?.trim()) return null;
+              return docSection(key, icon, content);
+            })}
 
-            {/* 進行中 task */}
-            <div className="border rounded-xl overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
-              <button onClick={() => setExpandSection(expandSection === "tasks" ? null : "tasks")}
-                className="w-full flex items-center gap-2 px-3.5 py-2.5 hover:bg-stone-50 text-left">
-                <span>📋</span>
-                <span className="text-xs font-bold text-stone-700">{t("ho.sec.activeTasks")}</span>
-                {bundle.activeTasks.length > 0 && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">{bundle.activeTasks.length}</span>}
-                <span className="ml-auto text-[10px] text-stone-400">{expandSection === "tasks" ? "▾" : "▸"}</span>
-              </button>
-              {expandSection === "tasks" && (
-                <div className="border-t px-3.5 py-2.5" style={{ borderColor: tk.borderLight }}>
-                  {bundle.activeTasks.length ? (
-                    <div className="space-y-1">
-                      {bundle.activeTasks.map(t2 => (
-                        <div key={t2.id} className="text-[11px] text-stone-600 flex gap-2">
-                          <span className={`px-1 rounded ${t2.status === "in-progress" ? "bg-blue-50 text-blue-600" : "bg-stone-100 text-stone-500"}`}>{t2.status}</span>
-                          <span className="font-mono text-stone-400">{t2.id}</span>
-                          <span className="truncate">{t2.title}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-[11px] text-stone-400">{t("ho.noActiveTasks")}</div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* 怎麼跑 */}
-            {bundle.package?.scripts && Object.keys(bundle.package.scripts).length > 0 && (
+            {/* ── 🚑 疑難排解 FAQ（helpdesk agent 回答）── */}
+            {doc?.faq && (
               <div className="border rounded-xl overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
-                <button onClick={() => setExpandSection(expandSection === "run" ? null : "run")}
+                <button onClick={() => setExpandSection(expandSection === "faq" ? null : "faq")}
                   className="w-full flex items-center gap-2 px-3.5 py-2.5 hover:bg-stone-50 text-left">
-                  <span>▶️</span>
-                  <span className="text-xs font-bold text-stone-700">{t("ho.sec.run")}</span>
-                  <span className="ml-auto text-[10px] text-stone-400">{expandSection === "run" ? "▾" : "▸"}</span>
+                  <span>🚑</span>
+                  <span className="text-xs font-bold text-stone-700">{t("ho.doc.faq")}</span>
+                  <span className="ml-auto text-[10px] text-stone-400">{expandSection === "faq" ? "▾" : "▸"}</span>
                 </button>
-                {expandSection === "run" && (
+                {expandSection === "faq" && (
                   <div className="border-t px-3.5 py-2.5" style={{ borderColor: tk.borderLight }}>
-                    <pre className="text-[10px] font-mono text-stone-600 leading-relaxed">
-                      {["dev", "start", "build", "test", "lint"].filter(s => bundle.package!.scripts[s]).map(s => `npm run ${s}`).join("\n")}
-                    </pre>
+                    <div className="text-[11px] text-stone-600 leading-relaxed [&_.md-content]:!text-[11px] [&_.md-content_h3]:!text-[11px] [&_.md-content_p]:!text-[11px] [&_.md-content_li]:!text-[11px]">
+                      <SafeMarkdown content={doc.faq} />
+                    </div>
                   </div>
                 )}
               </div>
@@ -447,7 +368,6 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
       </div>
 
       {/* ── 右：Handover AI 助理 ── */}
-      {/* 2026-10-09 Fleming：跟 QA browser 同款 — splitter 可拖寬 + 三按鈕（persistCrewId）+ model selector */}
       <ColResizer onDown={hoPane.startDrag} className="hidden md:block" />
       <div className="shrink-0 hidden md:block" style={{ width: hoPane.width }}>
         <AgentSideChat ref={chatRef}
@@ -472,4 +392,3 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
     </HandoverErrorBoundary>
   );
 }
-

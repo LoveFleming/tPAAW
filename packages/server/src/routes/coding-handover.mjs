@@ -21,12 +21,12 @@
  */
 
 import { readFile, writeFile } from "fs/promises";
-import { existsSync } from "fs";
+import { existsSync, readdirSync, statSync, readFileSync } from "fs";
 import { join } from "path";
 import { exec as _exec } from "child_process";
 import { promisify } from "util";
 import { buildHandoverState, writeHandoverState, loadHandoverState } from "../lib/release-unit/handover-state.mjs";
-import { callProjectLLM } from "./coding-helpers.mjs"; // 2026-11-08 修：coding.mjs 已改 import 不再 re-export，6 模組載入失敗
+import { callProjectLLM, PAAW_ROOT } from "./coding-helpers.mjs"; // 2026-11-08 修：coding.mjs 已改 import 不再 re-export，6 模組載入失敗
 import { stableStringify } from "../lib/stable-stringify.mjs";
 import { loadFeatures } from "../lib/feature-registry.mjs";
 
@@ -282,6 +282,219 @@ Rules: decisions 最多 8 條；evidence 必須真實存在於 git log/task — 
 
 // ── Route Handler ──
 
+// ═══ Handover 文件 v2 — 證據採集 + 一鍵生成（2026-11-08）═══
+
+function handoverDocPath(projectPath) { return join(projectPath, ".paaw", "handover", "handover-doc.json"); } // nosemgrep: path-join-resolve-traversal — local-first
+
+async function loadHandoverDoc(projectPath) {
+  try { return JSON.parse(await readFile(handoverDocPath(projectPath), "utf-8")); } catch { return null; }
+}
+
+// 跨平台檔案掃描（MEMORY 紀律：絕不用 Unix find/grep — 公司 Windows 會炸）
+function walkProject(projectPath, { maxFiles = 500, maxDepth = 4, maxBytes = 200 * 1024 } = {}) {
+  const SKIP = new Set(["node_modules", ".git", "dist", "build", ".next", "coverage", "vendor", ".paaw", "tmp", ".cache", "__pycache__"]);
+  const files = [];
+  const walk = (dir, depth) => {
+    if (files.length >= maxFiles || depth > maxDepth) return;
+    let entries;
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (files.length >= maxFiles) return;
+      const p = join(dir, e.name);
+      if (e.isDirectory()) { if (!SKIP.has(e.name)) walk(p, depth + 1); continue; }
+      if (!e.isFile()) continue;
+      let st; try { st = statSync(p); } catch { continue; }
+      if (st.size > maxBytes) continue;
+      files.push({ path: p, rel: p.slice(projectPath.length + 1), size: st.size });
+    }
+  };
+  walk(projectPath, 0);
+  return files;
+}
+
+async function collectDocFacts(projectPath) {
+  const facts = {
+    pkg: null, scripts: {}, envKeys: [], hasEnvExample: false,
+    dbFiles: [], dataDirs: [], sqliteDeps: [],
+    externalDeps: [], authFiles: [], cacheFiles: [], portHits: [],
+    riskFeatures: [], hotFiles: [], aiWorkflow: {}, readmeHead: "",
+  };
+  try {
+    const pkg = JSON.parse(await readFile(join(projectPath, "package.json"), "utf-8"));
+    facts.pkg = { name: pkg.name, version: pkg.version, workspaces: pkg.workspaces || null };
+    facts.scripts = pkg.scripts || {};
+    const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+    const depNames = Object.keys(deps);
+    const SERVICE_PATTERNS = {
+      "OpenAI": /openai/, "Anthropic/Claude": /anthropic/, "Google AI": /(@google|gemini)/, "AWS": /aws-sdk|@aws/, "Cloudflare": /wrangler|cloudflare/,
+      "LINE": /linebot|@line/, "Slack": /@slack|slack-sdk/, "Discord": /discord\.js/, "Telegram": /telegraf|grammy/, "Stripe": /stripe/,
+      "SMTP/Email": /nodemailer|@sendgrid/, "Redis": /redis|ioredis/, "SQLite": /better-sqlite3|sqlite3|prisma|drizzle|@libsql/,
+      "Playwright/瀏覽器": /playwright|puppeteer/, "向量库": /chromadb|qdrant|pinecone|pgvector/,
+    };
+    for (const [label, re] of Object.entries(SERVICE_PATTERNS)) {
+      const hit = depNames.filter(d => re.test(d));
+      if (hit.length) { facts.externalDeps.push(`${label}: ${hit.slice(0, 3).join(", ")}`); if (/SQLite|Redis/.test(label)) facts.sqliteDeps.push(label); }
+    }
+  } catch { /* 無 package.json */ }
+  // env key 名（絕不讀值）
+  for (const envName of [".env.example", ".env"]) {
+    const p = join(projectPath, envName);
+    if (!existsSync(p)) continue;
+    if (envName === ".env.example") facts.hasEnvExample = true;
+    try {
+      const keys = (await readFile(p, "utf-8")).split("\n").map(l => l.split("=")[0].trim()).filter(k => k && !k.startsWith("#"));
+      facts.envKeys.push(...keys.slice(0, 30));
+    } catch { /* EPERM */ }
+  }
+  facts.envKeys = [...new Set(facts.envKeys)];
+  // 檔案掃描（node_modules/.git/.paaw 跳過）
+  const files = walkProject(projectPath);
+  for (const f of files) {
+    const low = f.rel.toLowerCase();
+    if (/\.(db|sqlite|sqlite3)$/.test(low)) facts.dbFiles.push(f.rel);
+    if (/(^|\/)(data|uploads?|storage|assets)\//.test(low) && !facts.dataDirs.includes(low.split("/")[0])) facts.dataDirs.push(low.split("/")[0] + "/");
+    if (/(auth|login|session|jwt|passport|middleware)/.test(low) && /\.(ts|tsx|mjs|js|py)$/.test(low)) facts.authFiles.push(f.rel);
+    if (/cache/.test(low) && /\.(ts|tsx|mjs|js)$/.test(low)) facts.cacheFiles.push(f.rel);
+  }
+  facts.dbFiles = facts.dbFiles.slice(0, 10); facts.dataDirs = facts.dataDirs.slice(0, 6);
+  facts.authFiles = facts.authFiles.slice(0, 12); facts.cacheFiles = facts.cacheFiles.slice(0, 12);
+  // 內容掃描：port / cache 使用點 / 認證機制線索（讀前 200 檔內容，200KB 上限已在 walk 過濾）
+  try {
+    const fsMod = _requireFs();
+    let scanned = 0;
+    for (const f of files) {
+      if (scanned >= 200) break;
+      if (!/\.(ts|tsx|mjs|js|py|json|example)$/.test(f.rel)) continue;
+      let txt; try { txt = readFileSync(f.path, "utf-8"); } catch { continue; }
+      scanned++;
+      const port = txt.match(/port["'?\s:=]+(\d{4,5})/i);
+      if (port && facts.portHits.length < 6 && !facts.portHits.includes(port[1])) facts.portHits.push(port[1]);
+      if (/jwt\.sign|verifyToken|bearer|passport|bcrypt|argon2|createHash\(.{0,20}(password|secret)/i.test(txt) && !facts.authFiles.includes(f.rel)) facts.authFiles.push(f.rel);
+      if (/(in-memory cache|memoiz|lru|ttl|Cache-Control|max-age=|new Map\(\)[^;]{0,40}cache)/i.test(txt) && !facts.cacheFiles.includes(f.rel)) facts.cacheFiles.push(f.rel);
+    }
+  } catch { /* 掃描失敗不影響其他面向 */ }
+  facts.authFiles = facts.authFiles.slice(0, 14); facts.cacheFiles = facts.cacheFiles.slice(0, 14);
+  // 風險：S2/S1 features + git 熱點檔
+  try {
+    const features = loadFeatures(projectPath);
+    facts.riskFeatures = features.filter(f => ["S2", "S1"].includes(f.severity)).slice(0, 8).map(f => `${f.name}[${f.severity}]`);
+  } catch { /* coding.db 未建 */ }
+  try {
+    const { stdout } = await execAsync("git log --name-only --pretty=format: -100", { cwd: projectPath, timeout: 10000 });
+    const counts = {};
+    for (const l of stdout.split("\n")) { const t = l.trim(); if (t) counts[t] = (counts[t] || 0) + 1; }
+    facts.hotFiles = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([f, c]) => `${f} (${c}次)`);
+  } catch { /* 非 git repo */ }
+  // AI 工作流線索
+  facts.aiWorkflow = {
+    hasPaaw: existsSync(join(projectPath, ".paaw")),
+    hasTasks: existsSync(join(projectPath, ".paaw", "tasks", "TASKS.json")),
+    hasCrews: existsSync(join(projectPath, ".paaw", "agents")),
+    hasCodingDb: existsSync(join(projectPath, ".paaw", "coding.db")),
+  };
+  // README 開頭
+  for (const rn of ["README.md", "README.zh-TW.md", "readme.md"]) {
+    const p = join(projectPath, rn);
+    if (existsSync(p)) { try { facts.readmeHead = (await readFile(p, "utf-8")).slice(0, 800); } catch {} break; }
+  }
+  return facts;
+}
+
+const HO_DOC_SECTIONS = [
+  { key: "positioning", icon: "🎯", title: "專案定位" },
+  { key: "techStack", icon: "🧱", title: "技術棧" },
+  { key: "storage", icon: "💾", title: "Storage 資料儲存" },
+  { key: "externalServices", icon: "🔌", title: "外部服務與金鑰" },
+  { key: "auth", icon: "🔐", title: "認證方式" },
+  { key: "cache", icon: "⚡", title: "Cache 機制" },
+  { key: "risks", icon: "⚠️", title: "高風險區" },
+  { key: "aiWorkflow", icon: "🛠️", title: "AI 開發方式（教 AI 做事）" },
+  { key: "quickstart", icon: "▶️", title: "怎麼跑起來" },
+];
+
+async function generateHandoverDoc(projectPath) {
+  const facts = await collectDocFacts(projectPath);
+  const sectionList = HO_DOC_SECTIONS.map(s => `- ${s.key}（${s.title}）`).join("\n");
+  const prompt = `你是資深工程師，為下一位接手「${facts.pkg?.name || "此專案"}」的人寫交接文件。只能根據以下真實掃描證據寫，寫不出來的面向誠實標「（未發現線索，需人工確認）」，絕不編造。
+
+證據（自動掃描）：
+- package: ${JSON.stringify(facts.pkg)}${facts.pkg?.workspaces ? "（monorepo workspaces）" : ""}
+- scripts: ${JSON.stringify(facts.scripts).slice(0, 500)}
+- env 變數名（只有名字，值不外洩）: ${facts.envKeys.slice(0, 20).join(", ") || "（無 .env）"}${facts.hasEnvExample ? "；有 .env.example" : ""}
+- DB 檔案: ${facts.dbFiles.join(", ") || "（沒掃到 .db/.sqlite）"}；DB 相關依賴: ${facts.sqliteDeps.join(", ") || "無"}
+- 資料目錄: ${facts.dataDirs.join(", ") || "（無 data/uploads/storage 目錄）"}
+- 外部服務依賴: ${facts.externalDeps.join("；") || "（無已知第三方服務依賴）"}
+- 認證相關檔案: ${facts.authFiles.join(", ") || "（未掃到 auth/login/session/jwt 檔）"}
+- Cache 相關檔案: ${facts.cacheFiles.join(", ") || "（未掃到 cache 相關檔）"}
+- Port 線索: ${facts.portHits.join(", ") || "（未掃到）"}
+- 高風險 features（S1/S2）: ${facts.riskFeatures.join(", ") || "（無 severity 標記或 coding.db 未建）"}
+- Git 熱點檔（最近 100 commits 最多改）: ${facts.hotFiles.join(", ") || "（非 git repo）"}
+- AI 工作流: .paaw=${facts.aiWorkflow.hasPaaw} TASKS.json=${facts.aiWorkflow.hasTasks} coding.db=${facts.aiWorkflow.hasCodingDb}
+- README 開頭：\n${facts.readmeHead || "（無 README）"}
+
+輸出 STRICT JSON（無 markdown fence）：
+{
+${HO_DOC_SECTIONS.map(s => `  "${s.key}": "markdown 字串（zh-TW，精簡，每節 3-8 行，可用列表）"`).join(",\n")}
+}
+規則：storage 要講「哪些資料在哪、哪些是使用者資料不能亂刪」；externalServices 要列服務+金鑰在 .env 的變數名；auth 描述登入/token 機制與檔案位置；cache 講哪裡有 cache/何時失效/改資料要清什麼；risks 結合熱點檔+severity；aiWorkflow 教「在 PAAW coding app 裡怎麼開發此專案：SA 開 task → EM 派工給 developer/tester → 委員會 review → release」，並註明專案的 .paaw 狀態；quickstart 給實際 npm 指令（從 scripts）+ env 設定步驟。`;
+
+  const [mainRes, faqMd] = await Promise.all([
+    callProjectLLM({
+      messages: [
+        { role: "system", content: "You are a precise code analyst. Output STRICT JSON only." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.2,
+    }, { caller: "handover-doc" }),
+    generateHelpdeskFaq(projectPath, facts),
+  ]);
+
+  let sections = {};
+  try {
+    const m = (mainRes?.content || "").match(/\{[\s\S]*\}/);
+    const d = JSON.parse(m[0]);
+    for (const s of HO_DOC_SECTIONS) {
+      if (typeof d[s.key] === "string" && d[s.key].trim()) sections[s.key] = d[s.key].slice(0, 4000);
+    }
+  } catch { /* JSON 解析失敗 → sections 空手，UI 顯示失敗訊息 */ }
+  if (!Object.keys(sections).length) throw new Error("AI 未回傳可解析的 sections");
+  const doc = {
+    version: 2,
+    generatedAt: new Date().toISOString(),
+    sections,
+    faq: faqMd || "（FAQ 生成失敗 — 可重新一鍵生成）",
+    meta: { filesScanned: true, envKeyCount: facts.envKeys.length },
+  };
+  const { mkdir } = await import("fs/promises");
+  await mkdir(join(projectPath, ".paaw", "handover"), { recursive: true }); // nosemgrep: detect-non-literal-fs-filename — local-first
+  await writeFile(handoverDocPath(projectPath), stableStringify(doc) + "\n", "utf-8"); // nosemgrep: detect-non-literal-fs-filename — local-first
+  return doc;
+}
+
+// 疑難排解 FAQ：helpdesk agent 的 rolePrompt + 專案證據 → 常見問題 Q&A（Fleming 2026-11-08：疑難排解要 helpdesk agent 回答）
+async function generateHelpdeskFaq(projectPath, facts) {
+  let rolePrompt = "";
+  try {
+    const crewFile = join(PAAW_ROOT, "packages", "modules", "coding", "crews", "coding.helpdesk.json");
+    const alt = join(PAAW_ROOT, "data", "crews", "coding.helpdesk.json");
+    rolePrompt = existsSync(crewFile) ? (await readFile(crewFile, "utf-8")) : existsSync(alt) ? (await readFile(alt, "utf-8")) : "";
+    rolePrompt = (JSON.parse(rolePrompt).rolePrompt || "").slice(0, 1500);
+  } catch { /* fallback 空白 — 用通用 helpdesk 語氣 */ }
+  const q = `專案「${facts.pkg?.name || "?"}」交接 FAQ：請根據證據回答 5-7 個接手的人最常問的問題（怎麼跑起來/測試怎麼跑/db 壞了怎麼辦/環境變數缺了會怎樣/log 在哪看/改了前端沒生效…依證據調整）。
+證據：scripts=${JSON.stringify(facts.scripts).slice(0, 300)}；env keys=${facts.envKeys.slice(0, 15).join(",")}；db=${facts.dbFiles.join(",")}；ports=${facts.portHits.join(",")}。
+輸出 markdown（zh-TW）：### Q：…\n答：…每題 2-4 行，不確定的誠實說。`;
+  try {
+    const r = await callProjectLLM({
+      messages: [
+    { role: "system", content: rolePrompt || "你是細心的事案 helpdesk 工程師，回答精準誠實。" },
+        { role: "user", content: q },
+      ],
+      temperature: 0.3,
+    }, { caller: "handover-faq" });
+    return (r?.content || "").slice(0, 4000);
+  } catch { return null; }
+}
+
 export default async function handoverRoutes(req, res, next) {
   const method = req.method;
   const rawUrl = req.url || "";
@@ -360,6 +573,25 @@ export default async function handoverRoutes(req, res, next) {
     const remarks = (await loadRemarks(projectPath)).filter(r => r.id !== id);
     await saveJson(remarksFilePath(projectPath), remarks);
     return res.json({ ok: true, remarks });
+  }
+
+  // ═══ Handover 文件 v2（2026-11-08 Fleming：面向式交接 — 一鍵生成，人不介入）═══
+  // 面向：專案定位/技術棧/Storage/外部服務/認證/Cache/高風險區/AI 開發方式（SA 開 task→EM 派工）/怎麼跑起來 — AI 從專案實檔採證據生 markdown；疑難排解 = helpdesk agent 出 FAQ。Remarks 人工永遠不動。
+  if (url === "/api/coding-handover/doc" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first
+    const doc = await loadHandoverDoc(projectPath);
+    const remarks = await loadRemarks(projectPath);
+    return res.json({ doc, remarks });
+  }
+  if (url === "/api/coding-handover/doc" && method === "POST") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first
+    try {
+      const doc = await generateHandoverDoc(projectPath);
+      return res.json({ ok: true, doc, remarks: await loadRemarks(projectPath) });
+    } catch (err) {
+      console.error("[handover-doc] generate failed:", err?.message || err);
+      return res.status(500).json({ error: `生成失敗：${String(err?.message || err).slice(0, 200)}` });
+    }
   }
 
   if (url === "/api/coding-handover/generate" && method === "POST") {

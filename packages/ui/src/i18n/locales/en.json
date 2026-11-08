@@ -2157,5 +2157,21 @@
   "dw.catLoadFail": "Failed to load catalog",
   "dw.rvDone": "Review board finished",
   "rm.e2eInvHint": "Deterministic extraction of test names + URLs from test code, cross-linked with the API Map; orphan = black-box gap",
-  "rm.e2eInvBlackbox": "Blackbox (UI-driven)"
+  "rm.e2eInvBlackbox": "Blackbox (UI-driven)",
+  "ho.doc.generate": "✨ Generate Handover",
+  "ho.doc.regenerate": "Regenerate",
+  "ho.doc.generating": "AI is scanning the project… (~30-90s)",
+  "ho.doc.none": "No handover doc yet — one click, AI scans the project",
+  "ho.doc.faq": "Troubleshooting FAQ (by helpdesk agent)",
+  "ho.doc.failed": "Generation failed",
+  "ho.doc.partial": "Some sections missing, regenerate",
+  "ho.doc.sec.positioning": "Project Positioning",
+  "ho.doc.sec.techStack": "Tech Stack",
+  "ho.doc.sec.storage": "Storage",
+  "ho.doc.sec.externalServices": "External Services & Keys",
+  "ho.doc.sec.auth": "Authentication",
+  "ho.doc.sec.cache": "Caching",
+  "ho.doc.sec.risks": "High-Risk Zones",
+  "ho.doc.sec.aiWorkflow": "AI Workflow (Directing AI)",
+  "ho.doc.sec.quickstart": "How to Run"
 }

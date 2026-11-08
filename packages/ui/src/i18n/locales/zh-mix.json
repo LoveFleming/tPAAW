@@ -2157,5 +2157,21 @@
   "dw.catLoadFail": "工作目錄載入失敗",
   "dw.rvDone": "委員會審查完成",
   "rm.e2eInvHint": "從測試碼 deterministic 抽測試名＋URL ↔ API Map 雙向關聯；孤兒＝黑盒缺口",
-  "rm.e2eInvBlackbox": "黑盒（UI 驅動）"
+  "rm.e2eInvBlackbox": "黑盒（UI 驅動）",
+  "ho.doc.generate": "✨ 一鍵產生 Handover",
+  "ho.doc.regenerate": "重新產生",
+  "ho.doc.generating": "AI 掃描專案並生成交接文件中…（約 30-90 秒）",
+  "ho.doc.none": "尚無交接文件 — 按一鍵產生，AI 會掃描專案實檔生最新版",
+  "ho.doc.faq": "疑難排解 FAQ（helpdesk agent 回答）",
+  "ho.doc.failed": "生成失敗",
+  "ho.doc.partial": "部分面向未生成，可重新產生",
+  "ho.doc.sec.positioning": "專案定位",
+  "ho.doc.sec.techStack": "技術棧",
+  "ho.doc.sec.storage": "Storage 資料儲存",
+  "ho.doc.sec.externalServices": "外部服務與金鑰",
+  "ho.doc.sec.auth": "認證方式",
+  "ho.doc.sec.cache": "Cache 機制",
+  "ho.doc.sec.risks": "高風險區",
+  "ho.doc.sec.aiWorkflow": "AI 開發方式（教 AI 做事）",
+  "ho.doc.sec.quickstart": "怎麼跑起來"
 }

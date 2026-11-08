@@ -1,16 +1,8 @@
-# paaw
+# tPAAW
 
-> 📄 Schema v2 · AI 區每次 CU 重寫 · 上次生成 2026-11-07 07:44 · User Remarks 由人維護
+> 📄 Schema v2 · AI 區每次 CU 重寫 · 上次生成 2026-11-08 05:21 · User Remarks 由人維護
 
 <!-- USER:START — 人的區（AI 絕不覆蓋） -->
-## 📌 User Remarks
-
-## 📌 User Remarks
-
-## 📌 User Remarks
-
-## 📌 User Remarks
-
 ## 📌 User Remarks
 
 （人在 UI 或直接編輯這區 — AI 絕不覆蓋。放專案背景、地雷、口頭知識…）
@@ -18,8 +10,6 @@
 <!-- USER:END -->
 
 <!-- AI:START — CU 自動生成區（每次重寫，人改會被覆蓋） -->
-## 🤖 AI Overview
-
 ### 一句話定位
 PAAW（Personal AI Assistant Workspace）是一個讓使用者建立個人 AI 工作團隊（AI Workforce）的工作區。主要對象為需要以 AI 助理/代理協作完成任務的使用者。
 

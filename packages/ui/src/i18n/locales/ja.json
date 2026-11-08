@@ -2157,5 +2157,21 @@
   "dw.catLoadFail": "カタログ読込失敗",
   "dw.rvDone": "レビュー委員会完了",
   "rm.e2eInvHint": "テストコードからテスト名とURLを抽出しAPI Mapと双方向関連付け。孤立＝ブラックボックス",
-  "rm.e2eInvBlackbox": "ブラックボックス（UI駆動）"
+  "rm.e2eInvBlackbox": "ブラックボックス（UI駆動）",
+  "ho.doc.generate": "✨ ハンドオーバー生成",
+  "ho.doc.regenerate": "再生成",
+  "ho.doc.generating": "AIがプロジェクトを解析中…（30-90秒）",
+  "ho.doc.none": "まだありません — ワンクリックで生成",
+  "ho.doc.faq": "トラブルシューティング FAQ（helpdesk）",
+  "ho.doc.failed": "生成失敗",
+  "ho.doc.partial": "一部未生成。再生成可",
+  "ho.doc.sec.positioning": "プロジェクト概要",
+  "ho.doc.sec.techStack": "技術スタック",
+  "ho.doc.sec.storage": "ストレージ",
+  "ho.doc.sec.externalServices": "外部サービスとキー",
+  "ho.doc.sec.auth": "認証方式",
+  "ho.doc.sec.cache": "キャッシュ機制",
+  "ho.doc.sec.risks": "高リスク領域",
+  "ho.doc.sec.aiWorkflow": "AI開発方式（AIに指示）",
+  "ho.doc.sec.quickstart": "起動方法"
 }
