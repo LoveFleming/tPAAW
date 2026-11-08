@@ -1135,6 +1135,23 @@ export default async function a2aRoutes(req, res) {
                 }
               } catch {}
             }
+            // Inject TS Guide（2026-11-08 Fleming）：ops / helpdesk side chat 吃最新排障條目庫 — 直接回答維運問題
+            if (/ops|helpdesk/i.test(agentId)) {
+              try {
+                const guideFile = join(rootDir, ".paaw", "troubleshooting", "TSGUIDE.json");
+                if (existsSync(guideFile)) {
+                  const g = JSON.parse(readSync(guideFile, "utf-8"));
+                  const gEntries = (g?.entries || []).slice(0, 15).map((e, i) =>
+                    `${i + 1}. 症狀：${e.symptom}\n   原因：${e.cause}\n   修法：${(e.fixSteps || []).slice(0, 6).join(" → ")}\n   證據：${(e.evidence || []).map(x => x.ref).join(", ")}`
+                  ).join("\n\n");
+                  const gaps = (g?.gaps || []).slice(0, 6).map(x => `- ${x}`).join("\n");
+                  if (gEntries) {
+                    extraContext.push(`\n## 🧯 TS Guide 排障條目庫（${(g.generatedAt || "").slice(0, 10)} 生成 — 回答排障問題時以此為準，務必引用證據；查不到就誠實說查不到並列為 gap）\n${gEntries.slice(0, 8000)}${gaps ? `\n\n### 已知缺口（證據不足）\n${gaps}` : ""}`);
+                  }
+                }
+              } catch {}
+            }
+
             extraContext.push(`\n## Current Project Root\n${rootDir}（呼叫 tool 需要路徑時，cwd 帶這個值）`);
             extraContext.push(AGENT_RULES);
             const fullSystemPrompt = systemPrompt + extraContext.join("");

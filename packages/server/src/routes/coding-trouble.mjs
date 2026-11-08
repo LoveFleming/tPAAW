@@ -50,7 +50,14 @@ async function saveJson(abs, obj) {
 
 // ═══ Deterministic facts（零 token — 修復知識的原始素材都在這）═══
 export async function collectTroubleFacts(projectPath) {
-  const facts = { fixCommits: [], bugTasks: [], errorCodes: [], agentLogErrors: [] };
+  const facts = { fixCommits: [], bugTasks: [], errorCodes: [], agentLogErrors: [], project: null };
+
+  // 0. project meta — 讓 AI 知道這是什麼專案（條目才寫得具體）
+  try {
+    const pkg = JSON.parse(await readFile(join(projectPath, "package.json"), "utf-8"));
+    const deps = Object.keys({ ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) }).slice(0, 25);
+    facts.project = { name: pkg.name || "(unnamed)", scripts: Object.keys(pkg.scripts || {}).slice(0, 12), deps };
+  } catch { /* 無 package.json */ }
 
   // 1. git fix commits — 每個 fix commit 就是一條「症狀→修法」的原始素材
   try {
@@ -100,31 +107,37 @@ export async function collectTroubleFacts(projectPath) {
 
 // ═══ AI 挖掘 — 症狀→原因→修法→證據（1 次 LLM，按鈕觸發）═══
 async function mineEntries(facts) {
-  const prompt = `You are a senior SRE preparing a structured troubleshooting guide for the next developer / support AI of this release unit.
-Analyze the FACTS and output STRICT JSON only (no markdown fence).
+  const prompt = `You are the SRE lead of this release unit. You are writing a troubleshooting runbook for two readers:
+(1) the next developer who takes over, and (2) the support AI that will answer end-user questions about this project.
+Be concrete, evidence-bound, and honest. NEVER invent facts.
 
-FACTS:
+PROJECT META: ${facts.project ? JSON.stringify(facts.project) : "(none)"}
+
+FACTS (the ONLY source of truth — every statement must trace back to these):
 - git fix commits (hash|date|subject, newest first):
 ${facts.fixCommits.slice(0, 120).join("\n") || "(none)"}
-- bug tasks: ${facts.bugTasks.map(t => `[${t.status}] ${t.title}`).join(" | ") || "(none)"}
+- bug tasks (id|status|title):
+${facts.bugTasks.map(t => `[${t.status}] ${t.id || "-"} | ${t.title}${t.desc ? " | " + t.desc : ""}`).join("\n") || "(none)"}
 - error codes catalog: ${facts.errorCodes.length ? JSON.stringify(facts.errorCodes).slice(0, 800) : "(none)"}
 - recent agent log error lines (truncated):
 ${facts.agentLogErrors.slice(0, 40).join("\n") || "(none)"}
 
-OUTPUT JSON:
-{
-  "entries": [
-    {
-      "symptom": "使用者看得到的症狀（錯誤訊息/異常行為 — 客服讀得懂的語言，zh-TW）",
-      "cause": "根本原因（zh-TW，一句話）",
-      "fixSteps": ["可執行的修復步驟"],
-      "feature": "相關 feature 名（事實裡看不出來就 null）",
-      "evidence": [{ "type": "git|task|log", "ref": "真實 hash / task id / log 摘要" }]
-    }
-  ],
-  "gaps": ["有跡象但證據不足以成條目的主題（誠實標記，不編造）"]
-}
-Rules: entries 最多 15 條 — 依「再發生機率 × 傷害」排序；evidence 必須真實存在於上面 FACTS（hash 抄上面的，不發明）；同一問題多個 fix commit 合併為一條；fixSteps 從 commit/task 描述推導，不確定就寫保守步驟；gaps 最多 6 條；全部 zh-TW。`;
+TASK: Produce a troubleshooting guide as STRICT JSON (no markdown fence).
+
+Each entry = ONE recurring, user-visible problem. Fields:
+1. symptom: what the end user / operator actually sees — quote literal error strings when the FACTS contain them; zh-TW, plain language (客服讀得懂).
+2. cause: root cause in ONE sentence; if FACTS only suggest it, prefix 「推測：」.
+3. fixSteps: 2–6 ordered, actionable steps. Each step = action + how to verify it worked. Include exact commands/paths when derivable from FACTS. End with a verification step; when relevant add a rollback step.
+4. feature: related feature name, or null.
+5. evidence: real refs from FACTS ONLY — "git:<hash>", "task:<id>", "log:<短摘錄>". An entry WITHOUT evidence must NOT be written (move it to gaps).
+
+Rules:
+- Max 15 entries, ordered by (recurrence × user impact), most damaging first.
+- Merge multiple fix commits about the same problem into ONE entry (list all hashes).
+- If a cause is inferred rather than directly evidenced, still include the entry but mark cause as 「推測：」.
+- gaps: topics with hints but insufficient evidence — max 6 items, each states WHAT evidence is missing.
+- Language: zh-TW (technical terms may remain English).
+- Output ONLY the JSON object.`;
 
   const result = await callProjectLLM({
     messages: [

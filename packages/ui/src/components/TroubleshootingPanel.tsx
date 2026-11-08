@@ -167,7 +167,6 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
                 <span>🧯</span>
                 <span className="text-xs font-bold text-stone-700">{t("tsg.title")}</span>
                 {tsg && <>
-                  <span className="px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500 text-[10px] font-bold">{tsg.entries.filter(e => e.status === "confirmed").length}/{tsg.entries.length} {t("tsg.confirmedShort")}</span>
                   <span className="text-[10px] text-stone-400">{tsg.generatedAt.slice(0, 16).replace("T", " ")}</span>
                   <button onClick={generateTsg} disabled={tsgLoading}
                     className="text-[10px] px-2 py-0.5 rounded border disabled:opacity-40 hover:bg-stone-50" style={{ borderColor: tk.borderLight }}>
@@ -189,15 +188,13 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
                 {tsgLoading && !tsg && <div className="text-[11px] text-stone-400 animate-pulse">{t("tsg.generating")}</div>}
                 {!tsgLoading && !tsg && <div className="text-[11px] text-stone-400">{t("tsg.none")}</div>}
                 {tsg?.aiError && <div className="text-[11px] text-amber-600">⚠️ {tsg.aiError}</div>}
-                {tsg?.factsSummary && (
-                  <div className="text-[10px] text-stone-400">{t("tsg.minedFrom")}: git fix ×{tsg.factsSummary.fixCommits} · bug task ×{tsg.factsSummary.bugTasks} · log err ×{tsg.factsSummary.agentLogErrors}</div>
-                )}
+                {/* 2026-11-08 Fleming：confirmed/drift 計數、來源統計（git fix ×N…）都不要 — 零人工介入 */}
                 {tsg?.entries.map(e => (
                   <div key={e.id} className="border rounded-lg overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
                     <button onClick={() => setTsgOpen(tsgOpen === e.id ? null : e.id)} className="w-full text-left px-3 py-2 flex items-start gap-2 hover:bg-stone-50">
                       <span className="text-[11px] font-medium text-stone-800 flex-1 leading-snug">{e.symptom}</span>
-                      <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${e.status === "confirmed" ? "bg-green-100 text-green-700" : e.status === "human" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                        {e.status === "confirmed" ? `✓ ${t("tsg.confirmed")}` : e.status === "human" ? `✍️ ${t("tsg.human")}` : t("tsg.draft")}
+                      <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${e.status === "human" ? "bg-emerald-100 text-emerald-700" : "bg-stone-100 text-stone-400"}`}>
+                        {e.status === "human" ? `✍️ ${t("tsg.human")}` : t("tsg.draft")}
                       </span>
                     </button>
                     {tsgOpen === e.id && (
@@ -221,11 +218,6 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
                           <button onClick={() => setEntryForm({ mode: "edit", id: e.id, symptom: e.symptom, cause: e.cause, fixStepsText: e.fixSteps.join("\n"), evidenceText: e.evidence.find(x => x.type === "human")?.ref || "", feature: e.feature || "" })}
                             className="text-[10px] px-2.5 py-1 rounded-lg border hover:bg-stone-50" style={{ borderColor: tk.borderLight }}>
                             ✏️ {t("tsg.edit")}
-                          </button>
-                          <button onClick={() => confirmTsg(e.id, e.status === "confirmed")}
-                            className={`text-[10px] px-2.5 py-1 rounded-lg font-bold ${e.status === "confirmed" ? "border hover:bg-stone-50" : "text-white hover:opacity-90"}`}
-                            style={e.status === "confirmed" ? { borderColor: tk.borderLight } : { backgroundColor: "#16a34a" }}>
-                            {e.status === "confirmed" ? t("tsg.unconfirm") : `✓ ${t("tsg.confirm")}`}
                           </button>
                         </div>
                       </div>

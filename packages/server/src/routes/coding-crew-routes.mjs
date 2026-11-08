@@ -136,6 +136,18 @@ if (url === "/api/coding-crew/chat" && method === "POST") {
       } catch {}
     }
 
+    // Inject TS Guide（2026-11-08 Fleming）：ops crew 吃最新排障條目庫 — side chat 能直接回答維運問題
+    if (/ops/i.test(crewId)) {
+      try {
+        const guideFile = join(projRoot, ".paaw", "troubleshooting", "TSGUIDE.json");
+        if (existsSync(guideFile)) {
+          const g = JSON.parse(readSync(guideFile, "utf-8"));
+          const entries = (g?.entries || []).slice(0, 15).map((e, i) => `${i + 1}. 症狀：${e.symptom}\n   原因：${e.cause}\n   修法：${(e.fixSteps || []).slice(0, 5).join(" → ")}\n   證據：${(e.evidence || []).map(x => x.ref).join(", ")}`).join("\n\n");
+          if (entries) extraContext.push(`\n## 🧯 TS Guide 排障條目庫（${(g.generatedAt || "").slice(0, 10)} 生成 — 回答排障問題以此為準，引用證據）\n${entries.slice(0, 8000)}`);
+        }
+      } catch {}
+    }
+
     // Inject Code Intelligence SUMMARY (not full 200-file dump — too fat)
     const ciFile = join(projRoot, ".paaw", "code-intelligence", "code-intelligence.json");
     if (existsSync(ciFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
