@@ -2156,5 +2156,5 @@
   "dw.catLoading": "カタログ読込中",
   "dw.catLoadFail": "カタログ読込失敗",
   "dw.rvDone": "レビュー委員会完了",
-  "e2eInvHint": "テストコードからテスト名とURLを抽出しAPI Mapと双方向関連付け。孤立＝ブラックボックス"
+  "rm.e2eInvHint": "テストコードからテスト名とURLを抽出しAPI Mapと双方向関連付け。孤立＝ブラックボックス"
 }

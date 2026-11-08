@@ -2156,5 +2156,5 @@
   "dw.catLoading": "載入工作目錄",
   "dw.catLoadFail": "工作目錄載入失敗",
   "dw.rvDone": "委員會審查完成",
-  "e2eInvHint": "從測試碼 deterministic 抽測試名＋URL ↔ API Map 雙向關聯；孤兒＝黑盒缺口"
+  "rm.e2eInvHint": "從測試碼 deterministic 抽測試名＋URL ↔ API Map 雙向關聯；孤兒＝黑盒缺口"
 }

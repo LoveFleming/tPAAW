@@ -2156,5 +2156,5 @@
   "dw.catLoading": "Loading job catalog",
   "dw.catLoadFail": "Failed to load catalog",
   "dw.rvDone": "Review board finished",
-  "e2eInvHint": "Deterministic extraction of test names + URLs from test code, cross-linked with the API Map; orphan = black-box gap"
+  "rm.e2eInvHint": "Deterministic extraction of test names + URLs from test code, cross-linked with the API Map; orphan = black-box gap"
 }

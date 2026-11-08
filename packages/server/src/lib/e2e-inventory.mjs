@@ -43,6 +43,8 @@ function extractUrls(src) {
   const urls = new Set();
   const add = (u) => {
     u = u.replace(/\.(js|ts|py|go|java|css|html|json|png|jpg|svg)$/i, ""); // 檔案 import 降噪
+    // 2026-11-08 修：系統路徑噪音（/etc /tmp /usr…測試 fixture 路徑，不是 API）
+    if (/^\/(etc|tmp|var|usr|opt|dev|proc|sys|bin|sbin|lib|home|Users|System|Library)\b/i.test(u)) return;
     if (u && u.length >= 3) urls.add(u);
   };
   for (const m of src.matchAll(/["'`](\/[A-Za-z0-9_\-{}.:]{2,160}(?:\/[A-Za-z0-9_\-{}.:]*)*)["'`]/g)) add(m[1]);

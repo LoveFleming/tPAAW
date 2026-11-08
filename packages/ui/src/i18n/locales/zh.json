@@ -2156,5 +2156,5 @@
   "dw.catLoading": "載入工作目錄",
   "dw.catLoadFail": "工作目錄載入失敗",
   "dw.rvDone": "委員會審查完成",
-  "e2eInvHint": "從測試碼抽測試名＋打到的 URL，對照 API Map 看覆蓋；孤兒＝測試沒打到任何 API"
+  "rm.e2eInvHint": "從測試碼抽測試名＋打到的 URL，對照 API Map 看覆蓋；孤兒＝測試沒打到任何 API"
 }
