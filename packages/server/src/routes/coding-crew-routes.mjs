@@ -35,7 +35,7 @@ export async function crewRoutes({ req, res, method, url, q, projectPath }) {
 // ── GET /api/coding-crew/:crewId — Load crew definition (no project required) ──
 // Exclude /running and /interrupt which are separate API endpoints
 const crewMatch = url.match(/^\/api\/coding-crew\/([^/?]+)$/);
-if (crewMatch && method === "GET" && !['running', 'interrupt', 'dispatch', 'chat', 'conversations', 'context-window', 'action-log', 'qa-results'].includes(crewMatch[1])) {
+if (crewMatch && method === "GET" && !['running', 'interrupt', 'dispatch', 'chat', 'conversations', 'context-window', 'action-log', 'qa-results', 'dispatch-catalog'].includes(crewMatch[1])) {
   const crewId = decodeURIComponent(crewMatch[1]);
   try {
     // 2026-10-09 Module Registry：crew 本體在 packages/modules（firmware）→ .paaw override → user crew；
@@ -1264,6 +1264,51 @@ if (url === "/api/coding-crew/em-job" && method === "POST") {
     res.writeHead(500, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: err.message }));
   }
+  return true;
+}
+
+// ── GET /api/coding-crew/dispatch-catalog — 派工工作目錄（2026-11-08 Fleming：目標場景卡，popup modal / chat 共用）──
+if (url === "/api/coding-crew/dispatch-catalog" && method === "GET") {
+  try {
+    const { DISPATCH_CATALOG, DIRECT_AGENTS } = await import("../lib/dispatch-catalog.mjs");
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ jobs: DISPATCH_CATALOG, directAgents: DIRECT_AGENTS }));
+  } catch (err) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+  return true;
+}
+
+// ── POST /api/coding-crew/review-board-run — 開 review 委員會（catalog entrypoint，SSE 進度）──
+// 與 multi_model_review agent tool 同一顆 runMultiModelReview，只是 HTTP 直觸（popup 不必繞 chat）
+if (url === "/api/coding-crew/review-board-run" && method === "POST") {
+  let rbBody = {};
+  try { rbBody = JSON.parse(await readBody(req) || "{}"); } catch {}
+  const rbRoot = rbBody.cwd ? resolve(rbBody.cwd) : resolve(projectPath || PAAW_ROOT);
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "Access-Control-Allow-Origin": "*",
+    "X-Accel-Buffering": "no",
+  });
+  res.flushHeaders();
+  if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
+  const rbSend = (d) => { try { res.write(`data: ${JSON.stringify(d)}\n\n`); } catch {} };
+  try {
+    const { runMultiModelReview, formatReviewResult } = await import("../lib/coding-review-runner.mjs");
+    const r = await runMultiModelReview({
+      projectDir: rbRoot,
+      ref: rbBody.ref,
+      pathFilter: rbBody.path,
+      onProgress: (m) => rbSend({ event: "progress", message: m }),
+    });
+    rbSend({ event: "done", decision: r?.decision, result: formatReviewResult(r) });
+  } catch (err) {
+    rbSend({ event: "error", error: err.message });
+  }
+  res.end();
   return true;
 }
 

@@ -1,36 +1,30 @@
 /**
- * DispatchWizard — 🚀 派工精靈（2026-11-07 Fleming）
- * 一顆按鈕 → modal 選 5 種派工類型 → 動態表單 → 送出：
- *  1. 👤 直接派工（指定 agent + 任務）
- *  2. 📦 EM 工單（cu-scan / security-fix / test-gen / release-prep）
- *  3. 🗺️ EM Plan（只規劃不出工）
- *  4. ⚡ EM Execute（確認 workList 出工；Plan 結果可一鍵帶入）
- *  5. 🔄 自動調度（start / stop）
+ * DispatchWizard — 🚀 派工工作目錄（Job Catalog 版，2026-11-08 Fleming）
+ *
+ * 大改：不再 hardcode「機制分類」（direct/emjob/plan/execute/auto），
+ * 改吃 server 端 dispatch-catalog（目標場景卡）：
+ *   - 卡片 = EM 能幫你做什麼（完成 open tasks / 開 review 委員會 / 安全閉環 / 測試補洞 / release / 直接派一人）
+ *   - 每張卡展開：流程（flow）+ 注意事項（preconditions）+ 參數表單（catalog params schema）
+ *   - 送出走 entrypoint.kind：em-job / auto-start / dispatch(SSE) / review-run(SSE)
+ *   - 之後 server 加新工作（user manual / UI 照相 / vision…）→ catalog 加 manifest，這裡自動長出來
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import { cn } from "./ui/shared";
 
-type DispatchKind = "direct" | "emjob" | "plan" | "execute" | "auto";
-
-const AGENTS = [
-  { id: "coding.developer", label: "💻 Developer 開發" },
-  { id: "coding.qa", label: "🧪 QA 品管" },
-  { id: "coding.tester", label: "🔬 Tester 測試" },
-  { id: "coding.architect", label: "📐 Architect 架構" },
-  { id: "coding.helpdesk", label: "🛟 Helpdesk 支援" },
-  { id: "coding.doc-writer", label: "📝 Doc-writer 文件" },
-  { id: "coding.rm", label: "🎖️ RM Release" },
-  { id: "coding.ops", label: "🔧 Ops 維運" },
-];
-
-const JOBS = [
-  { id: "cu-scan", label: "🔍 CU 掃描", desc: "Code Understanding 新鮮度檢查" },
-  { id: "security-fix", label: "🛡️ 安全修復", desc: "semgrep findings 開修復單" },
-  { id: "test-gen", label: "🧪 測試生成", desc: "缺測試的 API/feature 開單" },
-  { id: "release-prep", label: "📦 Release 準備", desc: "Release 現況盤點" },
-];
+interface ParamDef {
+  id: string; label: string; type: "text" | "textarea" | "number" | "select";
+  required?: boolean; placeholder?: string; default?: any;
+  options?: string[]; optionLabels?: string[]; min?: number; max?: number;
+}
+interface JobDef {
+  id: string; emoji: string; label: string; desc: string;
+  flow: string[]; preconditions: string;
+  entrypoint: { kind: "em-job" | "auto-start" | "dispatch" | "review-run"; url: string; job?: string };
+  params: ParamDef[];
+}
+interface AgentOpt { id: string; label: string }
 
 interface Props {
   rootPath: string;
@@ -40,121 +34,129 @@ interface Props {
 
 export default function DispatchWizard({ rootPath, theme: tk, onClose }: Props) {
   const { t } = useI18n();
-  const [kind, setKind] = useState<DispatchKind>("direct");
+  const [jobs, setJobs] = useState<JobDef[]>([]);
+  const [agents, setAgents] = useState<AgentOpt[]>([]);
+  const [loadError, setLoadError] = useState("");
+  const [jobId, setJobId] = useState("");
+  const [values, setValues] = useState<Record<string, any>>({});
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<string>("");
+  const [result, setResult] = useState("");
 
-  // 直接派工
-  const [agentId, setAgentId] = useState("coding.developer");
-  const [task, setTask] = useState("");
-  const [priority, setPriority] = useState("medium");
+  // 載入 catalog
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(`${API_BASE}/api/coding-crew/dispatch-catalog`);
+        const d = await r.json().catch(() => ({}));
+        if (d.error) { setLoadError(d.error); return; }
+        const js: JobDef[] = d.jobs || [];
+        setJobs(js);
+        setAgents(d.directAgents || []);
+        if (js.length) selectJob(js[0], d.directAgents || []);
+      } catch (err: any) { setLoadError(err.message); }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // EM 工單
-  const [job, setJob] = useState("cu-scan");
-  const [maxTickets, setMaxTickets] = useState(5);
-  const [jobAction, setJobAction] = useState<"preview" | "run">("preview");
+  const job = jobs.find(j => j.id === jobId) || null;
 
-  // EM Plan / Execute
-  const [since, setSince] = useState("");
-  const [workListJson, setWorkListJson] = useState("");
-  const [situationReport, setSituationReport] = useState("");
+  function selectJob(j: JobDef, agentList?: AgentOpt[]) {
+    setJobId(j.id); setResult("");
+    const v: Record<string, any> = {};
+    for (const p of j.params || []) {
+      if (p.default !== undefined) v[p.id] = p.default;
+      else if (p.type === "number") v[p.id] = 5;
+      else if (p.type === "select") v[p.id] = p.options?.[0];
+      else v[p.id] = "";
+    }
+    // 直接派工的 agent 選項 label 由 catalog agents 帶（options=id 清單）
+    (j.params || []).forEach(p => { if (p.id === "agentId" && !p.optionLabels?.length && agentList?.length) p.optionLabels = agentList.map(a => a.label); });
+    setValues(v);
+  }
 
-  const KINDS: { id: DispatchKind; label: string; emoji: string }[] = [
-    { id: "direct", label: t("dw.kDirect"), emoji: "👤" },
-    { id: "emjob", label: t("dw.kEmjob"), emoji: "📦" },
-    { id: "plan", label: t("dw.kPlan"), emoji: "🗺️" },
-    { id: "execute", label: t("dw.kExecute"), emoji: "⚡" },
-    { id: "auto", label: t("dw.kAuto"), emoji: "🔄" },
-  ];
+  const setVal = (id: string, val: any) => setValues(prev => ({ ...prev, [id]: val }));
+
+  // ── SSE 讀取共用（dispatch / review-run）──
+  async function readSSE(r: Response, onEvent: (d: any) => boolean | void) {
+    if (!r.ok || !r.body) {
+      const d = await r.json().catch(() => ({}));
+      setResult(`❌ ${d.error || r.status}`); return;
+    }
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = ""; let finished = false;
+    while (!finished) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const events = buf.split("\n\n"); buf = events.pop() || "";
+      for (const ev of events) {
+        const line = ev.split("\n").find(l => l.startsWith("data: "));
+        if (!line) continue;
+        try { const d = JSON.parse(line.slice(6)); if (onEvent(d) === true) finished = true; } catch {}
+      }
+    }
+  }
 
   async function submit() {
-    setBusy(true); setResult("");
+    if (!job) return;
+    // required 檢查
+    for (const p of job.params || []) {
+      if (p.required && !String(values[p.id] || "").trim()) { setResult(`❌ ${p.label} 未填`); return; }
+    }
+    setBusy(true); setResult("⏳ " + t("dw.launching"));
+    const ep = job.entrypoint;
     try {
-      if (kind === "direct") {
-        if (!task.trim()) { setResult("❌ 請填任務描述"); setBusy(false); return; }
-        // 2026-11-07 修：dispatch 是 SSE 串流，不能 await r.json()（會卡死）→ 邊讀邊回報
-        try {
-          const r = await fetch(`${API_BASE}/api/coding-crew/dispatch`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ agentId, task, cwd: rootPath, priority }),
-          });
-          if (!r.ok || !r.body) {
-            const d = await r.json().catch(() => ({}));
-            setResult(`❌ ${d.error || r.status}`); setBusy(false); return;
-          }
-          setResult("✅ 已派工，串流執行中…");
-          const reader = r.body.getReader();
-          const dec = new TextDecoder();
-          let buf = ""; let finished = false;
-          while (!finished) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            buf += dec.decode(value, { stream: true });
-            const events = buf.split("\n\n"); buf = events.pop() || "";
-            for (const ev of events) {
-              const line = ev.split("\n").find(l => l.startsWith("data: "));
-              if (!line) continue;
-              try {
-                const d = JSON.parse(line.slice(6));
-                if (d.error) { setResult(`❌ ${d.error}`); finished = true; }
-                else if (d.event === "done" || d.done) { finished = true; setResult("✅ 已派工並執行完成（詳情見派工報告）"); }
-              } catch {}
-            }
-          }
-          if (!finished) setResult("✅ 已派工（連線結束，詳情見派工報告）");
-        } catch (err: any) { setResult(`❌ ${err.message}`); }
-      } else if (kind === "emjob") {
-        const r = await fetch(`${API_BASE}/api/coding-crew/em-job`, {
+      if (ep.kind === "em-job") {
+        const r = await fetch(`${API_BASE}${ep.url}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cwd: rootPath, job, action: jobAction, maxTickets }),
+          body: JSON.stringify({ cwd: rootPath, job: ep.job, action: values.action || "run", maxTickets: Number(values.maxTickets) || 5 }),
         });
         const d = await r.json().catch(() => ({}));
         if (d.error) { setResult(`❌ ${d.error}`); }
         else {
           const lines = (d.tickets || []).map((x: any, i: number) => `${i + 1}. [${x.priority || "medium"}/${x.type || "dev"}] ${String(x.title).slice(0, 70)}`);
-          setResult(`${d.emoji || ""} **${d.label || job}** ${(d.findingsCount ?? 0)} findings（${((d.durationMs || 0) / 1000).toFixed(0)}s）\n${d.summary || ""}\n${d.message || ""}${lines.length ? `\n${lines.join("\n")}` : ""}`);
+          setResult(`${d.emoji || ""} **${d.label || ep.job}** ${(d.findingsCount ?? 0)} findings（${((d.durationMs || 0) / 1000).toFixed(0)}s）\n${d.summary || ""}\n${d.message || ""}${lines.length ? `\n${lines.join("\n")}` : ""}`);
         }
-      } else if (kind === "plan") {
-        const r = await fetch(`${API_BASE}/api/coding-crew/em-plan`, {
+      } else if (ep.kind === "auto-start") {
+        const r = await fetch(`${API_BASE}${ep.url}?path=${encodeURIComponent(rootPath)}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cwd: rootPath, ...(since ? { since } : {}) }),
+          body: JSON.stringify(values.taskId ? { taskId: values.taskId.trim().toUpperCase() } : {}),
         });
         const d = await r.json().catch(() => ({}));
-        if (d.error) { setResult(`❌ ${d.error}`); }
-        else {
-          const wl = d.workList || d.plan?.workList || [];
-          setWorkListJson(JSON.stringify(wl, null, 2));
-          setSituationReport(d.situationReport || d.plan?.situationReport || "");
-          setResult(`🗺️ Plan 完成：${wl.length} 項工作。已帶入「⚡ EM Execute」分頁，切過去即可出工。`);
-        }
-      } else if (kind === "execute") {
-        let workList: any[] = [];
-        try { workList = JSON.parse(workListJson || "[]"); } catch { setResult("❌ workList JSON 格式錯誤"); setBusy(false); return; }
-        if (!workList.length) { setResult("❌ workList 是空的（先跑 🗺️ EM Plan）"); setBusy(false); return; }
-        const r = await fetch(`${API_BASE}/api/coding-crew/em-execute`, {
+        setResult(d.error ? `❌ ${d.error}` : "⚡ 已啟動 task-driven 閉環（進度見 🎖️ EM Dashboard 狀態列 / 派工報告）");
+      } else if (ep.kind === "dispatch") {
+        setResult("⏳ 已派工，串流執行中…");
+        const r = await fetch(`${API_BASE}${ep.url}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cwd: rootPath, workList, situationReport }),
+          body: JSON.stringify({ agentId: values.agentId, task: values.task, priority: values.priority, cwd: rootPath }),
         });
-        const d = await r.json().catch(() => ({}));
-        setResult(d.error ? `❌ ${d.error}` : "⚡ 已出工（進度見 🎖️ EM 自動調度面板 / 派工報告）");
-      } else if (kind === "auto") {
-        const r = await fetch(`${API_BASE}/api/coding-auto-dispatch/stop`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cwd: rootPath }) });
-        await r.json().catch(() => ({}));
-        const r2 = await fetch(`${API_BASE}/api/coding-auto-dispatch/start`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cwd: rootPath }) });
-        const d2 = await r2.json().catch(() => ({}));
-        setResult(d2.error ? `❌ ${d2.error}` : "🔄 自動調度已啟動（先 stop 清殭屍再 start）");
+        await readSSE(r, (d) => {
+          if (d.error) { setResult(`❌ ${d.error}`); return true; }
+          if (d.event === "done" || d.done) { setResult("✅ 已派工並執行完成（詳情見派工報告）"); return true; }
+        });
+      } else if (ep.kind === "review-run") {
+        const logs: string[] = [];
+        const r = await fetch(`${API_BASE}${ep.url}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cwd: rootPath, ref: values.ref || undefined, path: values.path || undefined }),
+        });
+        await readSSE(r, (d) => {
+          if (d.error) { setResult(`❌ ${d.error}`); return true; }
+          if (d.event === "progress") { logs.push(d.message); setResult(`🏛️ 審查中…\n${logs.slice(-4).join("\n")}`); }
+          if (d.event === "done") { setResult(`🏛️ ${t("dw.rvDone")}（${d.decision || "?"}）\n\n${d.result || ""}`); return true; }
+        });
       }
-    } catch (err: any) {
-      setResult(`❌ ${err.message}`);
-    }
+    } catch (err: any) { setResult(`❌ ${err.message}`); }
     setBusy(false);
   }
 
   const field = "w-full text-sm rounded-lg px-2 py-1.5 border";
+  const inputStyle = { backgroundColor: tk.bg, borderColor: tk.borderLight, color: tk.text as string };
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="w-[560px] max-w-[92vw] max-h-[86vh] overflow-auto rounded-xl shadow-2xl" style={{ backgroundColor: tk.bg, border: `1px solid ${tk.borderLight}` }} onClick={e => e.stopPropagation()}>
+      <div className="w-[600px] max-w-[92vw] max-h-[86vh] overflow-auto rounded-xl shadow-2xl" style={{ backgroundColor: tk.bg, border: `1px solid ${tk.borderLight}` }} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
           <div className="flex items-center gap-2">
@@ -165,106 +167,78 @@ export default function DispatchWizard({ rootPath, theme: tk, onClose }: Props) 
           <button onClick={onClose} className="text-xs px-2 py-1 rounded-lg border hover:bg-stone-50" style={{ borderColor: tk.borderLight }}>✕</button>
         </div>
 
-        {/* 類型卡片 */}
-        <div className="grid grid-cols-5 gap-1.5 px-4 py-3">
-          {KINDS.map(k => (
-            <button key={k.id} onClick={() => { setKind(k.id); setResult(""); }}
-              className={cn("rounded-lg border px-1 py-2 text-center transition-colors")}
-              style={kind === k.id
-                ? { borderColor: tk.accent, backgroundColor: tk.accentBg, color: tk.text }
-                : { borderColor: tk.borderLight, backgroundColor: tk.bgMuted, color: tk.text }}>
-              <div className="text-xl">{k.emoji}</div>
-              <div className="text-[11px] mt-0.5 leading-tight">{k.label}</div>
-            </button>
-          ))}
-        </div>
-
-        {/* 動態表單 */}
-        <div className="px-4 pb-2 space-y-2.5">
-          {kind === "direct" && (<>
-            <div>
-              <label className="text-[11px] font-medium">{t("dw.agent")}</label>
-              <select value={agentId} onChange={e => setAgentId(e.target.value)} className={field} style={{ backgroundColor: tk.bg, borderColor: tk.borderLight, color: tk.text }}>
-                {AGENTS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-[11px] font-medium">{t("dw.task")}</label>
-              <textarea value={task} onChange={e => setTask(e.target.value)} rows={4} className={field} style={{ backgroundColor: tk.bg, borderColor: tk.borderLight, color: tk.text }}
-                placeholder={t("dw.taskPh")} />
-            </div>
-            <div>
-              <label className="text-[11px] font-medium">{t("dw.priority")}</label>
-              <select value={priority} onChange={e => setPriority(e.target.value)} className={field} style={{ backgroundColor: tk.bg, borderColor: tk.borderLight, color: tk.text }}>
-                <option value="high">🔴 high</option><option value="medium">🟡 medium</option><option value="low">🟢 low</option>
-              </select>
-            </div>
-          </>)}
-
-          {kind === "emjob" && (<>
-            <div className="grid grid-cols-2 gap-1.5">
-              {JOBS.map(j => (
-                <button key={j.id} onClick={() => setJob(j.id)}
-                  className="rounded-lg border px-2 py-2 text-left"
-                  style={job === j.id ? { borderColor: tk.accent, backgroundColor: tk.accentBg } : { borderColor: tk.borderLight, backgroundColor: tk.bgMuted }}>
-                  <div className="text-xs font-semibold" style={{ color: tk.text }}>{j.label}</div>
-                  <div className="text-[10px]" style={{ color: tk.text }}>{j.desc}</div>
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex-1">
-                <label className="text-[11px] font-medium">{t("dw.maxTickets")}</label>
-                <input type="number" min={1} max={10} value={maxTickets} onChange={e => setMaxTickets(Number(e.target.value))} className={field} style={{ backgroundColor: tk.bg, borderColor: tk.borderLight, color: tk.text }} />
+        {loadError ? (
+          <div className="px-4 py-6 text-xs" style={{ color: tk.text }}>❌ {t("dw.catLoadFail")}：{loadError}</div>
+        ) : !job ? (
+          <div className="px-4 py-6 text-xs" style={{ color: tk.text }}>⏳ {t("dw.catLoading")}…</div>
+        ) : (
+          <>
+            {/* 工作場景卡（catalog 驅動） */}
+            <div className="px-4 py-3">
+              <div className="text-[11px] font-semibold mb-1.5" style={{ color: tk.text }}>{t("dw.pickJob")}</div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {jobs.map(j => (
+                  <button key={j.id} onClick={() => selectJob(j, agents)}
+                    className="rounded-lg border px-2 py-2 text-left transition-colors"
+                    style={j.id === jobId
+                      ? { borderColor: tk.accent, backgroundColor: tk.accentBg }
+                      : { borderColor: tk.borderLight, backgroundColor: tk.bgMuted }}>
+                    <div className="text-sm font-semibold leading-tight" style={{ color: tk.text }}>{j.emoji} {j.label}</div>
+                  </button>
+                ))}
               </div>
+            </div>
+
+            {/* 選中工作：說明 + 流程 + 條件 */}
+            <div className="px-4 pb-2 space-y-2.5">
+              <p className="text-[11px] leading-relaxed" style={{ color: tk.text }}>{job.desc}</p>
+
+              {/* 流程 */}
               <div>
-                <label className="text-[11px] font-medium">{t("dw.mode")}</label>
-                <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: tk.borderLight }}>
-                  {(["preview", "run"] as const).map(m => (
-                    <button key={m} onClick={() => setJobAction(m)} className="text-xs px-3 py-1.5"
-                      style={jobAction === m ? { backgroundColor: tk.accent, color: "#fff" } : { backgroundColor: tk.bgMuted, color: tk.text }}>
-                      {m === "preview" ? t("dw.preview") : t("dw.run")}
-                    </button>
+                <div className="text-[11px] font-medium mb-1" style={{ color: tk.text }}>{t("dw.flow")}</div>
+                <div className="flex flex-wrap items-center gap-1">
+                  {job.flow.map((s, i) => (
+                    <span key={i} className="flex items-center gap-1">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: tk.bgMuted, border: `1px solid ${tk.borderLight}`, color: tk.text }}>{i + 1}. {s}</span>
+                      {i < job.flow.length - 1 && <span className="text-[10px]" style={{ color: tk.text }}>→</span>}
+                    </span>
                   ))}
                 </div>
               </div>
-            </div>
-          </>)}
 
-          {kind === "plan" && (<>
-            <div>
-              <label className="text-[11px] font-medium">{t("dw.since")}</label>
-              <input value={since} onChange={e => setSince(e.target.value)} className={field} style={{ backgroundColor: tk.bg, borderColor: tk.borderLight, color: tk.text }} placeholder="2026-11-01（留空 = 全部）" />
-            </div>
-            <p className="text-[11px]" style={{ color: tk.text }}>{t("dw.planHint")}</p>
-          </>)}
+              {job.preconditions && <p className="text-[10px]" style={{ color: tk.text }}>ℹ️ {job.preconditions}</p>}
 
-          {kind === "execute" && (<>
-            <div>
-              <label className="text-[11px] font-medium">{t("dw.workList")}</label>
-              <textarea value={workListJson} onChange={e => setWorkListJson(e.target.value)} rows={8} className={cn(field, "font-mono text-xs")} style={{ backgroundColor: tk.bg, borderColor: tk.borderLight, color: tk.text }} placeholder='[{"agent":"coding.developer","task":"..."}]' />
+              {/* 參數表單（catalog schema 驅動） */}
+              {(job.params || []).map(p => (
+                <div key={p.id}>
+                  <label className="text-[11px] font-medium" style={{ color: tk.text }}>{p.label}{p.required ? " *" : ""}</label>
+                  {p.type === "textarea" ? (
+                    <textarea value={values[p.id] || ""} onChange={e => setVal(p.id, e.target.value)} rows={4} className={field} style={inputStyle} placeholder={p.placeholder || ""} />
+                  ) : p.type === "select" ? (
+                    <select value={values[p.id] || p.options?.[0]} onChange={e => setVal(p.id, e.target.value)} className={field} style={inputStyle}>
+                      {(p.options || []).map((o, i) => <option key={o} value={o}>{p.optionLabels?.[i] || o}</option>)}
+                    </select>
+                  ) : p.type === "number" ? (
+                    <input type="number" min={p.min} max={p.max} value={values[p.id] ?? p.default ?? 5} onChange={e => setVal(p.id, Number(e.target.value))} className={field} style={inputStyle} />
+                  ) : (
+                    <input value={values[p.id] || ""} onChange={e => setVal(p.id, e.target.value)} className={field} style={inputStyle} placeholder={p.placeholder || ""} />
+                  )}
+                </div>
+              ))}
             </div>
-            <div>
-              <label className="text-[11px] font-medium">{t("dw.situation")}</label>
-              <input value={situationReport} onChange={e => setSituationReport(e.target.value)} className={field} style={{ backgroundColor: tk.bg, borderColor: tk.borderLight, color: tk.text }} />
-            </div>
-          </>)}
-
-          {kind === "auto" && (
-            <p className="text-[11px] leading-relaxed" style={{ color: tk.text }}>{t("dw.autoHint")}</p>
-          )}
-        </div>
+          </>
+        )}
 
         {/* 結果 */}
         {result && (
-          <div className="mx-4 mb-2 rounded-lg p-2.5 text-xs whitespace-pre-wrap font-mono" style={{ backgroundColor: tk.bgMuted, border: `1px solid ${tk.borderLight}`, color: tk.text }}>{result}</div>
+          <div className="mx-4 mb-2 rounded-lg p-2.5 text-xs whitespace-pre-wrap font-mono max-h-56 overflow-auto" style={{ backgroundColor: tk.bgMuted, border: `1px solid ${tk.borderLight}`, color: tk.text }}>{result}</div>
         )}
 
         {/* Footer */}
         <div className="flex justify-end gap-2 px-4 py-3 border-t" style={{ borderColor: tk.borderLight }}>
           <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: tk.borderLight, color: tk.text }}>{t("dw.cancel")}</button>
-          <button onClick={submit} disabled={busy}
-            className={cn("text-xs px-4 py-1.5 rounded-lg font-semibold", busy && "opacity-50")}
+          <button onClick={submit} disabled={busy || !job}
+            className={cn("text-xs px-4 py-1.5 rounded-lg font-semibold", (busy || !job) && "opacity-50")}
             style={{ backgroundColor: tk.accent, color: "#fff" }}>
             {busy ? "…" : `🚀 ${t("dw.go")}`}
           </button>

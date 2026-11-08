@@ -2149,5 +2149,11 @@
   "rm.pageColComponents": "コンポ",
   "rm.pageColUnit": "Unit Test",
   "rm.pageNoRoutes": "ルート未検出（タブ型 UI または未対応フレームワーク — React Router / Next / TanStack / Vue Router）",
-  "rm.pageColName": "ページ"
+  "rm.pageColName": "ページ",
+  "dw.pickJob": "仕事を選択",
+  "dw.flow": "フロー",
+  "dw.launching": "起動中…",
+  "dw.catLoading": "カタログ読込中",
+  "dw.catLoadFail": "カタログ読込失敗",
+  "dw.rvDone": "レビュー委員会完了"
 }

@@ -2149,5 +2149,11 @@
   "rm.pageColComponents": "組件",
   "rm.pageColUnit": "Unit Test",
   "rm.pageNoRoutes": "沒偵測到 route（tab-based UI 或非支援框架 — React Router / Next / TanStack / Vue Router）",
-  "rm.pageColName": "頁面"
+  "rm.pageColName": "頁面",
+  "dw.pickJob": "選一項工作",
+  "dw.flow": "流程",
+  "dw.launching": "啟動中…",
+  "dw.catLoading": "載入工作目錄",
+  "dw.catLoadFail": "工作目錄載入失敗",
+  "dw.rvDone": "委員會審查完成"
 }
