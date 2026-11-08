@@ -26,7 +26,7 @@ import { join } from "path";
 import { exec as _exec } from "child_process";
 import { promisify } from "util";
 import { buildHandoverState, writeHandoverState, loadHandoverState } from "../lib/release-unit/handover-state.mjs";
-import { callProjectLLM } from "./coding.mjs";
+import { callProjectLLM } from "./coding-helpers.mjs"; // 2026-11-08 修：coding.mjs 已改 import 不再 re-export，6 模組載入失敗
 import { stableStringify } from "../lib/stable-stringify.mjs";
 import { loadFeatures } from "../lib/feature-registry.mjs";
 

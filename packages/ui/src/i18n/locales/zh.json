@@ -2113,7 +2113,7 @@
   "rm.e2eColTests": "測試",
   "rm.e2eColUrl": "打到的路徑",
   "rm.e2eNoLink": "未關聯 API（黑盒）",
-  "rm.e2eInvNoUrl": "無 API 路徑（UI 驅動黑盒）",
+  "rm.e2eInvNoUrl": "✓ 有測試（UI 驅動，不直接打 API — 正常）",
   "dw.title": "🚀 派工",
   "dw.kDirect": "直接派工",
   "dw.kEmjob": "EM 工單",

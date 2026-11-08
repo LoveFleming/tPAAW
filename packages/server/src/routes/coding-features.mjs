@@ -22,7 +22,7 @@ import { isTestFile } from "../lib/code-graph.mjs";
 import { fileURLToPath } from "url";
 import { readBody, normalizePath } from "./shared.mjs";
 import { resolveDefaultModel, dateTimeContextBlock } from "../lib/llm-utils.mjs";
-import { callProjectLLM } from "./coding.mjs"; // 統一 LLM 咽喉：thinking 控制 + llm log 歸因 + 空回應診斷（2026-08-30）
+import { callProjectLLM } from "./coding-helpers.mjs"; // 2026-11-08 修：coding.mjs 已改 import 不再 re-export，6 模組載入失敗 // 統一 LLM 咽喉：thinking 控制 + llm log 歸因 + 空回應診斷（2026-08-30）
 import { DATA_HOME } from "../data-home.mjs";
 import { nextFeatureId, inferFeatureType, touchFeature, ensureMiscFeature, featureExists } from "../lib/feature-registry.mjs";
 import { scanFeatureRisk, isValidSeverity } from "../lib/feature-risk-scan.mjs";

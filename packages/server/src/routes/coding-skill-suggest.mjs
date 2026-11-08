@@ -13,7 +13,7 @@
 
 import { existsSync } from "fs";
 import { suggestSkills, loadSkillCatalog } from "../lib/skill-suggest.mjs";
-import { callProjectLLM } from "./coding.mjs";
+import { callProjectLLM } from "./coding-helpers.mjs"; // 2026-11-08 修：coding.mjs 已改 import 不再 re-export，6 模組載入失敗
 import { stableStringify } from "../lib/stable-stringify.mjs";
 
 export default async function skillSuggestRoutes(req, res, next) {

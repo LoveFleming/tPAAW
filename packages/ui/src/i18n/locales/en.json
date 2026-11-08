@@ -2113,7 +2113,7 @@
   "rm.e2eColTests": "Tests",
   "rm.e2eColUrl": "URL hit",
   "rm.e2eNoLink": "No API link (black-box)",
-  "rm.e2eInvNoUrl": "No API path (UI-driven)",
+  "rm.e2eInvNoUrl": "✓ Tests exist (UI-driven, no direct API calls — normal)",
   "dw.title": "🚀 Dispatch",
   "dw.kDirect": "Direct",
   "dw.kEmjob": "EM Job",

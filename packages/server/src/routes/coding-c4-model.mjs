@@ -8,7 +8,7 @@
 import { existsSync, readFileSync } from "fs";
 import { join, resolve } from "path";
 import { organizeC4Model } from "../lib/c4-model-scan.mjs";
-import { callProjectLLM } from "./coding.mjs";
+import { callProjectLLM } from "./coding-helpers.mjs"; // 2026-11-08 修：coding.mjs 已改 import 不再 re-export，6 模組載入失敗
 
 function _json(res, code, data) {
   res.writeHead(code, { "Content-Type": "application/json" });

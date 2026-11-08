@@ -2113,7 +2113,7 @@
   "rm.e2eColTests": "テスト",
   "rm.e2eColUrl": "アクセスパス",
   "rm.e2eNoLink": "API未紐付け（ブラックボックス）",
-  "rm.e2eInvNoUrl": "APIパスなし（UI駆動）",
+  "rm.e2eInvNoUrl": "✓ テストあり（UI駆動・API直接叩かず — 正常）",
   "dw.title": "🚀 Dispatch",
   "dw.kDirect": "Direct",
   "dw.kEmjob": "EM Job",
