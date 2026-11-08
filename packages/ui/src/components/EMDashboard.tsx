@@ -807,7 +807,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
               >
                 📋
               </button>
-              {/* Context debug button — 2026-09-12：🔍 改 🧠（不是搜尋） */}
+              {/* Context debug button — 2026-11-08 Fleming：🧠 跟 CU 按鈕撞 emoji，改 👁️（查看注入的 Context） */}
               <button
                 onClick={async () => {
                   try {
@@ -824,7 +824,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                 style={{ borderColor: tk.accentBorder || tk.accent + "99", color: tk.accent }}
                 title="查看注入的 Context & Prompts"
               >
-                🧠
+                👁️
               </button>
               {/* 📋 派工報告（2026-10-25：改獨立 tab page — 點了開 👷 生產 → 派工報告 tab） */}
               <button
