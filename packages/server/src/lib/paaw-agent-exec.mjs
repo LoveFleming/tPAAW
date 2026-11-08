@@ -1749,6 +1749,32 @@ async function executeTool(call, cwd, rootDir, onEvent, agentId, featureBoundary
               return `## ${a.id} ${a.entry}\n分類: ${a.category} | ${a.name}\n${a.description ? `描述: ${a.description}\n` : ""}${a.bizLogic ? `業務邏輯: ${a.bizLogic}\n` : ""}${(a.processFlow?.length) ? `\n### Process Flow\n${a.processFlow.map(s => `${s.step}. ${s.action} — ${s.detail || ""}${s.file ? ` (${s.file})` : ""}`).join("\n")}\n` : ""}${(a.validation?.length) ? `\n### Validation\n${a.validation.map(v => `- ${v.field}: ${v.rule} (on ${v.on || "?"}, fail ${v.fail || "?"})`).join("\n")}\n` : ""}${(a.dataTouch?.length) ? `\n### Data Touch\n${a.dataTouch.map(d => `- ${d.table}: ${(d.ops || []).join(",")}`).join("\n")}\n` : ""}${(a.codeFiles?.length) ? `\n檔案: ${a.codeFiles.join(", ")}` : ""}`;
             } catch (err) { return `Error: ${err.message}`; }
           }
+          case "ui_map": {
+            try {
+              const uiFile = join(cwd, ".paaw", "ui-map.json");
+              if (!existsSync(uiFile)) return "(UI Map 空 — 先跑 CU ui-map 步驟)";
+              const uis = JSON.parse(readSync(uiFile, "utf-8"));
+              if (!Array.isArray(uis) || !uis.length) return "(UI Map 空 — 先跑 CU ui-map 步驟)";
+              const byCat = {};
+              for (const u of uis) (byCat[u.category] ??= []).push(u);
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${uis.length} ui routes` });
+              return `UI Map (${uis.length} routes, route-first 前端地圖):\n` + Object.entries(byCat).map(([cat, list]) =>
+                `## ${cat} (${list.length})\n` + list.map(u => `- [${u.id}] ${u.route} — ${u.name}${u.apiCalls?.length ? ` (calls ${(u.apiCalls).length} APIs)` : ""}`).join("\n")
+              ).join("\n\n");
+            } catch (err) { return `Error: ${err.message}`; }
+          }
+          case "ui_detail": {
+            try {
+              const uiFile = join(cwd, ".paaw", "ui-map.json");
+              if (!existsSync(uiFile)) return "(UI Map 空)";
+              const uis = JSON.parse(readSync(uiFile, "utf-8"));
+              const key = String(args.route || args.id || "").trim().toLowerCase();
+              const u = uis.find(x => x.id === (args.id || args.route) || String(x.route).toLowerCase() === key || String(x.route).toLowerCase().includes(key));
+              if (!u) return `找不到 UI route：${args.route || args.id}（先 project_info(category="ui_map") 查清單）`;
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: u.route });
+              return `## ${u.id} ${u.route}\n分類: ${u.category} | ${u.name}\n${u.description ? `描述: ${u.description}\n` : ""}${(u.uiFlow?.length) ? `\n### UI Flow\n${u.uiFlow.map(s => `${s.step}. ${s.action}${s.component ? ` (${s.component})` : ""}`).join("\n")}\n` : ""}${u.stateMgmt ? `State: ${u.stateMgmt}\n` : ""}${(u.apiCalls?.length) ? `\n### API Calls\n${u.apiCalls.map(a => `- ${a.entry || a.api || JSON.stringify(a)}`).join("\n")}\n` : ""}${(u.components?.length) ? `\n### Components\n${u.components.map(c => `- ${c}`).join("\n")}\n` : ""}${(u.codeFiles?.length) ? `\n檔案: ${u.codeFiles.join(", ")}` : ""}${(u.tests?.length) ? `\nTests: ${u.tests.join(", ")}` : ""}`;
+            } catch (err) { return `Error: ${err.message}`; }
+          }
           case "features": {
             try {
               const { loadFeatures: _lf } = await import("./feature-registry.mjs"); // coding.db
