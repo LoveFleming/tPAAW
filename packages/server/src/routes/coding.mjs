@@ -1298,6 +1298,10 @@ export default async function projectRoute(req, res) {
         try { const cuBody = JSON.parse(await readBody(req) || "{}"); cuModelOverride = cuBody.model || null; } catch {}
         // 2026-11-08 Fleming 公司報案：log 看到的 model 跟 EM UI 選的不一樣 — 明講用哪個（body 沒帶 = providers defaultModel）
         cuLog("bulk", `model = ${cuModelOverride || "(未指定 → providers.json defaultModel)"}`);
+        // 2026-11-08 追修：記住本 RU 最後用的 CU model — 背景自動增量重跑沿用同一個（不會因背景無 UI context 退回 defaultModel）
+        if (cuModelOverride) {
+          try { await writeFile(join(root, ".paaw", "cu-model.json"), JSON.stringify({ model: cuModelOverride, ts: new Date().toISOString() }, null, 2), "utf-8"); } catch {}
+        }
 
         // Gather project info for context
         // 2026-11-07 多語言：不只 package.json — go.mod / Cargo.toml / pom.xml / build.gradle / requirements.txt / pyproject.toml
@@ -1983,13 +1987,16 @@ export default async function projectRoute(req, res) {
         const staleSmartNow = staleSteps.filter(s => !s.mechanical && !s.manual).length;
         if (staleSmartNow > 0 && !_smartRerunBusy.has(root) && Date.now() - (_smartRerunLast.get(root) || 0) > 10 * 60_000) {
           _smartRerunBusy.add(root); _smartRerunLast.set(root, Date.now());
-          console.log(`[cu] 🧠 智慧層自動增量重跑（背景）：${root} stale=${staleSmartNow}`);
           (async () => {
             try {
+              // 2026-11-08 追修：背景重跑沿用該 RU 最後指定的 CU model（沒記錄才退 defaultModel）
+              let _bgModel = null;
+              try { _bgModel = JSON.parse(readSync(join(root, ".paaw", "cu-model.json"), "utf-8"))?.model || null; } catch {}
+              console.log(`[cu] 🧠 智慧層自動增量重跑（背景）：${root} stale=${staleSmartNow} model=${_bgModel || "(default)"}`);
               const { Agent } = await import("undici");
               const dispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
               const r = await fetch(`http://127.0.0.1:${PORT}/api/coding-project/ai-initial?path=${encodeURIComponent(root)}`, {
-                method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", dispatcher,
+                method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: _bgModel || undefined }), dispatcher,
               });
               if (r.body) { const rd = r.body.getReader(); while (true) { const { done } = await rd.read(); if (done) break; } }
               const { importCodingDb } = await import("../lib/coding-db/import.mjs");
