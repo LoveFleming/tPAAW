@@ -38,21 +38,18 @@ export const DISPATCH_CATALOG = [
     flow: ["掃 open tasks", "EM 規劃派工", "agent 逐一執行", "QA 開的新單自動接續", "統一完成報告"],
     preconditions: "中斷過的 plan 會優先續跑；失敗的單標 pending 等人處理（不自動重試）",
     entrypoint: { kind: "auto-start", url: "/api/coding-auto-dispatch/start" },
-    params: [
-      { id: "taskId", label: "指定單號（可選）", type: "text", required: false, placeholder: "TASK-001（留空 = 全部 open tasks）" },
-    ],
+    params: [],
   },
   {
     id: "review-board",
     emoji: "🏛️",
     label: "開 review 委員會",
-    desc: "多位 AI 資深 reviewer 各自獨立審同一段 code，互不通氣；程式當仲裁：行號驗證退幻覺、共識併合、分歧標記待人裁。判 critical 自動開修復單",
-    flow: ["取 diff 範圍", "多 model 獨立審查", "程式仲裁（共識/分歧）", "critical 自動開修復單", "報告落檔 .paaw/review-board/"],
+    desc: "多位 AI 資深 reviewer 各自獨立審最近的變更，互不通氣；程式當仲裁：行號驗證退幻覺、共識併合、分歧標記待人裁。判 critical 自動開修復單",
+    flow: ["取最近 N 天變更", "多 model 獨立審查", "程式仲裁（共識/分歧）", "critical 自動開修復單", "報告落檔 .paaw/review-board/"],
     preconditions: "reviewer 名單由 EM 設定 reviewConfig.reviewModels 決定（沒開 multiAgentReview 就單席）",
     entrypoint: { kind: "review-run", url: "/api/coding-crew/review-board-run" },
     params: [
-      { id: "ref", label: "審查範圍（git range）", type: "text", required: false, default: "HEAD~1..HEAD", placeholder: "HEAD~1..HEAD（最後一個 commit）" },
-      { id: "path", label: "限定路徑（可選）", type: "text", required: false, placeholder: "packages/server/（留空 = 全部）" },
+      { id: "days", label: "最近變更天數", type: "number", default: 7, min: 1, max: 90 },
     ],
   },
   {
@@ -60,13 +57,10 @@ export const DISPATCH_CATALOG = [
     emoji: "🛡️",
     label: "安全閉環",
     desc: "semgrep 安全掃描 → findings 按 severity 分組 → 開修復單（之後可接「完成 open tasks」把修復單做完）",
-    flow: ["security 掃描", "findings 分組", "LLM triage 開修復單", "（可再觸發 ✅ 完成 open tasks 修復）"],
+    flow: ["security 掃描", "findings 全部分組", "LLM triage 開修復單（不設上限）", "（可再觸發 ✅ 完成 open tasks 修復）"],
     preconditions: "掃描結果不存在或 >7 天會自動先開「重掃」單",
     entrypoint: { kind: "em-job", url: "/api/coding-crew/em-job", job: "security-fix" },
-    params: [
-      { id: "action", label: "模式", type: "select", options: ["preview", "run"], default: "preview" },
-      { id: "maxTickets", label: "最多開單數", type: "number", default: 5, min: 1, max: 10 },
-    ],
+    params: [],
   },
   {
     id: "test-gen",
@@ -76,10 +70,7 @@ export const DISPATCH_CATALOG = [
     flow: ["覆蓋率分析", "找缺口", "LLM triage 開 test 單"],
     preconditions: "需要先有覆蓋率報告（沒有會回報原因不硬開單）",
     entrypoint: { kind: "em-job", url: "/api/coding-crew/em-job", job: "test-gen" },
-    params: [
-      { id: "action", label: "模式", type: "select", options: ["preview", "run"], default: "preview" },
-      { id: "maxTickets", label: "最多開單數", type: "number", default: 5, min: 1, max: 10 },
-    ],
+    params: [],
   },
   {
     id: "release-prep",
@@ -89,10 +80,7 @@ export const DISPATCH_CATALOG = [
     flow: ["release 現況盤點", "checklist 開單", "（可再觸發 ✅ 完成 open tasks 跑單）"],
     preconditions: "建議先跑過 CU 掃描讓 feature/API map 新鮮",
     entrypoint: { kind: "em-job", url: "/api/coding-crew/em-job", job: "release-prep" },
-    params: [
-      { id: "action", label: "模式", type: "select", options: ["preview", "run"], default: "preview" },
-      { id: "maxTickets", label: "最多開單數", type: "number", default: 5, min: 1, max: 10 },
-    ],
+    params: [],
   },
   {
     id: "direct",

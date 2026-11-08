@@ -314,7 +314,9 @@ const TRIAGE_PROMPT = `你是 EM 工頭。一個 deterministic 工作入口剛�
  * @returns {{ok, tickets: [], skipped: 0, error?}}
  */
 export async function triageToTickets(p = {}) {
-  const { rootDir, type, result, modelOverride, fallbackModels = [], sendSSE = (() => {}), maxTickets = 5, dryRun = false, _llmCall } = p;
+  const { rootDir, type, result, modelOverride, fallbackModels = [], sendSSE = (() => {}), maxTickets, dryRun = false, _llmCall } = p;
+  // 2026-11-08 Fleming：沒帶 maxTickets = 不設限（開單上限不應該影響工作完成）
+  const cap = Number.isFinite(Number(maxTickets)) && Number(maxTickets) >= 1 ? Number(maxTickets) : Infinity;
   if (!result?.ok) return { ok: false, error: result?.error || "entrypoint 失敗" };
   if (!result.findings?.length) {
     sendSSE("info", { message: `${JOB_TYPE_META[type]?.emoji || "job"} ${JOB_TYPE_META[type]?.label || type}：掃描乾淨，無 findings — 不開單` });
@@ -340,7 +342,7 @@ export async function triageToTickets(p = {}) {
       try { _fbm = resolveLLMConfig(rootDir).fallbacks.map(f => `${f.providerId}/${f.model}`); } catch {}
     }
     const fallbackCfgs = _fbm.map(m => resolveLLMConfig(rootDir, m));
-    const prompt = TRIAGE_PROMPT.replace("{{maxTickets}}", String(maxTickets))
+    const prompt = TRIAGE_PROMPT.replace("{{maxTickets}}", cap === Infinity ? "不設限（全部值得開的都開）" : String(cap))
       + `\n\n## 掃描結果（type: ${type}）\n摘要：${result.summary}\n\n## 已開的 open 單 labels（避免重複）\n${[...openLabels].filter(l => l.startsWith("entry:")).join("\n") || "(無)"}\n\n## findings\n\`\`\`json\n${stableStringify(result.findings).slice(0, 24000)}\n\`\`\`\n\n你的 triage（JSON array）：`;
     try {
       sendSSE("llm_start", { message: `${JOB_TYPE_META[type]?.emoji || "📡"} ${type} triage 中...` });
@@ -363,7 +365,7 @@ export async function triageToTickets(p = {}) {
   // 開單（程式寫檔 — deterministic；dryRun 只回建議不寫檔）
   const tickets = [];
   let skipped = 0;
-  for (const item of (Array.isArray(list) ? list : []).slice(0, maxTickets)) {
+  for (const item of (Array.isArray(list) ? list : []).slice(0, cap)) {
     if (!item?.title || !item?.description) continue;
     const dedupeKey = String(item.dedupeKey || item.title).slice(0, 60);
     const label = `entry:${type}:${dedupeKey}`;

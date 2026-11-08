@@ -110,7 +110,7 @@ export default function DispatchWizard({ rootPath, theme: tk, onClose }: Props) 
       if (ep.kind === "em-job") {
         const r = await fetch(`${API_BASE}${ep.url}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cwd: rootPath, job: ep.job, action: values.action || "run", maxTickets: Number(values.maxTickets) || 5 }),
+          body: JSON.stringify({ cwd: rootPath, job: ep.job, action: "run" }),
         });
         const d = await r.json().catch(() => ({}));
         if (d.error) { setResult(`❌ ${d.error}`); }
@@ -121,7 +121,7 @@ export default function DispatchWizard({ rootPath, theme: tk, onClose }: Props) 
       } else if (ep.kind === "auto-start") {
         const r = await fetch(`${API_BASE}${ep.url}?path=${encodeURIComponent(rootPath)}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values.taskId ? { taskId: values.taskId.trim().toUpperCase() } : {}),
+          body: JSON.stringify({}),
         });
         const d = await r.json().catch(() => ({}));
         setResult(d.error ? `❌ ${d.error}` : "⚡ 已啟動 task-driven 閉環（進度見 🎖️ EM Dashboard 狀態列 / 派工報告）");
@@ -139,7 +139,7 @@ export default function DispatchWizard({ rootPath, theme: tk, onClose }: Props) 
         const logs: string[] = [];
         const r = await fetch(`${API_BASE}${ep.url}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cwd: rootPath, ref: values.ref || undefined, path: values.path || undefined }),
+          body: JSON.stringify({ cwd: rootPath, days: Number(values.days) || 7 }),
         });
         await readSSE(r, (d) => {
           if (d.error) { setResult(`❌ ${d.error}`); return true; }

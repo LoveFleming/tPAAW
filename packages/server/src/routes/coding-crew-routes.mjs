@@ -1227,7 +1227,7 @@ if (url === "/api/coding-crew/em-job" && method === "POST") {
     res.end(JSON.stringify({ error: "Invalid JSON" }));
     return true;
   }
-  const { cwd, job, action = "run", maxTickets = 5 } = body;
+  const { cwd, job, action = "run", maxTickets } = body;
   if (!["cu-scan", "security-fix", "test-gen", "release-prep"].includes(job)) {
     res.writeHead(400, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "job 必須是 cu-scan / security-fix / test-gen / release-prep" }));
@@ -1250,7 +1250,9 @@ if (url === "/api/coding-crew/em-job" && method === "POST") {
     }
     const triage = await triageToTickets({
       rootDir: root, type: job, result,
-      maxTickets: Math.max(1, Math.min(10, Number(maxTickets) || 5)),
+      // Fleming 2026-11-08：開單上限不應該影響工作完成 — 沒帶 maxTickets 就不設限（全部 findings triage）；
+      // 有帶才 clamp 1..50（API 相容保留）
+      maxTickets: maxTickets != null ? Math.max(1, Math.min(50, Number(maxTickets) || 10)) : undefined,
       sendSSE: () => {}, dryRun: action === "preview",
     });
     if (!triage.ok) {
@@ -1298,9 +1300,24 @@ if (url === "/api/coding-crew/review-board-run" && method === "POST") {
   const rbSend = (d) => { try { res.write(`data: ${JSON.stringify(d)}\n\n`); } catch {} };
   try {
     const { runMultiModelReview, formatReviewResult } = await import("../lib/coding-review-runner.mjs");
+    // Fleming 2026-11-08：不要求使用者輸 git range — 用「最近 N 天變更」算出 range
+    //   N 天前最後一個 commit 的 sha..HEAD；專案比 N 天年輕 → 從 root commit 開始（全部審）
+    let ref = rbBody.ref;
+    if (!ref) {
+      const days = Math.max(1, Math.min(365, Number(rbBody.days) || 7));
+      const since = new Date(Date.now() - days * 86400_000).toISOString();
+      const rootSha = (await shellExec(`git rev-list --max-parents=0 HEAD`, { cwd: rbRoot })).stdout?.trim().split("\n").pop() || "";
+      const headSha = (await shellExec(`git rev-list -1 HEAD`, { cwd: rbRoot })).stdout?.trim() || "";
+      let beforeSha = "";
+      try { beforeSha = (await shellExec(`git rev-list -1 --before="${since}" HEAD`, { cwd: rbRoot })).stdout?.trim() || ""; } catch {}
+      // 專案比 N 天年輕（beforeSha == HEAD 或查不到）→ 從 root commit 開始全部審
+      const baseSha = beforeSha && beforeSha !== headSha ? beforeSha : rootSha;
+      ref = baseSha ? `${baseSha}..HEAD` : "HEAD~1..HEAD";
+      rbSend({ event: "progress", message: `審查範圍：最近 ${days} 天 → ${ref}` });
+    }
     const r = await runMultiModelReview({
       projectDir: rbRoot,
-      ref: rbBody.ref,
+      ref,
       pathFilter: rbBody.path,
       onProgress: (m) => rbSend({ event: "progress", message: m }),
     });
