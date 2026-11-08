@@ -1724,6 +1724,31 @@ async function executeTool(call, cwd, rootDir, onEvent, agentId, featureBoundary
               return `Issues (${issues.length}):\n${summary}`;
             } catch (err) { return `Error reading issues: ${err.message}`; }
           }
+          // 2026-11-08 Fleming：coding agent 的 project_info 補上 API Map（API-first）— 只有 chat 側 tools/index 有，agent 側查不到
+          case "api_map": {
+            try {
+              const { readApiFeatures } = await import("./coding-db/reads.mjs");
+              const apis = readApiFeatures(cwd);
+              if (!apis.length) return "(API Map 空 — 先跑 CU api-map 步驟)";
+              const byCat = {};
+              for (const a of apis) (byCat[a.category] ??= []).push(a);
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${apis.length} apis` });
+              return "API Map (" + apis.length + " entries, API-first):\n" + Object.entries(byCat).map(([cat, list]) =>
+                `## ${cat} (${list.length})\n` + list.map(a => `- [${a.id}] ${a.entry} — ${a.name}${a.codeFiles?.length ? ` (${a.codeFiles.length} files)` : ""}`).join("\n")
+              ).join("\n\n");
+            } catch (err) { return `Error: ${err.message}`; }
+          }
+          case "api_detail": {
+            try {
+              const { readApiFeatures } = await import("./coding-db/reads.mjs");
+              const apis = readApiFeatures(cwd);
+              const key = String(args.entry || args.id || "").trim().toUpperCase();
+              const a = apis.find(x => x.id === (args.id || args.entry) || x.entry.toUpperCase() === key || x.entry.toUpperCase().includes(key));
+              if (!a) return `找不到 API：${args.entry || args.id}（先 project_info(category="api_map") 查清單）`;
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: a.entry });
+              return `## ${a.id} ${a.entry}\n分類: ${a.category} | ${a.name}\n${a.description ? `描述: ${a.description}\n` : ""}${a.bizLogic ? `業務邏輯: ${a.bizLogic}\n` : ""}${(a.processFlow?.length) ? `\n### Process Flow\n${a.processFlow.map(s => `${s.step}. ${s.action} — ${s.detail || ""}${s.file ? ` (${s.file})` : ""}`).join("\n")}\n` : ""}${(a.validation?.length) ? `\n### Validation\n${a.validation.map(v => `- ${v.field}: ${v.rule} (on ${v.on || "?"}, fail ${v.fail || "?"})`).join("\n")}\n` : ""}${(a.dataTouch?.length) ? `\n### Data Touch\n${a.dataTouch.map(d => `- ${d.table}: ${(d.ops || []).join(",")}`).join("\n")}\n` : ""}${(a.codeFiles?.length) ? `\n檔案: ${a.codeFiles.join(", ")}` : ""}`;
+            } catch (err) { return `Error: ${err.message}`; }
+          }
           case "features": {
             try {
               const { loadFeatures: _lf } = await import("./feature-registry.mjs"); // coding.db
