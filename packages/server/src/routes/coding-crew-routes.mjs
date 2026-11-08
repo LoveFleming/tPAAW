@@ -122,6 +122,20 @@ if (url === "/api/coding-crew/chat" && method === "POST") {
       } catch {}
     }
 
+    // Inject Handover 文件 v2（2026-11-08 Fleming）：handover 相關 crew 優先吃最新交接文件 — side chat 回答與頁面文件一致
+    if (/handover/i.test(crewId)) {
+      try {
+        const docFile = join(projRoot, ".paaw", "handover", "handover-doc.json");
+        if (existsSync(docFile)) {
+          const doc = JSON.parse(readSync(docFile, "utf-8"));
+          if (doc?.sections) {
+            const secLines = Object.entries(doc.sections).map(([k, v]) => `### ${k}\n${String(v).slice(0, 1500)}`).join("\n\n");
+            extraContext.push(`\n## Handover 交接文件（${(doc.generatedAt || "").slice(0, 10)} 生成 — 回答交接問題以此為準）\n${secLines.slice(0, 8000)}\n\n## 疑難排解 FAQ\n${String(doc.faq || "").slice(0, 2000)}`);
+          }
+        }
+      } catch {}
+    }
+
     // Inject Code Intelligence SUMMARY (not full 200-file dump — too fat)
     const ciFile = join(projRoot, ".paaw", "code-intelligence", "code-intelligence.json");
     if (existsSync(ciFile)) { // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）

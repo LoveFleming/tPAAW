@@ -321,7 +321,7 @@ async function collectDocFacts(projectPath) {
   };
   try {
     const pkg = JSON.parse(await readFile(join(projectPath, "package.json"), "utf-8"));
-    facts.pkg = { name: pkg.name, version: pkg.version, workspaces: pkg.workspaces || null };
+    facts.pkg = { name: pkg.name, version: pkg.version, workspaces: pkg.workspaces || null, engines: pkg.engines || null };
     facts.scripts = pkg.scripts || {};
     const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
     const depNames = Object.keys(deps);
@@ -345,6 +345,11 @@ async function collectDocFacts(projectPath) {
       const keys = (await readFile(p, "utf-8")).split("\n").map(l => l.split("=")[0].trim()).filter(k => k && !k.startsWith("#"));
       facts.envKeys.push(...keys.slice(0, 30));
     } catch { /* EPERM */ }
+  }
+  // 環境版本線索（2026-11-08 Fleming：接手的人要知道 Node 版本）
+  for (const vf of [".nvmrc", ".node-version"]) {
+    const p = join(projectPath, vf);
+    if (existsSync(p)) { try { facts.envKeys.push(`${vf}=${(await readFile(p, "utf-8")).trim()}`); } catch {} }
   }
   facts.envKeys = [...new Set(facts.envKeys)];
   // 檔案掃描（node_modules/.git/.paaw 跳過）
@@ -418,7 +423,7 @@ async function generateHandoverDoc(projectPath) {
   const prompt = `你是資深工程師，為下一位接手「${facts.pkg?.name || "此專案"}」的人寫交接文件。只能根據以下真實掃描證據寫，寫不出來的面向誠實標「（未發現線索，需人工確認）」，絕不編造。
 
 證據（自動掃描）：
-- package: ${JSON.stringify(facts.pkg)}${facts.pkg?.workspaces ? "（monorepo workspaces）" : ""}
+- package: ${JSON.stringify(facts.pkg)}${facts.pkg?.workspaces ? "（monorepo workspaces）" : ""}${facts.pkg?.engines ? `；Node 版本需求 engines=${JSON.stringify(facts.pkg.engines)}` : ""}
 - scripts: ${JSON.stringify(facts.scripts).slice(0, 500)}
 - env 變數名（只有名字，值不外洩）: ${facts.envKeys.slice(0, 20).join(", ") || "（無 .env）"}${facts.hasEnvExample ? "；有 .env.example" : ""}
 - DB 檔案: ${facts.dbFiles.join(", ") || "（沒掃到 .db/.sqlite）"}；DB 相關依賴: ${facts.sqliteDeps.join(", ") || "無"}
@@ -436,7 +441,7 @@ async function generateHandoverDoc(projectPath) {
 {
 ${HO_DOC_SECTIONS.map(s => `  "${s.key}": "markdown 字串（zh-TW，精簡，每節 3-8 行，可用列表）"`).join(",\n")}
 }
-規則：storage 要講「哪些資料在哪、哪些是使用者資料不能亂刪」；externalServices 要列服務+金鑰在 .env 的變數名；auth 描述登入/token 機制與檔案位置；cache 講哪裡有 cache/何時失效/改資料要清什麼；risks 結合熱點檔+severity；aiWorkflow 教「在 PAAW coding app 裡怎麼開發此專案：SA 開 task → EM 派工給 developer/tester → 委員會 review → release」，並註明專案的 .paaw 狀態；quickstart 給實際 npm 指令（從 scripts）+ env 設定步驟。`;
+規則：storage 要講「哪些資料在哪、哪些是使用者資料不能亂刪」；externalServices 要列服務+金鑰在 .env 的變數名；auth 描述登入/token 機制與檔案位置；cache 講哪裡有 cache/何時失效/改資料要清什麼；risks 結合熱點檔+severity；aiWorkflow 教「在 PAAW coding app 裡怎麼開發此專案：SA 開 task → EM 派工給 developer/tester → 委員會 review → release」，並註明專案的 .paaw 狀態；quickstart 給實際 npm 指令（從 scripts）+ env 設定步驟，最後加「**接手第一步**」3 步起手式（含：開一個小 task 給 EM 跑一輪練手感）。`;
 
   const [mainRes, faqMd] = await Promise.all([
     callProjectLLM({
