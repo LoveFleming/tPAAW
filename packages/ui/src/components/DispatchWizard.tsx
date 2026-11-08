@@ -129,7 +129,7 @@ export default function DispatchWizard({ rootPath, theme: tk, onClose }: Props) 
         setResult("⏳ 已派工，串流執行中…");
         const r = await fetch(`${API_BASE}${ep.url}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agentId: values.agentId, task: values.task, priority: values.priority, cwd: rootPath }),
+          body: JSON.stringify({ agentId: values.agentId, task: values.task, cwd: rootPath }),
         });
         await readSSE(r, (d) => {
           if (d.error) { setResult(`❌ ${d.error}`); return true; }

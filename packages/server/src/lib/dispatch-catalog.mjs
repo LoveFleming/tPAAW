@@ -93,7 +93,6 @@ export const DISPATCH_CATALOG = [
     params: [
       { id: "agentId", label: "指派 Agent", type: "select", options: DIRECT_AGENTS.map(a => a.id), optionLabels: DIRECT_AGENTS.map(a => a.label), default: "coding.developer" },
       { id: "task", label: "任務描述", type: "textarea", required: true, placeholder: "要 agent 做什麼（越具體越好：改哪個 feature、驗收標準）" },
-      { id: "priority", label: "優先序", type: "select", options: ["high", "medium", "low"], default: "medium" },
     ],
   },
 ];
