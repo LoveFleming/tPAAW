@@ -160,7 +160,6 @@ export default function DispatchWizard({ rootPath, theme: tk, onClose }: Props) 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
           <div className="flex items-center gap-2">
-            <span className="text-lg">🚀</span>
             <span className="text-sm font-bold" style={{ color: tk.text }}>{t("dw.title")}</span>
             <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ backgroundColor: tk.bgMuted, color: tk.text }}>{rootPath?.split("/").pop()}</span>
           </div>
