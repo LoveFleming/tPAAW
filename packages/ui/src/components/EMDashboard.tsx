@@ -780,7 +780,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                 className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50"
                 style={{ borderColor: tk.accentBorder || tk.accent, color: tk.accent }}
                 title={t("dw.title")}
-              >🚀 {t("dw.title")}</button>
+              >{t("dw.title")}</button>
               {/* EM Settings */}
               <button
                 onClick={() => { if (!showEmConfig) fetchEmConfig(); setShowEmConfig(!showEmConfig); }}
