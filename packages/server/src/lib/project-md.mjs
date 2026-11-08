@@ -27,13 +27,24 @@ function sliceBetween(md, startMark, endMark) {
   return md.slice(s + startMark.length, e).replace(/^\s*\n/, "").replace(/\n\s*$/, "");
 }
 
+
+/** 骨架行剝除（marker/註解/schema 標籤/區塊標題）— marker 路徑也要用，防「## 📌 User Remarks」每輪重生成疊一層（2026-11-08 browser 實測抓到 10 層） */
+const stripSkeletonLines = (s) => s.split("\n").filter(l => {
+  const t = l.trim();
+  if (/^<!--[\s\S]*-->$/.test(t)) return false;
+  if (/^>\s*📄\s*Schema v2/.test(l)) return false;
+  if (/^##\s*📌\s*User Remarks$/.test(t)) return false;
+  if (/^##\s*🤖\s*AI Overview$/.test(t)) return false;
+  return true;
+}).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+
 /** 解析 PROJECT.md → 兩區。無 marker 的舊檔做遷移判定（人寫→USER 區；auto-draft→丟棄） */
 export function parseProjectMd(md) {
   if (!md || !md.trim()) return { userSection: "", aiSection: "", migrated: false };
   const user = sliceBetween(md, USER_START, USER_END);
   const ai = sliceBetween(md, AI_START, AI_END);
   if (user !== null || ai !== null) {
-    return { userSection: user || "", aiSection: ai || "", migrated: false };
+    return { userSection: user ? stripSkeletonLines(user) : "", aiSection: ai ? stripSkeletonLines(ai) : "", migrated: false };
   }
   // 舊格式遷移
   if (md.includes(LEGACY_AUTO_SIGN)) {
@@ -43,14 +54,7 @@ export function parseProjectMd(md) {
   // 2026-10-09 防滾雪球：marker 被剝掉的 schema v2 檔（公司端回存常見）再 migrate 會把整包骨架
   // 一層層疊進 USER 區 — 偵測 v2 特徵時按標題切兩區，不用「整檔當人寫」
   const hasV2 = /^##\s*📌\s*User Remarks/m.test(md) || /^##\s*🤖\s*AI Overview/m.test(md) || /^>\s*📄\s*Schema v2/m.test(md);
-  const stripSkeleton = (s) => s.split("\n").filter(l => {
-    const t = l.trim();
-    if (/^<!--[\s\S]*-->$/.test(t)) return false;
-    if (/^>\s*📄\s*Schema v2/.test(l)) return false;
-    if (/^##\s*📌\s*User Remarks$/.test(t)) return false;
-    if (/^##\s*🤖\s*AI Overview$/.test(t)) return false;
-    return true;
-  }).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  const stripSkeleton = stripSkeletonLines;
   if (hasV2) {
     const mUser = md.match(/[\s\S]*?^##\s*📌\s*User Remarks[^\n]*\n([\s\S]*?)(?=^##\s*🤖\s*AI Overview|\s*$)/m);
     const mAi = md.match(/^##\s*🤖\s*AI Overview[^\n]*\n([\s\S]*)/m);
