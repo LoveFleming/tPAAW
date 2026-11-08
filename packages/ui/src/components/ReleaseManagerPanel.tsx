@@ -362,6 +362,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                 <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight, background: "#f0fdfa" }} data-testid="rm-e2e-inv-block">
                   <div className="flex items-center gap-2 flex-wrap mb-2">
                     <span className="text-xs font-bold text-stone-700">{t("rm.e2eInvTitle")}</span>
+                    <span className="text-[10px] text-stone-400">{t("rm.e2eInvHint")}</span>
                     <button onClick={() => setE2eInv(null)} className="ml-auto text-stone-400 hover:text-stone-600 text-xs">✕</button>
                   </div>
                   <div className="flex gap-2 flex-wrap text-[10px] font-bold mb-2">

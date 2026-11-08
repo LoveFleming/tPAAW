@@ -156,7 +156,7 @@ export function isTestFileName(name) {
   return /\.(test|spec)\.[cm]?[jt]sx?$/.test(name)
     || /_test\.(go|py|rs|java)$/.test(name)
     || /^test_.*\.py$/.test(name)
-    || /^test[-_]/.test(name);
+    || /^test[-_][^/]*\.[cm]?[jt]sx?$/.test(name);
 }
 
 /**

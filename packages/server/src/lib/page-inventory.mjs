@@ -328,7 +328,7 @@ function collectE2eUrls(root) {
       const rel = prefix ? `${prefix}/${e.name}` : e.name;
       const full = join(dir, e.name);
       if (e.isDirectory()) walk(full, depth + 1, rel);
-      else if (e.isFile() && (isTestFileName(e.name) || rel.split("/").slice(0, -1).some((s) => ["e2e", "tests", "test", "spec", "__tests__"].includes(s)))) {
+      else if (e.isFile() && /\.(m?js|cjs|ts|tsx|jsx|py|go|rs|java)$/i.test(e.name) && (isTestFileName(e.name) || rel.split("/").slice(0, -1).some((s) => ["e2e", "tests", "test", "spec", "__tests__"].includes(s)))) {
         const c = readSafe(full);
         if (!c) continue;
         for (const m of c.matchAll(/["'`](\/[A-Za-z0-9_\-{}.:]{2,160}(?:\/[A-Za-z0-9_\-{}.:]*)*)["'`]/g)) urls.push({ file: rel, url: m[1] });

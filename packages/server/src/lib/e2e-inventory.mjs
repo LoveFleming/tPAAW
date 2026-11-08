@@ -15,12 +15,17 @@ import { join } from "path";
 import { isTestFileName } from "./cu-source-scan.mjs";
 
 const TEST_DIR = new Set(["tests", "test", "e2e", "__tests__", "spec"]);
+const TEST_CODE_EXT = new Set(["js", "cjs", "mjs", "ts", "tsx", "jsx", "py", "go", "rs", "java", "rb", "kt", "cs", "php"]);
 const SKIP_DIR = new Set(["node_modules", "dist", "build", "target", "coverage", "vendor", ".git", ".paaw", "venv", ".venv", "__pycache__"]);
 
 function isTestFilePath(relPath) {
   const segs = relPath.split(/[\\/]/);
+  const ext = (segs[segs.length - 1] || "").split(".").pop()?.toLowerCase() || "";
+  if (!TEST_CODE_EXT.has(ext)) return false; // 2026-11-08 修：.md 文件被 test/ 目錄誤判成測試檔
   if (segs.slice(0, -1).some((s) => TEST_DIR.has(s))) return true;
-  return isTestFileName(segs[segs.length - 1] || "");
+  // 不在測試目錄時只認強慣例檔名 — test-xxx.mjs 函式庫（test-runner 等）不算測試
+  const name = segs[segs.length - 1] || "";
+  return /\.(test|spec)\.[cm]?[jt]sx?$/.test(name) || /_test\.(go|py|rs|java)$/.test(name) || /^test_.*\.py$/.test(name);
 }
 
 /** 測試名抽取（Playwright/Vitest/Jest `test("x")`、pytest `def test_x`、Go `func TestX`、JUnit `void x()`+@Test） */
@@ -117,12 +122,14 @@ export function buildE2EInventory(root, apis = [], opts = {}) {
     }
   };
   walk(root, 0, "");
+  // 2026-11-08 修：零訊號檔（沒測試名也沒 URL）純噪音（test-runner.mjs 之類函式庫），不列
+  const signalFiles = files.filter((f) => f.testCount > 0 || f.urlCount > 0);
 
   const linkedUrls = files.flatMap((f) => f.urls).filter((u) => u.apis.length > 0);
-  const orphanFiles = files.filter((f) => !f.urls.some((u) => u.apis.length));
+  const orphanFiles = signalFiles.filter((f) => !f.urls.some((u) => u.apis.length));
   const coveredApis = new Set(linkedUrls.flatMap((u) => u.apis));
   return {
-    files,
+    files: signalFiles,
     summary: {
       testFiles: files.length,
       totalTests: files.reduce((n, f) => n + f.testCount, 0),
