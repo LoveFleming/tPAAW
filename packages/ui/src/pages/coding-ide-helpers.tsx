@@ -59,7 +59,7 @@ import CodeReviewBoardPanel from "../components/CodeReviewBoardPanel";
 import HandoverPanel from "../components/HandoverPanel";
 import TroubleshootingPanel from "../components/TroubleshootingPanel";
 import TabErrorBoundary from "../components/TabErrorBoundary";
-import ApiMapView from "../components/FeatureMap";
+import ApiMapView from "../components/ApiMapView";
 import ApiMapSidebar from "../components/ApiMapSidebar";
 import ApiTesterTabs from "../components/ApiTesterTabs";
 import ApiRequestTabSheet, { type ApiRequestTabSheetHandle } from "../components/ApiRequestTabSheet";
