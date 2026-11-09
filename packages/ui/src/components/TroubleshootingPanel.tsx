@@ -98,15 +98,7 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
     setTsgLoading(false);
   }, [rootPath, tsgLoading]);
 
-  const confirmTsg = useCallback(async (id: string, unconfirm = false) => {
-    if (!rootPath) return;
-    try {
-      const r = await fetch(`${API_BASE}/api/coding-trouble/confirm?path=${encodeURIComponent(rootPath)}`, {
-        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, unconfirm }),
-      });
-      if (r.ok) { const d = await r.json(); setTsg(d.guide || null); }
-    } catch { /* silent */ }
-  }, [rootPath]);
+  // 2026-11-09 Fleming：draft? 狀態拿掉 — AI 產的條目不需要草稿/確認狀態（confirmTsg 已刪，badge 只剩人工條目的 ✍️）
 
   const addTsgRemark = useCallback(async () => {
     const text = tsgRemarkText.trim();
@@ -193,9 +185,10 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
                   <div key={e.id} className="border rounded-lg overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
                     <button onClick={() => setTsgOpen(tsgOpen === e.id ? null : e.id)} className="w-full text-left px-3 py-2 flex items-start gap-2 hover:bg-stone-50">
                       <span className="text-[11px] font-medium text-stone-800 flex-1 leading-snug">{e.symptom}</span>
-                      <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${e.status === "human" ? "bg-emerald-100 text-emerald-700" : "bg-stone-100 text-stone-400"}`}>
-                        {e.status === "human" ? `✍️ ${t("tsg.human")}` : t("tsg.draft")}
-                      </span>
+                      {/* 2026-11-09 Fleming：draft? 拿掉 — AI 產的直接就是成品，只有人工條目標 ✍️ */}
+                      {e.status === "human" && (
+                        <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-700">✍️ {t("tsg.human")}</span>
+                      )}
                     </button>
                     {tsgOpen === e.id && (
                       <div className="border-t px-3 py-2.5 space-y-2" style={{ borderColor: tk.borderLight }}>

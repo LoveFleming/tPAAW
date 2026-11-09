@@ -161,7 +161,7 @@ Rules:
         evidence: Array.isArray(x?.evidence) ? x.evidence.slice(0, 6).map(e => ({
           type: String(e?.type || "?").slice(0, 10), ref: String(e?.ref || "").slice(0, 160),
         })).filter(e => e.ref) : [],
-        status: "ai-draft",
+        status: "ai", // 2026-11-09 Fleming：draft 狀態拿掉 — AI 產的直接是成品
       })).filter(x => x.symptom) : [],
       gaps: Array.isArray(d.gaps) ? d.gaps.slice(0, 6).map(g => String(g).slice(0, 200)) : [],
     };
@@ -204,7 +204,7 @@ export default function codingTroubleRoutes(req, res) {
       const facts = await collectTroubleFacts(projectPath);
       const mined = await mineEntries(facts);
       const old = await loadGuide(projectPath);
-      // merge 鐵律：confirmed/human 是人確認或人寫的資產原封保留；舊 draft 丟掉換新
+      // merge 鐵律：confirmed/human 是人確認或人寫的資產原封保留；舊 AI 條目丟掉換新
       const confirmed = (old?.entries || []).filter(e => e.status === "confirmed" || e.status === "human");
       const guide = {
         version: 1,
@@ -229,7 +229,7 @@ export default function codingTroubleRoutes(req, res) {
       if (!guide) return res.status(404).json({ error: "guide not generated" });
       const entry = (guide.entries || []).find(e => e.id === id);
       if (!entry) return res.status(404).json({ error: "entry not found" });
-      entry.status = body.unconfirm ? "ai-draft" : "confirmed";
+      entry.status = body.unconfirm ? "ai" : "confirmed";
       if (body.unconfirm) { delete entry.confirmedAt; delete entry.confirmedBy; }
       else { entry.confirmedAt = new Date().toISOString(); entry.confirmedBy = "user"; }
       await saveJson(guideFilePath(projectPath), guide);
