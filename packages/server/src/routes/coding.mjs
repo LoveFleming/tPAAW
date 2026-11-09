@@ -96,6 +96,9 @@ const _mechanicalRescanBusy = new Set(); // cu-status 觸發的背景機械層�
 // 2026-11-08 Fleming：智慧層（LLM 步驟）也自動化 — 偵測 stale 就背景自呼 ai-initial 增量重跑，不再用 UI 訊息叫人按鈕
 const _smartRerunBusy = new Set();
 const _smartRerunLast = new Map(); // root → last trigger ms（失敗 cooldown 10 分鐘防重試風暴）
+// 2026-11-09 Fleming：CU bulk run 訂閱板 — 同 root 只允許一份 bulk 在跑（前景 or 背景智慧層自呼），
+// 後到請求改訂閱既有 run 的事件流，主 run 真正 done 才轉發 complete（修「CU 視窗還沒做完就關」）
+const _cuBulkRuns = new Map(); // root -> { subs: Set<{ write, res }> }
 
 export async function computeCuStaleness(root, steps, codeLastModifiedMs) {
   // 逐步驟 git watermark（codeCommit）：所有 done step 取最大共用一次 git diff 快取
@@ -1284,9 +1287,36 @@ export default async function projectRoute(req, res) {
         "X-Accel-Buffering": "no",
       });
 
-      const sendEvent = (event, data) => {
+      const writeSSE = (event, data) => {
         if (res.writableEnded || res.destroyed) return;
         try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch {}
+      };
+
+      // 2026-11-09 Fleming：CU 視窗「要真的做完才關」— 同 root 已有 bulk CU 在跑（前景或背景智慧層自呼）時
+      // 不再併發第二份：新請求改「訂閱」既有 run（replay 已完成步驟 + 即時轉發後續事件）。
+      // 主 run 真正送出 done 時訂閱端才收到 complete → 前端不會再出現「秒完成關窗但 feature map 還在背景跑」
+      const _bus = _cuBulkRuns.get(root);
+      if (_bus) {
+        try {
+          const st = await paaw.getCuStatus();
+          for (const [sid, s] of Object.entries(st?.steps || {})) {
+            const nm = steps.find(x => x.id === sid)?.name || sid;
+            if (s.status === "done") writeSSE("step_done", { step: sid, name: nm, size: s.size, preview: "" });
+            else if (s.status === "error") writeSSE("step_error", { step: sid, name: nm, error: s.error || "error" });
+          }
+        } catch {}
+        writeSSE("info", { message: "📌 此專案已有 CU 掃描在執行中 — 已接上即時進度，完成時一併回報" });
+        const sub = { write: (ev, d) => writeSSE(ev, d), res };
+        _bus.subs.add(sub);
+        req.on("close", () => { _bus.subs.delete(sub); });
+        return true; // 訂閱模式：主 run 結束時統一轉發 done 並 end 本回應
+      }
+      _cuBulkRuns.set(root, { subs: new Set() });
+
+      const sendEvent = (event, data) => {
+        writeSSE(event, data);
+        const b = _cuBulkRuns.get(root);
+        if (b) for (const s of b.subs) { try { s.write(event, data); } catch {} }
       };
 
       try {
@@ -1406,7 +1436,7 @@ export default async function projectRoute(req, res) {
                 onProgress: (msg) => { cuLog(step.id, `[bulk] ${msg}`); sendEvent("step_progress", { step: step.id, name: step.name, message: msg }); },
                 paawRoot: PAAW_ROOT,
               });
-              const nFeatures = fmResult?.features || fmResult?.summary?.features || 0;
+              const nFeatures = Array.isArray(fmResult?.features) ? fmResult.features.length : (fmResult?.summary?.features || 0); // 2026-11-09 修：features 是陣列 → 直接樣板字串印出 [object Object] 連環（cu-status summary 已看到）
               cuLog(step.id, `[bulk] Feature map done: ${nFeatures} features`);
               sendEvent("step_done", { step: step.id, name: step.name, summary: `${nFeatures} features` });
               try { await paaw.setCuStepStatus(step.id, "done", { summary: `${nFeatures} features (v2)` }); } catch {}
@@ -1789,6 +1819,17 @@ export default async function projectRoute(req, res) {
         sendEvent("done", { message: "Code Understanding complete" });
       } catch (err) {
         sendEvent("error", { error: err.message });
+      } finally {
+        // 2026-11-09：訂閱端保險 — 主 run 結束（含錯誤路徑）一定收到收尾事件並結束連線，不會掛著沒下文
+        const b = _cuBulkRuns.get(root);
+        if (b) {
+          for (const s of b.subs) {
+            try { s.write("done", { message: "Code Understanding complete" }); } catch {}
+            try { s.res.end(); } catch {}
+          }
+          b.subs.clear();
+        }
+        _cuBulkRuns.delete(root);
       }
 
       res.end();

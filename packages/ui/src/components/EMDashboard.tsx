@@ -29,6 +29,7 @@ interface ChatMessage {
   content: string;
   ts?: string;
   _thinking?: boolean;
+  _launchTs?: string; // 2026-11-09：派工精靈起動訊息的定位 key（launchDispatchJob 更新同一則）
   _streamId?: string | null;
   _emProgress?: boolean;
   // Rich EM actions — clickable links/buttons embedded in chat
@@ -696,6 +697,80 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
     }
   };
 
+  // ── 2026-11-09 Fleming：DispatchWizard 按下派工 → 立刻關精靈回 EM chat，進度/結果直接寫進聊天流 ──
+  const launchDispatchJob = useCallback(async (job: any, values: Record<string, any>) => {
+    const ts = new Date().toISOString();
+    const update = (content: string) => setMessages(prev => prev.map(m => (m as any)._launchTs === ts ? { ...m, content } : m));
+    setMessages(prev => [...prev, { role: "assistant", content: `🚀 已派工：${job.emoji} ${job.label}（啟動中…）`, ts, _launchTs: ts } as any]);
+    setEmAction(`🚀 ${job.label} 執行中…`);
+    const ep = job.entrypoint || {};
+    // SSE 讀取（與 DispatchWizard 同邏輯，移到 EM chat 流）
+    const readSSE = async (r: Response, onEvent: (d: any) => boolean | void) => {
+      if (!r.ok || !r.body) {
+        const d = await r.json().catch(() => ({}));
+        update(`❌ ${d.error || r.status}`); return;
+      }
+      const reader = r.body.getReader();
+      const dec = new TextDecoder();
+      let buf = ""; let finished = false;
+      while (!finished) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const events = buf.split("\n\n"); buf = events.pop() || "";
+        for (const ev of events) {
+          const line = ev.split("\n").find(l => l.startsWith("data: "));
+          if (!line) continue;
+          try { const d = JSON.parse(line.slice(6)); if (onEvent(d) === true) finished = true; } catch {}
+        }
+      }
+    };
+    try {
+      if (ep.kind === "em-job") {
+        const r = await fetch(`${API_BASE}${ep.url}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cwd: rootPath, job: ep.job, action: "run" }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (d.error) { update(`❌ ${d.error}`); }
+        else {
+          const lines = (d.tickets || []).map((x: any, i: number) => `${i + 1}. [${x.priority || "medium"}/${x.type || "dev"}] ${String(x.title).slice(0, 70)}`);
+          update(`${d.emoji || ""} **${d.label || ep.job}** ${(d.findingsCount ?? 0)} findings（${((d.durationMs || 0) / 1000).toFixed(0)}s）\n${d.summary || ""}\n${d.message || ""}${lines.length ? `\n${lines.join("\n")}` : ""}`);
+        }
+      } else if (ep.kind === "auto-start") {
+        const r = await fetch(`${API_BASE}${ep.url}?path=${encodeURIComponent(rootPath)}`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}),
+        });
+        const d = await r.json().catch(() => ({}));
+        update(d.error ? `❌ ${d.error}` : "⚡ 已啟動 task-driven 閉環（進度見 🎖️ EM Dashboard 狀態列 / 派工報告）");
+      } else if (ep.kind === "dispatch") {
+        update("⏳ 已派工，串流執行中…");
+        const r = await fetch(`${API_BASE}${ep.url}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agentId: values.agentId, task: values.task, cwd: rootPath }),
+        });
+        await readSSE(r, (d) => {
+          if (d.error) { update(`❌ ${d.error}`); return true; }
+          if (d.event === "done" || d.done) { update("✅ 已派工並執行完成（詳情見派工報告）"); return true; }
+        });
+      } else if (ep.kind === "review-run") {
+        const logs: string[] = [];
+        const r = await fetch(`${API_BASE}${ep.url}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cwd: rootPath, days: Number(values.days) || 7 }),
+        });
+        await readSSE(r, (d) => {
+          if (d.error) { update(`❌ ${d.error}`); return true; }
+          if (d.event === "progress") { logs.push(d.message); update(`🏛️ 審查中…\n${logs.slice(-4).join("\n")}`); }
+          if (d.event === "done") { update(`🏛️ ${t("dw.rvDone")}（${d.decision || "?"}）\n\n${d.result || ""}`); return true; }
+        });
+      } else {
+        update(`❌ 未知 entrypoint：${ep.kind}`);
+      }
+    } catch (err: any) { update(`❌ ${err.message}`); }
+    setEmAction("");
+  }, [rootPath, t]);
+
   // ── 確認後執行：走 /start API 背景執行（2026-08-29 改版 — 不再前端 SSE 掛長連線）──
   // 進度由 adStatus 輪詢（4s）把 events 轉成 chat 訊息；執行中 input 鎖定 + 中斷 button
   const confirmEMPlan = async (_plan: PendingPlan) => {
@@ -754,7 +829,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
 
   return (
     <>
-    {showDispatchWizard && <DispatchWizard rootPath={rootPath} theme={tk} onClose={() => setShowDispatchWizard(false)} />}
+    {showDispatchWizard && <DispatchWizard rootPath={rootPath} theme={tk} onClose={() => setShowDispatchWizard(false)} onLaunch={launchDispatchJob} />}
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
       {/* 2026-08-29: 兩個 view 常駐掛載，用 hidden 切換 — 保留雙方 scroll 位置與元件狀態 */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">

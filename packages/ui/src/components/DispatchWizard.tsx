@@ -30,9 +30,11 @@ interface Props {
   rootPath: string;
   theme: { bg: string; bgMuted: string; borderLight: string; accent: string; accentBg: string; text: string; accentBorder?: string };
   onClose: () => void;
+  // 2026-11-09 Fleming：按下派工後立刻關精靈、回到 EM chat 顯示 — 執行（fetch/SSE + 進度）改由父層 EMDashboard 接手寫進聊天流
+  onLaunch?: (job: JobDef, values: Record<string, any>) => void;
 }
 
-export default function DispatchWizard({ rootPath, theme: tk, onClose }: Props) {
+export default function DispatchWizard({ rootPath, theme: tk, onClose, onLaunch }: Props) {
   const { t } = useI18n();
   const [jobs, setJobs] = useState<JobDef[]>([]);
   const [agents, setAgents] = useState<AgentOpt[]>([]);
@@ -104,6 +106,8 @@ export default function DispatchWizard({ rootPath, theme: tk, onClose }: Props) 
     for (const p of job.params || []) {
       if (p.required && !String(values[p.id] || "").trim()) { setResult(`❌ ${p.label} 未填`); return; }
     }
+    // 2026-11-09 Fleming：按下派工 → 立刻關精靈回 EM chat；進度/結果直接進聊天流（不再卡在精靈的 result 框）
+    if (onLaunch) { onLaunch(job, values); onClose(); return; }
     setBusy(true); setResult("⏳ " + t("dw.launching"));
     const ep = job.entrypoint;
     try {
