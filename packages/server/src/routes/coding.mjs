@@ -742,7 +742,7 @@ export default async function projectRoute(req, res) {
 
       const ALL_STEPS = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
-        { id: "feature-map", name: "🗺️ 產出 Feature Map（決定論骨架＋AI 長肉）", promptFile: null },
+        { id: "feature-map", name: "🗺️ API Map 前置處理（API-first 基礎：決定論骨架＋AI 長肉）", promptFile: null },
         { id: "api-map", name: "🌐 產出 API Map（API-first）", promptFile: "gen-api-map.md" },
         { id: "ui-map", name: "🖥️ 產出 UI Map（前端 route-first）", promptFile: "gen-ui-map.md" },
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
@@ -1270,7 +1270,7 @@ export default async function projectRoute(req, res) {
       const forceRerun = q.force === "1" || q.force === "true";
       const steps = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
-        { id: "feature-map", name: "🗺️ 產出 Feature Map（決定論骨架＋AI 長肉）", promptFile: null },
+        { id: "feature-map", name: "🗺️ API Map 前置處理（API-first 基礎：決定論骨架＋AI 長肉）", promptFile: null },
         { id: "api-map", name: "🌐 產出 API Map（API-first）", promptFile: "gen-api-map.md" },
         { id: "ui-map", name: "🖥️ 產出 UI Map（前端 route-first）", promptFile: "gen-ui-map.md" },
         { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },

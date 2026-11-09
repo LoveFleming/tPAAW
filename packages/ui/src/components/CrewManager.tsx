@@ -84,7 +84,7 @@ const TOOL_GROUPS = [
   { id: "core", name: "📖 核心讀寫", desc: "讀寫檔案、目錄結構" },
   { id: "memory", name: "💾 Memory", desc: "記憶讀寫" },
   { id: "decisions", name: "📋 Decisions", desc: "決策記錄" },
-  { id: "project", name: "📂 Project Info", desc: "專案資訊、feature map" },
+  { id: "project", name: "📂 Project Info", desc: "專案資訊、API Map" },
   { id: "project-edit", name: "✏️ Project Edit", desc: "修改專案設定" },
   { id: "tasks", name: "📌 Tasks", desc: "任務管理" },
   { id: "docs", name: "📡 Docs", desc: "文檔生成（cu_refresh）" },

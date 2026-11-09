@@ -664,7 +664,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
     const currentModel = emModelRef.current || emModel || (await getModelForFeature("sideChat.em")); // 2026-11-08：ModelSelector 選沒載入完時 race → CU 派錯 model（公司報案）
     const steps = [
       { id: "scan", name: "🔍 掃描專案結構" },
-      { id: "feature-map", name: "🗺️ 產出 Feature Map（決定論骨架＋AI 長肉）" },
+      { id: "feature-map", name: "🗺️ API Map 前置處理（API-first 基礎：決定論骨架＋AI 長肉）" },
       { id: "api-map", name: "🌐 API Map" },
       { id: "ui-map", name: "🖥️ UI Map" },
       { id: "code-intelligence", name: "🧠 Code Intelligence" },
