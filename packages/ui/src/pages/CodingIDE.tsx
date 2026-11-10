@@ -3013,8 +3013,7 @@ const sendChat = useCallback(async () => {
 
             {/* === API TESTER === */}
             {/* === API TESTER（三欄：API 地圖 | 測試台 | Developer AI）=== */}
-            {activeMainTab?.type === "api" && (
-              <div className="flex-1 flex min-w-0 overflow-hidden" data-testid="api-tester-page">
+            <div className={activeMainTab?.type === "api" ? "flex-1 flex min-w-0 overflow-hidden" : "hidden"} data-testid="api-tester-page">
                 {/* 左欄：tab sheet — Feature / Collection / History（2026-09-24 Fleming）*/}
                 <div className="shrink-0 border-r hidden lg:flex flex-col" style={{ width: 264, borderColor: tk.borderLight }}>
                   <ApiTesterTabs
@@ -3083,7 +3082,6 @@ const sendChat = useCallback(async () => {
                   />
                 </div>
               </div>
-            )}
 
 
             {/* === AI CREW / EMPLOYEE CHAT TAB === */}
