@@ -81,6 +81,7 @@ const TOOL_GROUP_MAP = {
 
   // Handover 沉澱（handover agent 專用）
   handover_write: "handover",
+  spec_write: "spec",
 
   // TS Guide 沉澱（ops/helpdesk agent — 2026-10-10）
   trouble_write: "trouble",
@@ -2383,6 +2384,16 @@ baseline ${rr.baseline?.short}(${rr.baseline?.source})→ target ${rr.target?.sh
         writeSync(target, content, "utf-8");
         if (onEvent) onEvent({ type: "tool_end", name, result: `${content.length} bytes` });
         return `✅ Handover written: ${target} (${content.length} bytes, 舊檔已備份 .bak)`;
+      }
+
+      case "spec_write": {
+        // Product Spec section 寫入（2026-11-15）：spec agent 受控工具 — 只能寫 .paaw/spec/
+        const { writeSpecSection, ensureSpecFiles } = await import("./product-spec.mjs");
+        const _root = cwd || rootDir || process.cwd();
+        ensureSpecFiles(_root);
+        const r = writeSpecSection(_root, String(args.section || ""), String(args.content || ""), args.status ? String(args.status) : undefined);
+        if (onEvent) onEvent({ type: "tool_end", name, result: r.section });
+        return `✅ Spec section written: ${r.section} (status=${r.status}) — UI 頁面重新整理即可看到最新內容`;
       }
 
       case "trouble_write": {

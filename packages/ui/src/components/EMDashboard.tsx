@@ -356,6 +356,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
     { id: "test-intelligence", name: "🧪 Test Intelligence", file: "code-intelligence/test-intelligence.json" },
     { id: "error-codes", name: "🔢 Error Codes", file: "error-codes.json" },
     { id: "c4-model", name: "🏛️ C4 Model", file: "c4-model.json" },
+    { id: "product-spec", name: "📄 Product Spec", file: "spec/meta.json" },
   ];
 
   // ── Load persisted step statuses when opening Modal ──

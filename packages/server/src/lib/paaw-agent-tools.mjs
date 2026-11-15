@@ -726,6 +726,24 @@ const PAAW_TOOLS = [
     },
   },
 
+  // ── Product Spec 寫入（spec agent 專用 — 2026-11-15 Fleming：逐 section 討論沉澱）──
+  {
+    type: "function",
+    function: {
+      name: "spec_write",
+      description: "將討論結論寫入 .paaw/spec/ 的單一 section（整檔覆寫，自動備份 .bak）。僅在使用者明確同意後呼叫。section 可選：overview / functional / nfr / api / architecture / technical / testing / operations。",
+      parameters: {
+        type: "object",
+        properties: {
+          section: { type: "string", enum: ["overview", "functional", "nfr", "api", "architecture", "technical", "testing", "operations"], description: "目標 section" },
+          content: { type: "string", description: "完整 markdown 內容（H1 開頭）" },
+          status: { type: "string", enum: ["draft", "review", "final"], description: "section 狀態（預設 draft；final = 人定稿）" },
+        },
+        required: ["section", "content"],
+      },
+    },
+  },
+
   // ── TS Guide 沉澱（ops/helpdesk agent — 2026-10-10 Fleming：AI 漏寫 SOP 隨時補）──
   {
     type: "function",
