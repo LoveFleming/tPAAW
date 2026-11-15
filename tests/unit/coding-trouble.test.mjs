@@ -116,7 +116,7 @@ describe("confirm + merge 鐵律（confirmed = 人確認過的資產）", () => 
     const guidePath = join(dir, ".paaw", "troubleshooting", "TSGUIDE.json");
     writeFileSync(guidePath, JSON.stringify({
       version: 1, generatedAt: "2026-10-10T00:00:00Z",
-      entries: [{ id: "t-a", symptom: "症狀A", cause: "原因", fixSteps: [], evidence: [], status: "ai-draft" }],
+      entries: [{ id: "t-a", symptom: "症狀A", cause: "原因", fixSteps: [], evidence: [], status: "ai" }], // 2026-11-09：draft 狀態已拿掉（ai 即成品）
       gaps: [],
     }));
     const res = mockRes();
@@ -125,10 +125,10 @@ describe("confirm + merge 鐵律（confirmed = 人確認過的資產）", () => 
     const j = JSON.parse(res.body);
     expect(j.guide.entries[0].status).toBe("confirmed");
     expect(j.guide.entries[0].confirmedAt).toBeTruthy();
-    // unconfirm 回 draft
+    // unconfirm 回 ai
     const res2 = mockRes();
     await codingTroubleRoutes(mockReq("PUT", `/api/coding-trouble/confirm?path=${encodeURIComponent(dir)}`, { id: "t-a", unconfirm: true }), res2);
-    expect(JSON.parse(res2.body).guide.entries[0].status).toBe("ai-draft");
+    expect(JSON.parse(res2.body).guide.entries[0].status).toBe("ai"); // 2026-11-09：unconfirm 回 ai（draft 已拿掉）
   });
 
   it("POST entry — 手動新增 → status=human（AI 漏寫 SOP 人直接補）", async () => {
