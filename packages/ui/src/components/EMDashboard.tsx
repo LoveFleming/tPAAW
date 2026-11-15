@@ -1461,9 +1461,9 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
     {/* ══ Code Understanding Progress Modal ══ */}
     {showCUModal && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { if (!codeUnderstanding?.running) setShowCUModal(false); }}>
-        <div className="bg-white rounded-2xl shadow-2xl border flex flex-col" style={{ width: "min(520px, 90vw)", maxHeight: "70vh" }} onClick={e => e.stopPropagation()}>
+        <div className="bg-white rounded-none shadow-2xl border flex flex-col" style={{ width: "min(880px, 94vw)", maxHeight: "82vh" }} onClick={e => e.stopPropagation()}>
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-3 border-b rounded-t-2xl" style={{ backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" }}>
+          <div className="flex items-center justify-between px-5 py-3 border-b" style={{ backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" }}>
             <h3 className="text-base font-bold text-emerald-700">🧠 Code Understanding</h3>
             {/* ✕ close always visible — disabled while running */}
             <button
@@ -1488,60 +1488,66 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                 載入中...
               </div>
             );
-            return (<>
-          {/* Steps */}
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
-            {steps.map((step) => (
-              <div key={step.id} className="flex items-center gap-3 py-2">
-                <span className="text-lg shrink-0">
-                  {step.status === "done" ? "✅" : step.status === "running" ? "⏳" : step.status === "error" ? "❌" : step.status === "skip" ? "⏭️" : "⬜"}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className={cn("text-sm font-medium", step.status === "running" ? "text-emerald-700" : step.status === "done" ? "text-stone-600" : step.status === "error" ? "text-red-500" : "text-stone-400")}>
-                    {step.name}
-                    {step.status === "running" && <span className="ml-2 inline-block animate-pulse">●</span>}
-                  </div>
-                  {/* 2026-09-06：即時進度（如「🤖 feature 41/64 …」）*/}
-                  {step.status === "running" && step.progress && (
-                    <div className="text-[10px] text-emerald-600 truncate" title={step.progress}>{step.progress}</div>
-                  )}
-                  {/* Skill 綁定（2026-09-04：機械步無 LLM — CI/TI 不提供綁定）*/}
-                  {/* 2026-09-06：加提示 — 綁 skill 是選配，沒綁就用預設流程跑（Fleming：不然使用者會認為一定要綁）*/}
-                  {step.id !== "code-intelligence" && step.id !== "test-intelligence" && (
-                  <div className="mt-0.5">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setCuSkillPickerStep(step.id)}
-                        disabled={isRunning}
-                        className={cn("text-[10px] px-1.5 py-0.5 rounded border transition-colors",
-                          (cuSkillBindings[step.id]?.length || 0) > 0
-                            ? "border-violet-300 bg-violet-50 text-violet-600 hover:bg-violet-100"
-                            : "border-stone-200 bg-stone-50 text-stone-400 hover:bg-stone-100")}
-                        title={t("cu.skillBindTitle")}
-                      >🧩 {(cuSkillBindings[step.id]?.length || 0) > 0 ? `${cuSkillBindings[step.id].length} skills` : t("cu.skillBind")}</button>
-                      {(cuSkillBindings[step.id]?.length || 0) > 0 && (
-                        <span className="text-[10px] text-violet-400 truncate max-w-[240px]">
-                          {(cuSkillBindings[step.id] || []).map(id => cuSkillNames[id] || id).join("、")}
-                        </span>
+            {/* 2026-11-15 Fleming：左右分欄（左機械/右智慧）+ 方形卡片 + 無捲軸 — 一目了然 */}
+          return (<>
+          {/* Steps — 兩欄：左機械（deterministic）/ 右智慧（LLM）*/}
+          <div className="flex-1 flex gap-3 px-5 py-3 min-h-0">
+            {(() => {
+              const isMech = (id: string) => id === "code-intelligence" || id === "test-intelligence";
+              const mech = steps.filter(s => isMech(s.id));
+              const smart = steps.filter(s => !isMech(s.id));
+              const StepTile = (step: any) => (
+                <div key={step.id} className={`flex items-start gap-2 px-2.5 py-1.5 border rounded-none transition-colors ${step.status === "running" ? "border-emerald-400 bg-emerald-50" : step.status === "error" ? "border-red-300 bg-red-50" : step.status === "done" ? "border-stone-200 bg-stone-50" : "border-stone-200"}`}>
+                  <span className="text-sm shrink-0 mt-0.5">
+                    {step.status === "done" ? "✅" : step.status === "running" ? "⏳" : step.status === "error" ? "❌" : step.status === "skip" ? "⏭️" : "⬜"}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={cn("text-xs font-semibold", step.status === "running" ? "text-emerald-700" : step.status === "done" ? "text-stone-600" : step.status === "error" ? "text-red-500" : "text-stone-400")}>
+                        {step.name}
+                        {step.status === "running" && <span className="ml-1 inline-block animate-pulse">●</span>}
+                      </span>
+                      {!isMech(step.id) && (
+                        <button
+                          onClick={() => setCuSkillPickerStep(step.id)}
+                          disabled={isRunning}
+                          className={cn("text-[10px] px-1 py-0.5 border rounded-none transition-colors",
+                            (cuSkillBindings[step.id]?.length || 0) > 0
+                              ? "border-violet-300 bg-violet-50 text-violet-600 hover:bg-violet-100"
+                              : "border-stone-200 bg-stone-50 text-stone-400 hover:bg-stone-100")}
+                          title={(cuSkillBindings[step.id]?.length || 0) > 0 ? (cuSkillBindings[step.id] || []).map((id: string) => cuSkillNames[id] || id).join("、") : t("cu.skillBindTitle")}
+                        >🧩 {(cuSkillBindings[step.id]?.length || 0) > 0 ? cuSkillBindings[step.id].length : "+"}</button>
                       )}
                     </div>
-                    {(cuSkillBindings[step.id]?.length || 0) === 0 && (
-                      <div className="text-[10px] text-stone-300 mt-0.5">💡 {t("cu.skillBindHint")}</div>
+                    {step.status === "running" && step.progress && (
+                      <div className="text-[10px] text-emerald-600 truncate" title={step.progress}>{step.progress}</div>
+                    )}
+                    {step.status === "done" && step.size && (
+                      <span className="text-[10px] text-stone-300">{step.size.toLocaleString()} chars</span>
+                    )}
+                    {step.status === "error" && step.error && (
+                      <div className="text-[10px] text-red-400 truncate" title={step.error}>{step.error}</div>
+                    )}
+                    {step.status === "skip" && (
+                      <span className="text-[10px] text-stone-300">Skipped</span>
                     )}
                   </div>
-                  )}
-                  {step.status === "done" && step.size && (
-                    <div className="text-xs text-stone-300">{step.size.toLocaleString()} chars</div>
-                  )}
-                  {step.status === "error" && step.error && (
-                    <div className="text-xs text-red-400">{step.error}</div>
-                  )}
-                  {step.status === "skip" && (
-                    <div className="text-xs text-stone-300">Skipped</div>
-                  )}
                 </div>
-              </div>
-            ))}
+              );
+              return (<>
+                {/* 左：機械層 */}
+                <div className="w-[38%] shrink-0 flex flex-col gap-1.5 min-h-0">
+                  <div className="text-[11px] font-bold text-stone-500 pb-0.5 border-b" style={{ borderColor: "#e7e5e4" }}>⚙️ 機械層（deterministic）</div>
+                  {mech.map(StepTile)}
+                  <div className="mt-auto text-[10px] text-stone-300 leading-relaxed">程式掃描 — 免 LLM、不吃 token</div>
+                </div>
+                {/* 右：智慧層 */}
+                <div className="flex-1 flex flex-col gap-1.5 min-h-0">
+                  <div className="text-[11px] font-bold text-stone-500 pb-0.5 border-b" style={{ borderColor: "#e7e5e4" }}>🤖 智慧層（LLM 生成）</div>
+                  {smart.map(StepTile)}
+                </div>
+              </>);
+            })()}
           </div>
           {/* Footer */}
           <div className="px-5 py-3 border-t flex items-center justify-between" style={{ borderColor: "#f0f0f0" }}>
