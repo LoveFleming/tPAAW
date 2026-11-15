@@ -853,23 +853,68 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
           </div>
         )}
 
-        {/* Model Preferences tab */}
+        {/* Model Preferences tab — 2026-11-15 Fleming：顯示 user.json 實際存在的所有偏好（不只硬編碼 4 格）+ 失效警示 */}
         {tab === "preferences" && (
           <div className="bg-white rounded-xl border border-stone-200 p-5">
             <h3 className="text-base font-bold text-stone-700">Model 偏好設定</h3>
-            <p className="text-sm text-stone-400 mb-4">各 AI 功能使用的預設 Model，未設定則使用 Provider 的全域預設</p>
-            <div className="space-y-4">
-              {[{key:"skillBuilder",label:"Skill Builder",desc:t("settings.featureSkillBuilderDesc")},{key:"coding",label:t("sidebar.coding"),desc:t("settings.featureCodingDesc")},{key:"crewChat",label:t("settings.crewChatLabel", "Crew Chat"),desc:t("settings.featureCrewChatDesc")},{key:"appBuilder",label:t("sidebar.appBuilder"),desc:t("settings.featureAppBuilderDesc")}].map(feat=>(
-                <div key={feat.key} className="flex items-center justify-between py-2 border-b border-stone-100 last:border-0">
-                  <div><span className="text-sm font-medium text-stone-700">{feat.label}</span><p className="text-xs text-stone-400">{feat.desc}</p></div>
-                  <div className="w-[50%]">
-                    <select value={userPrefs[feat.key]||""} onChange={async(e)=>{const n={...userPrefs,[feat.key]:e.target.value};setUserPrefs(n);await fetch(`${API_BASE}/api/user/preferences`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({[feat.key]:e.target.value})});}} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none">
-                      <option value="">（使用預設）</option>
-                      {activeId&&providers[activeId]?.models?.map((m:any)=><option key={m.id} value={m.id}>{m.name} ({m.id})</option>)}
-                    </select>
+            <p className="text-sm text-stone-400 mb-1">各 AI 功能使用的預設 Model，未設定則使用 Provider 的全域預設</p>
+            <p className="text-xs text-stone-400 mb-4">⚠️ 標記 = 該 model/provider 已不存在（例如 key 失效後清理）— 換掉或改回預設即可排除 401</p>
+            <div className="space-y-4">{(() => {
+              // 已知功能的友善標籤（key = user.json preferences 的 key）
+              const KNOWN: Array<{ key: string; label: string }> = [
+                { key: "skillBuilder", label: "Skill Builder" },
+                { key: "coding", label: t("sidebar.coding", "Coding") },
+                { key: "crewChat", label: t("settings.crewChatLabel", "Crew Chat") },
+                { key: "appBuilder", label: t("sidebar.appBuilder", "App Builder") },
+                { key: "notes-ai", label: "📝 AI 寫筆記" },
+                { key: "project-ai", label: "🧠 AI 專案助理" },
+                { key: "autoDispatch", label: "🚀 Auto Dispatch" },
+                { key: "autoDispatchFallback", label: "🚀 Auto Dispatch Fallback" },
+                { key: "codingIDE", label: "Coding IDE 助理" },
+                { key: "codingIDE.emDashboard", label: "Coding IDE · EM Dashboard" },
+                { key: "employee_ai.factory-assistant", label: "AI Factory 助理" },
+              ];
+              // 實際存在的 key 全部列出：已知 + user.json 裡多出來的（含 sideChat.* / codingIDE.coding.*）
+              const extra = Object.keys(userPrefs).filter(k => !KNOWN.some(f => f.key === k));
+              const sideLabel = (k: string) => k.startsWith("sideChat.") ? `Side Chat · ${k.slice(9)}` : k.startsWith("codingIDE.coding.") ? `Coding · ${k.slice(16)}` : k;
+              // 所有 provider 的全部 model（值帶 provider 前綴，與 ModelSelector 存的格式一致）
+              const allModels: Array<{ value: string; label: string }> = [];
+              for (const pid of Object.keys(providers)) {
+                for (const m of (providers[pid]?.models || [])) allModels.push({ value: `${pid}/${m.id}`, label: `${providers[pid]?.name || pid} · ${m.name || m.id} (${m.id})` });
+              }
+              const savePref = async (key: string, value: string) => {
+                const n = { ...userPrefs, [key]: value };
+                if (!value) delete n[key];
+                setUserPrefs(n);
+                await fetch(`${API_BASE}/api/user/preferences`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [key]: value }) });
+              };
+              const PrefRow = ({ k, label }: { k: string; label: string }) => {
+                const val = userPrefs[k] || "";
+                const invalid = !!val && !allModels.some(m => m.value === val);
+                return (
+                  <div className="flex items-center justify-between py-2 border-b border-stone-100 last:border-0 gap-3">
+                    <div className="min-w-0"><span className="text-sm font-medium text-stone-700">{label}</span><p className="text-xs text-stone-400 truncate">{k}</p></div>
+                    <div className="w-[50%] shrink-0 flex items-center gap-1.5">
+                      {invalid && <span className="text-[10px] text-red-500 font-bold shrink-0" title={val}>⚠️ 已失效</span>}
+                      <select value={val} onChange={e => savePref(k, e.target.value)} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none">
+                        <option value="">（使用預設）</option>
+                        {invalid && <option value={val}>⚠️ {val}（已失效）</option>}
+                        {allModels.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                      </select>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              };
+              return (
+                <>
+                  {KNOWN.map(f => <PrefRow key={f.key} k={f.key} label={f.label} />)}
+                  {extra.length > 0 && (
+                    <p className="text-[11px] text-stone-400 pt-1 border-t border-stone-100">↑ 以下為實際存在於 user.json 的其他功能偏好（ModelSelector 選過就會存）</p>
+                  )}
+                  {extra.map(k => <PrefRow key={k} k={k} label={sideLabel(k)} />)}
+                </>
+              );
+            })()}
             </div>
           </div>
         )}
