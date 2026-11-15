@@ -26,6 +26,8 @@ function loadMermaid(): Promise<any> {
         startOnLoad: false,
         theme: "neutral",
         securityLevel: "strict",
+        // 2026-11-15：parse error 時先清掉 body 暫存 div 再 throw（否則殘留錯誤文字 → 整頁外層多捲軸，Fleming 回報「coding app 被汙染」）
+        suppressErrorRendering: true,
         fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
         // 2026-10-23 Fleming：圖内文字與 chat 本文同大小（.md-content = text-sm 14px），不突兀
         themeVariables: { fontSize: "13px" },
@@ -49,6 +51,13 @@ function loadMermaid(): Promise<any> {
   return mermaidPromise;
 }
 
+// 2026-11-15：mermaid 12.2.0 的 parse-error 路徑會把 #d<id> 暫存 div 遺留在 document.body
+// （throw 發生在 removeTempElements 之前）→ 錯誤文字直接渲染在頁面尾端，最外層多一條捲軸。
+// 防禦性掃除：清掉所有歷史殘留（含 suppressErrorRendering 之前留下的）。
+function sweepStrayMermaidDivs() {
+  document.querySelectorAll('body > [id^="dmmd-"]').forEach((el) => el.remove());
+}
+
 export const MermaidBlock = memo(function MermaidBlock({ code }: { code: string }) {
   const [svg, setSvg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -59,11 +68,15 @@ export const MermaidBlock = memo(function MermaidBlock({ code }: { code: string 
     let alive = true;
     setSvg(null);
     setErr(null);
+    sweepStrayMermaidDivs();
     loadMermaid().then(async (mermaid) => {
       const { svg } = await mermaid.render(idRef.current, code);
       if (alive) setSvg(svg);
     }).catch((e: any) => {
       if (alive) setErr(String(e?.message || e));
+    }).finally(() => {
+      // 成功或失敗都掃一次：mermaid 用同一 id 重渲染時 removeExistingElements 只認 svg 座標，保險起見手動清
+      sweepStrayMermaidDivs();
     });
     return () => { alive = false; };
   }, [code]);
