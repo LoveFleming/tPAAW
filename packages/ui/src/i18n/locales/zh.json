@@ -2153,7 +2153,6 @@
   "ho.doc.sec.aiWorkflow": "AI 開發方式（教 AI 做事）",
   "ho.doc.sec.quickstart": "怎麼跑起來",
   "projectMd.specTitle": "Product Spec",
-  "projectMd.specHint": "",
   "projectMd.chatName": "林曉薇 · 架構師",
   "projectMd.chatGreeting": "嗨，我是林曉薇 🏛️ 你的專案架構師。左邊 8 個 section tab 是唯讀的 — 我們一節一節討論，收斂後我直接用 spec_write 寫入，你按 🔄 就看得到。從「1. Overview」開始？",
   "projectMd.chatPlaceholder": "跟曉薇討論 spec…（一次聚焦一個 section）",

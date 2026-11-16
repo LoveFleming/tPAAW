@@ -2153,7 +2153,6 @@
   "ho.doc.sec.aiWorkflow": "AI開発方式（AIに指示）",
   "ho.doc.sec.quickstart": "起動方法",
   "projectMd.specTitle": "Product Spec",
-  "projectMd.specHint": "",
   "projectMd.chatName": "Lin Xiaowei · Architect",
   "projectMd.chatGreeting": "Hi, I'm Lin Xiaowei 🏛️ your architect. The tabs on the left are read-only — we discuss section by section, then I write it in with spec_write. Start with \"1. Overview\"?",
   "projectMd.chatPlaceholder": "Discuss spec with Xiaowei… (one section at a time)",
