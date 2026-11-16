@@ -4,7 +4,7 @@
  * 2026-11-16 Fleming：product spec 做在 project page；tab 改名 Prod Spec、跟 PAAW project 解耦
  * 2026-11-16 Fleming（晚，定版）：頁面**唯讀** — render 好的 markdown + mermaid 圖
  *   人不直接改；全部從右邊林曉薇（架構師）side chat 討論 → 收斂後她用 spec_write 工具寫入
- * - 上方 8 個 section tab（綠點 = 有內容）+ 🔄 重新載入
+ * Style：與 ReleaseManager / Handover side chat 版面一致（ColResizer splitter + px-5 版距）
  * 檔案：.paaw/PROJECT.md（marker 切區，server lib/project-md.mjs 同 schema）
  */
 
@@ -13,6 +13,7 @@ import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import AgentSideChat from "./AgentSideChat";
 import MarkdownText from "./MarkdownText"; // 渲染 markdown + mermaid 圖（sequenceDiagram / flowchart）
+import { useColResize, ColResizer } from "./ColResizer";
 
 interface Props {
   rootPath: string;
@@ -27,6 +28,7 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [showChat, setShowChat] = useState(true); // 林曉薇 side chat 開關（預設開）
+  const chatPane = useColResize(460, 320, 720); // 與 ReleaseManager/Handover 同款 splitter
 
   const load = useCallback(async () => {
     if (!rootPath) return;
@@ -66,80 +68,78 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
   ];
 
   return (
-    <div className="flex h-full overflow-hidden" style={{ background: tk.bg || "#fff" }}>
-
+    <div className="flex h-full min-h-0">
       {/* ── 左：📄 Product Spec（唯讀渲染 — 全靠右邊曉薇用 spec_write 寫入）── */}
-      <div className="flex-1 min-w-0 px-6 py-4 flex flex-col overflow-hidden">
-        <section className="rounded-xl border flex-1 min-h-0 flex flex-col" style={{ borderColor: tk.borderLight || "#e7e5e4" }}>
+      <div className="flex-1 min-w-0 flex flex-col" style={{ scrollbarWidth: "thin" }}>
 
-          {/* 8 個 section tabs */}
-          <div className="flex items-stretch gap-1 border-b overflow-x-auto flex-none" style={{ borderColor: tk.borderLight || "#e7e5e4", background: tk.bgMuted || "#fafaf9" }}>
-            {tabLabels.map((label, i) => (
-              <button
-                key={i}
-                onClick={() => { setActiveIdx(i); load(); }}
-                className={`px-3 py-2 text-xs whitespace-nowrap border-b-2 transition-colors flex items-center gap-1.5 ${i === activeIdx ? "font-bold" : "opacity-60 hover:opacity-90"}`}
-                style={{ borderBottomColor: i === activeIdx ? (tk.accent || "#8b5e3c") : "transparent", color: i === activeIdx ? (tk.accent || "#8b5e3c") : undefined }}
-              >
-                <span>{i + 1}. {label}</span>
-                {sections[i] ? <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-none" title={t("projectMd.hasContent")} /> : <span className="w-1.5 h-1.5 rounded-full flex-none" style={{ background: "#d6d3d1" }} />}
-              </button>
-            ))}
-          </div>
-
-          {/* toolbar：唯讀 — 只有 🔄 / 💬 */}
-          <div className="px-4 py-2 flex items-center gap-2 border-b flex-none" style={{ borderColor: tk.borderLight || "#e7e5e4" }}>
-            <span className="text-sm font-bold flex-1 truncate">📄 {activeIdx + 1}. {tabLabels[activeIdx]}</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">{t("projectMd.readOnly")}</span>
+        {/* 8 個 section tabs（sticky header，ReleaseManager 同款版距）*/}
+        <div className="px-5 py-2.5 border-b sticky top-0 bg-white/95 backdrop-blur z-10 flex items-center gap-1 overflow-x-auto flex-none" style={{ borderColor: tk.borderLight }}>
+          {tabLabels.map((label, i) => (
             <button
-              onClick={refresh}
-              disabled={refreshing}
-              className="text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-40"
-              style={{ borderColor: tk.borderLight || "#e7e5e4", color: tk.accent || "#8b5e3c" }}
-              title={t("projectMd.refreshTitle")}
-            >{refreshing ? "⏳" : "🔄"}</button>
-            <button
-              onClick={() => setShowChat(v => !v)}
-              className="text-xs px-2 py-1 rounded-lg border transition-colors"
-              style={{ borderColor: tk.borderLight || "#e7e5e4", color: tk.accent || "#8b5e3c" }}
-              title={t("projectMd.chatToggle")}
-            >💬</button>
-          </div>
+              key={i}
+              onClick={() => { setActiveIdx(i); load(); }}
+              className={`px-3 py-1.5 text-xs whitespace-nowrap border-b-2 transition-colors flex items-center gap-1.5 ${i === activeIdx ? "font-bold" : "opacity-60 hover:opacity-90"}`}
+              style={{ borderBottomColor: i === activeIdx ? (tk.accent || "#8b5e3c") : "transparent", color: i === activeIdx ? (tk.accent || "#8b5e3c") : undefined }}
+            >
+              <span>{i + 1}. {label}</span>
+              {sections[i] ? <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-none" title={t("projectMd.hasContent")} /> : <span className="w-1.5 h-1.5 rounded-full flex-none" style={{ background: "#d6d3d1" }} />}
+            </button>
+          ))}
+          <div className="flex-1" />
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">{t("projectMd.readOnly")}</span>
+          <button
+            onClick={refresh}
+            disabled={refreshing}
+            className="text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-40"
+            style={{ borderColor: tk.borderLight || "#e7e5e4", color: tk.accent || "#8b5e3c" }}
+            title={t("projectMd.refreshTitle")}
+          >{refreshing ? "⏳" : "🔄"}</button>
+          <button
+            onClick={() => setShowChat(v => !v)}
+            className="text-xs px-2 py-1 rounded-lg border transition-colors"
+            style={{ borderColor: tk.borderLight || "#e7e5e4", color: tk.accent || "#8b5e3c" }}
+            title={t("projectMd.chatToggle")}
+          >💬</button>
+        </div>
 
-          {/* 唯讀渲染區：markdown + mermaid 圖 */}
-          <div className="p-4 flex-1 min-h-0 overflow-y-auto text-sm leading-relaxed" style={{ color: tk.text || "#44403c" }}>
-            {sections[activeIdx]?.trim() ? (
-              <MarkdownText>{sections[activeIdx]}</MarkdownText>
-            ) : (
-              <div className="text-center py-8 text-stone-400 text-sm">
-                <div className="text-2xl mb-2">📄</div>
-                {t("projectMd.emptySection")}
-              </div>
-            )}
-          </div>
-        </section>
+        {/* 唯讀渲染區：markdown + mermaid 圖 */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 text-sm leading-relaxed" style={{ color: tk.text || "#44403c", scrollbarWidth: "thin" }}>
+          <div className="text-sm font-bold mb-3">📄 {activeIdx + 1}. {tabLabels[activeIdx]}</div>
+          {sections[activeIdx]?.trim() ? (
+            <MarkdownText>{sections[activeIdx]}</MarkdownText>
+          ) : (
+            <div className="text-center py-8 text-stone-400 text-sm">
+              <div className="text-2xl mb-2">📄</div>
+              {t("projectMd.emptySection")}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* ── 右：林曉薇 side chat（架構師 — 討論 + spec_write 寫入）── */}
+      {/* ── 右：林曉薇 side chat（架構師 — 討論 + spec_write 寫入；ReleaseManager 同款 splitter）── */}
       {showChat && rootPath && (
-        <div className="flex-none border-l" style={{ borderColor: tk.borderLight || "#e7e5e4", width: 380 }}>
-          <AgentSideChat
-            agentId="architect"
-            agentName={t("projectMd.chatName")}
-            agentEmoji="🏛️"
-            greeting={t("projectMd.chatGreeting")}
-            cwd={rootPath}
-            accent={tk.accent || "#8b5e3c"}
-            persistCrewId="coding.spec-side"
-            modelFeature="sideChat.architect"
-            placeholder={t("projectMd.chatPlaceholder")}
-            suggestions={[
-              { label: t("projectMd.sugg1Label"), prompt: `${t("projectMd.sugg1Prompt")}「${activeIdx + 1}. ${tabLabels[activeIdx]}」` },
-              { label: t("projectMd.sugg2Label"), prompt: t("projectMd.sugg2Prompt") },
-              { label: t("projectMd.sugg3Label"), prompt: `${t("projectMd.sugg3Prompt")}「${activeIdx + 1}. ${tabLabels[activeIdx]}」` },
-            ]}
-          />
-        </div>
+        <>
+          <ColResizer onDown={chatPane.startDrag} className="hidden md:block" />
+          <div className="shrink-0 border-l hidden md:flex flex-col" style={{ width: chatPane.width, borderColor: tk.borderLight }}>
+            <AgentSideChat
+              agentId="architect"
+              agentName={t("projectMd.chatName")}
+              agentEmoji="🏛️"
+              greeting={t("projectMd.chatGreeting")}
+              cwd={rootPath}
+              accent={tk.accent || "#8b5e3c"}
+              height="100%"
+              persistCrewId="coding.spec-side"
+              modelFeature="sideChat.architect"
+              placeholder={t("projectMd.chatPlaceholder")}
+              suggestions={[
+                { label: t("projectMd.sugg1Label"), prompt: `${t("projectMd.sugg1Prompt")}「${activeIdx + 1}. ${tabLabels[activeIdx]}」` },
+                { label: t("projectMd.sugg2Label"), prompt: t("projectMd.sugg2Prompt") },
+                { label: t("projectMd.sugg3Label"), prompt: `${t("projectMd.sugg3Prompt")}「${activeIdx + 1}. ${tabLabels[activeIdx]}」` },
+              ]}
+            />
+          </div>
+        </>
       )}
 
     </div>
