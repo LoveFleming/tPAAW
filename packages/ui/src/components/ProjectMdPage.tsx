@@ -14,6 +14,7 @@ import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import { uiAlert } from "./ui/uiFeedback";
 import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
+import MarkdownText from "./MarkdownText"; // 2026-11-16：👁 預覽模式渲染 markdown + mermaid 圖（spec 有圖更好懂）
 
 /** 林曉薇 — Prod Spec side chat AI 的 system prompt（2026-11-16 Fleming） */
 // 2026-11-16 Fleming 更正：林曉薇 = coding app 現有架構師（coding.architect crew）
@@ -35,6 +36,7 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
   const [saving, setSaving] = useState(false);
   const [writing, setWriting] = useState(false); // ✍️ 曉薇寫入中
   const [showChat, setShowChat] = useState(true); // 林曉薇 side chat 開關（預設開）
+  const [preview, setPreview] = useState(false); // 👁 預覽模式（渲染 markdown + mermaid 圖）
   const chatRef = useRef<AgentSideChatHandle>(null);
 
   const applyLoaded = (d: any) => {
@@ -162,6 +164,12 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
               style={{ backgroundColor: tk.accent || "#8b5e3c" }}
             >{saving ? "…" : t("projectMd.save")}</button>
             <button
+              onClick={() => setPreview(v => !v)}
+              className="text-xs px-2 py-1 rounded-lg border transition-colors"
+              style={{ borderColor: tk.borderLight || "#e7e5e4", color: preview ? "#fff" : (tk.accent || "#8b5e3c"), backgroundColor: preview ? (tk.accent || "#8b5e3c") : "transparent" }}
+              title={t("projectMd.previewToggle")}
+            >👁</button>
+            <button
               onClick={() => setShowChat(v => !v)}
               className="text-xs px-2 py-1 rounded-lg border transition-colors"
               style={{ borderColor: tk.borderLight || "#e7e5e4", color: tk.accent || "#8b5e3c" }}
@@ -169,15 +177,21 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
             >💬</button>
           </div>
 
-          {/* 編輯區 */}
+          {/* 編輯區（👁 預覽模式：渲染 markdown + mermaid 圖 — sequenceDiagram / flowchart 等）*/}
           <div className="p-3 flex-1 min-h-0 flex flex-col">
-            <textarea
-              value={editings[activeIdx] || ""}
-              onChange={(e) => setSectionText(activeIdx, e.target.value)}
-              placeholder={t("projectMd.specPlaceholder")}
-              className="w-full flex-1 text-sm rounded-lg border px-3 py-2 resize-none focus:outline-none focus:border-stone-400 bg-white leading-relaxed font-mono"
-              style={{ borderColor: tk.borderLight || "#e7e5e4" }}
-            />
+            {preview ? (
+              <div className="flex-1 min-h-0 overflow-y-auto text-sm leading-relaxed rounded-lg border bg-white px-3 py-2" style={{ borderColor: tk.borderLight || "#e7e5e4", color: tk.text || "#44403c" }}>
+                {editings[activeIdx]?.trim() ? <MarkdownText>{editings[activeIdx]}</MarkdownText> : <div className="text-stone-400">{t("projectMd.specPlaceholder")}</div>}
+              </div>
+            ) : (
+              <textarea
+                value={editings[activeIdx] || ""}
+                onChange={(e) => setSectionText(activeIdx, e.target.value)}
+                placeholder={t("projectMd.specPlaceholder")}
+                className="w-full flex-1 text-sm rounded-lg border px-3 py-2 resize-none focus:outline-none focus:border-stone-400 bg-white leading-relaxed font-mono"
+                style={{ borderColor: tk.borderLight || "#e7e5e4" }}
+              />
+            )}
             <p className="text-[10px] text-stone-400 mt-1.5">{t("projectMd.specHint")}</p>
           </div>
         </section>

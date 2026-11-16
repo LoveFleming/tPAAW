@@ -2163,7 +2163,7 @@
   "projectMd.specDrafting": "生成中",
   "projectMd.specDraftTitle": "AI 照 8 節 schema 從 code 事實生成初稿（只在空著時可按）",
   "projectMd.specPlaceholder": "（這一節還是空的 — 跟右邊林曉薇討論後按「✍️ 曉薇寫入本節」，或直接在這裡寫）",
-  "projectMd.specHint": "一節一節跟林曉薇討論 → 收斂後按 ✍️ 讓她寫入；綠點 = 該節已有內容。也可自己編輯後儲存。",
+  "projectMd.specHint": "一節一節跟林曉薇討論 → 收斂後按 ✍️ 讓她寫入；綠點 = 該節已有內容。👁 預覽可看渲染後的圖（mermaid 循序圖/流程圖）。",
   "projectMd.specDraftDone": "Product Spec 初稿已生成",
   "projectMd.specDraftFail": "生成初稿失敗",
   "projectMd.specDraftNoCode": "專案尚無 code 事實（features/code-intelligence）— 先跑 CU 或留給人+AI 共寫",
@@ -2191,5 +2191,6 @@
   "projectMd.aiWriteDone": "本節已由曉薇寫入",
   "projectMd.aiWriteFail": "寫入失敗",
   "projectMd.saveFirst": "有未儲存的編輯 — 先儲存（或還原）再讓曉薇寫入",
-  "projectMd.hasContent": "此節已有內容"
+  "projectMd.hasContent": "此節已有內容",
+  "projectMd.previewToggle": "預覽模式（渲染 markdown + mermaid 圖）"
 }

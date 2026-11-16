@@ -104,7 +104,7 @@ export async function generateSpecSection(root, index, opts = {}) {
 嚴格規則：
 - 討論紀錄裡人的決定/結論最優先；其次專案事實；都没有的寫「（待討論）」
 - 不得起造事實；專案事實沒有的 API/feature 不要發明
-- 輸出 5-15 條 markdown 要點（### 小標可自訂），直接可用
+- 輸出 5-15 條 markdown 要點（### 小標可自訂），直接可用；流程/架構/互動盡量附 mermaid 圖（mermaid 圍籬：flowchart / sequenceDiagram / stateDiagram-v2）
 - 只輸出這一節的 markdown 本體：不加 ## 標題（外層會加）、不包 \`\`\` 圍籬、無前言結語
 ${transcript ? `
 與人的討論紀錄（最新在後）：
