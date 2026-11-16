@@ -16,8 +16,23 @@ import { loadFeatures as registryLoadFeatures } from "./feature-registry.mjs";
 
 export const USER_START = "<!-- USER:START — 人的區（AI 絕不覆蓋） -->";
 export const USER_END = "<!-- USER:END -->";
+// 2026-11-16 schema v3：中間加 Product Spec 區（人+AI 共寫；Fleming — spec 做在 project page，不另開頁/agent）
+export const SPEC_START = "<!-- SPEC:START — Product Spec（人+AI 共寫區） -->";
+export const SPEC_END = "<!-- SPEC:END -->";
 export const AI_START = "<!-- AI:START — CU 自動生成區（每次重寫，人改會被覆蓋） -->";
 export const AI_END = "<!-- AI:END -->";
+
+/** Product Spec 固定 8 節 schema（2026-11-16 — 同原 spec 設計，落在 PROJECT.md） */
+export const SPEC_SECTIONS = [
+  "1. Product Overview — 產品定位、目標、範圍、使用情境",
+  "2. Functional Requirements — 功能需求、業務規則、Acceptance Criteria",
+  "3. Non-Functional Requirements — Performance、Availability、Security、Scalability",
+  "4. API & Data Contract — API、Request/Response、Error Code、Schema",
+  "5. Architecture Design — Components、Sequence、Integration、Data Flow",
+  "6. Technical Design — Modules、Interface、核心邏輯、技術選型",
+  "7. Testing Strategy — Unit、Integration、E2E、Failure Scenarios",
+  "8. Operations & Observability — Metrics、Logging、Tracing、Deployment、Alerting",
+];
 const LEGACY_AUTO_SIGN = "🤖 CU 自動生成初稿"; // 舊 deterministic draft 的簽名
 
 function sliceBetween(md, startMark, endMark) {
@@ -35,16 +50,25 @@ const stripSkeletonLines = (s) => s.split("\n").filter(l => {
   if (/^>\s*📄\s*Schema v2/.test(l)) return false;
   if (/^##\s*📌\s*User Remarks$/.test(t)) return false;
   if (/^##\s*🤖\s*AI Overview$/.test(t)) return false;
+  if (/^##\s*📄\s*Product Spec$/.test(t)) return false;
+  if (/^>\s*📄\s*Schema v3/.test(t)) return false;
   return true;
 }).join("\n").replace(/\n{3,}/g, "\n\n").trim();
 
-/** 解析 PROJECT.md → 兩區。無 marker 的舊檔做遷移判定（人寫→USER 區；auto-draft→丟棄） */
+/** 解析 PROJECT.md → 三區（user / spec / ai）。無 marker 的舊檔做遷移判定（人寫→USER 區；auto-draft→丟棄） */
 export function parseProjectMd(md) {
-  if (!md || !md.trim()) return { userSection: "", aiSection: "", migrated: false };
+  if (!md || !md.trim()) return { userSection: "", specSection: "", aiSection: "", migrated: false };
   const user = sliceBetween(md, USER_START, USER_END);
+  const spec = sliceBetween(md, SPEC_START, SPEC_END);
   const ai = sliceBetween(md, AI_START, AI_END);
-  if (user !== null || ai !== null) {
-    return { userSection: user ? stripSkeletonLines(user) : "", aiSection: ai ? stripSkeletonLines(ai) : "", migrated: false };
+  if (user !== null || spec !== null || ai !== null) {
+    const stripSpecPlaceholder = (s) => (s && /^（尚未撰寫/.test(s.trim()) ? "" : s);
+    return {
+      userSection: user ? stripSkeletonLines(user) : "",
+      specSection: spec ? stripSpecPlaceholder(stripSkeletonLines(spec)) : "",
+      aiSection: ai ? stripSkeletonLines(ai) : "",
+      migrated: false,
+    };
   }
   // 舊格式遷移
   if (md.includes(LEGACY_AUTO_SIGN)) {
@@ -58,22 +82,22 @@ export function parseProjectMd(md) {
   if (hasV2) {
     const mUser = md.match(/[\s\S]*?^##\s*📌\s*User Remarks[^\n]*\n([\s\S]*?)(?=^##\s*🤖\s*AI Overview|\s*$)/m);
     const mAi = md.match(/^##\s*🤖\s*AI Overview[^\n]*\n([\s\S]*)/m);
-    return { userSection: mUser ? stripSkeleton(mUser[1]) : "", aiSection: mAi ? stripSkeleton(mAi[1]) : "", migrated: true };
+    return { userSection: mUser ? stripSkeleton(mUser[1]) : "", specSection: "", aiSection: mAi ? stripSkeleton(mAi[1]) : "", migrated: true };
   }
   const stripped = stripSkeleton(md);
   // 剝完只剩 H1 專案名（或空）→ 沒有人寫內容，當全新檔重生
   const onlyTitle = stripped.split("\n").filter(l => l.trim()).every(l => /^#\s+\S/.test(l.trim()));
-  if (!stripped || onlyTitle) return { userSection: "", aiSection: "", migrated: true };
-  return { userSection: stripped, aiSection: "", migrated: true };
+  if (!stripped || onlyTitle) return { userSection: "", specSection: "", aiSection: "", migrated: true };
+  return { userSection: stripped, specSection: "", aiSection: "", migrated: true };
 }
 
-/** 合成整檔（schema v2） */
-export function buildProjectMd(name, userSection, aiSection) {
+/** 合成整檔（schema v3 — User Remarks / Product Spec / AI Overview） */
+export function buildProjectMd(name, userSection, aiSection, specSection = "") {
   const ts = new Date().toISOString().slice(0, 16).replace("T", " ");
   const L = [];
   L.push(`# ${name}`);
   L.push("");
-  L.push(`> 📄 Schema v2 · AI 區每次 CU 重寫 · 上次生成 ${ts} · User Remarks 由人維護`);
+  L.push(`> 📄 Schema v3 · AI 區每次 CU 重寫 · 上次生成 ${ts} · User Remarks 由人維護 · Product Spec 人+AI 共寫`);
   L.push("");
   L.push(USER_START);
   L.push("## 📌 User Remarks");
@@ -81,6 +105,13 @@ export function buildProjectMd(name, userSection, aiSection) {
   L.push(userSection?.trim() || "（人在 UI 或直接編輯這區 — AI 絕不覆蓋。放專案背景、地雷、口頭知識…）");
   L.push("");
   L.push(USER_END);
+  L.push("");
+  L.push(SPEC_START);
+  L.push("## 📄 Product Spec");
+  L.push("");
+  L.push(specSection?.trim() || "（尚未撰寫 — 人跟 AI 在 Prod Spec 頁共寫；import 專案首次 CU 可生成初稿，或按 ✨）");
+  L.push("");
+  L.push(SPEC_END);
   L.push("");
   L.push(AI_START);
   L.push(aiSection?.trim() || "## 🤖 AI Overview\n\n（尚未生成 — 跑 CU 或按 🔄 重新生成）");
@@ -198,10 +229,67 @@ ${JSON.stringify(facts, null, 2)}`;
 }
 
 /**
- * 重生成 PROJECT.md（AI 區重寫、USER 區原樣保留）
+ * Product Spec 初稿（8 節 schema，evidence 優先）
+ * 2026-11-16 Fleming：spec 做在 PROJECT.md / project page — import 專案首次（spec 空且有 code）
+ * CU 收尾自動生一版；新專案（無 code）不生，留給人+AI 共寫。
+ */
+export async function generateSpecDraft(root, opts = {}) {
+  const facts = await collectFacts(root);
+  const hasCode = (facts.features?.length || 0) > 0 || (facts.codeIntel?.functions || 0) > 0 || (facts.codeIntel?.symbols || 0) > 0;
+  if (!hasCode) return { generated: false, reason: "no-code", specSection: "" };
+
+  const schemaNote = SPEC_SECTIONS.map(s => `## ${s}`).join("\n");
+  let specSection = null;
+  let source = "deterministic";
+  if (opts.callLLM) {
+    try {
+      const prompt = `你是 release unit 的 spec 工程師。根據下方「事實資料」寫 PRODUCT Spec 初稿（code→spec 反向生成）。
+
+嚴格規則：
+- 只用事實資料，不捏造；資料沒有的寫「（資料待補 — 待人確認）」
+- 固定八個二級標題照抄：
+${schemaNote}
+- 每節 3-8 條要點，简潔；API & Data Contract 從 features/API 事實寫
+- 只輸出 markdown 本體：不包 \`\`\` 圍籬、不加 # 一級標題、無前言結語
+
+事實資料（JSON）：
+${JSON.stringify(facts, null, 2)}`;
+      const r = await opts.callLLM({ messages: [{ role: "user", content: prompt }], temperature: 0.2, maxTokens: 8192, thinking: { type: "disabled" } });
+      let c = r?.content?.trim() || "";
+      if (c) {
+        c = c.replace(/^```(?:markdown)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+        specSection = c;
+        source = "llm";
+      }
+    } catch { /* fallback */ }
+  }
+  if (!specSection) {
+    // 確定性 fallback：骨架 + 事實能填的填
+    const L = [];
+    L.push(`## 1. Product Overview`);
+    L.push(facts.description ? `- ${facts.description}` : "- （資料待補 — 待人確認）");
+    L.push("");
+    L.push(`## 2. Functional Requirements`);
+    if (facts.features.length) for (const f of facts.features.slice(0, 30)) L.push(`- [${f.id}] ${f.name}${f.desc ? " — " + f.desc.slice(0, 60) : ""}`);
+    else L.push("- （資料待補 — 待人確認）");
+    L.push("");
+    for (const t of ["3. Non-Functional Requirements", "4. API & Data Contract", "5. Architecture Design", "6. Technical Design", "7. Testing Strategy", "8. Operations & Observability"]) {
+      L.push(`## ${t}`);
+      L.push("- （資料待補 — 待人確認）");
+      L.push("");
+    }
+    if (facts.frameworks.length) L.splice(L.indexOf("## 5. Architecture Design") + 1, 0, `- 技術栈：${facts.frameworks.join(" / ")}`);
+    if (facts.tests) { const i = L.indexOf("## 7. Testing Strategy"); if (i > -1) L.splice(i + 1, 0, `- 測試：${facts.tests.files} 檔，coverage ${facts.tests.coverage ?? "—"}`); }
+    specSection = L.join("\n").trim();
+  }
+  return { generated: true, reason: "draft", specSection, source };
+}
+
+/**
+ * 重生成 PROJECT.md（AI 區重寫、USER/SPEC 區原樣保留；import 首次 spec 空且 opts.specDraft 時生 spec 初稿）
  * @param {string} root project root
- * @param {{ callLLM?: Function, model?: string }} opts callLLM: coding.mjs callProjectLLM 同簽名
- * @returns {Promise<{written:boolean, reason:string, features:number, aiSource:"llm"|"deterministic"}>}
+ * @param {{ callLLM?: Function, model?: string, specDraft?: boolean }} opts callLLM: coding.mjs callProjectLLM 同簽名
+ * @returns {Promise<{written:boolean, reason:string, features:number, aiSource:"llm"|"deterministic", specDraft?:{generated:boolean, source:string}}>}
  */
 export async function regenerateProjectMd(root, opts = {}) {
   const paaw = createPaawProject(root);
@@ -220,15 +308,25 @@ export async function regenerateProjectMd(root, opts = {}) {
   }
   if (!aiSection) aiSection = deterministicAiSection(facts);
 
-  const next = buildProjectMd(facts.name, parsed.userSection, aiSection);
+  // Spec 初稿：只在 spec 區空且明確要求（CU 收尾 import 場景 / 手動 ✨）時生
+  let specSection = parsed.specSection || "";
+  let specDraftInfo;
+  if (!specSection && opts.specDraft) {
+    const d = await generateSpecDraft(root, opts);
+    specDraftInfo = { generated: d.generated, source: d.source };
+    if (d.generated) specSection = d.specSection;
+  }
+
+  const next = buildProjectMd(facts.name, parsed.userSection, aiSection, specSection);
 
   // diff-write：內容相同就不動檔案 mtime（git 友善）
-  if (existing === next) return { written: false, reason: "identical", features: facts.features.length, aiSource };
+  if (existing === next) return { written: false, reason: "identical", features: facts.features.length, aiSource, specDraft: specDraftInfo };
   await paaw.writeFile("PROJECT.md", next);
   return {
     written: true,
     reason: existing ? (parsed.migrated ? "migrated" : "ai-updated") : "created",
     features: facts.features.length,
     aiSource,
+    specDraft: specDraftInfo,
   };
 }

@@ -683,7 +683,7 @@
   "sideChat.current": "目前對話",
   "sideChat.backToActive": "回到目前對話",
   "sideChat.activeBadge": "目前",
-  "projectMd.toolbar": "Project",
+  "projectMd.toolbar": "Prod Spec",
   "projectMd.userRemarks": "User Remarks",
   "projectMd.humanOnly": "人寫區 · AI 不覆蓋",
   "projectMd.unsaved": "有未儲存變更",
@@ -2168,5 +2168,16 @@
   "ho.doc.sec.cache": "Cache 機制",
   "ho.doc.sec.risks": "高風險區",
   "ho.doc.sec.aiWorkflow": "AI 開發方式（教 AI 做事）",
-  "ho.doc.sec.quickstart": "怎麼跑起來"
+  "ho.doc.sec.quickstart": "怎麼跑起來",
+  "projectMd.specTitle": "Product Spec",
+  "projectMd.coWrite": "人 + AI 共寫",
+  "projectMd.specSaved": "Product Spec 已儲存",
+  "projectMd.specDraftBtn": "AI 初稿",
+  "projectMd.specDrafting": "生成中",
+  "projectMd.specDraftTitle": "AI 照 8 節 schema 從 code 事實生成初稿（只在空著時可按）",
+  "projectMd.specPlaceholder": "## 1. Product Overview\n## 2. Functional Requirements\n## 3. Non-Functional Requirements\n## 4. API & Data Contract\n## 5. Architecture Design\n## 6. Technical Design\n## 7. Testing Strategy\n## 8. Operations & Observability\n（人跟 AI 一起寫 — 也可跟旁邊 side chat AI 討論後貼進來）",
+  "projectMd.specHint": "這區由人跟 AI 共寫 — CU / AI Overview 重跑不會覆蓋。固定 8 節 schema，跟 side chat AI 討論收斂後存回這裡。",
+  "projectMd.specDraftDone": "Product Spec 初稿已生成",
+  "projectMd.specDraftFail": "生成初稿失敗",
+  "projectMd.specDraftNoCode": "專案尚無 code 事實（features/code-intelligence）— 先跑 CU 或留給人+AI 共寫"
 }

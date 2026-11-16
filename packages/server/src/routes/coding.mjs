@@ -565,18 +565,40 @@ export default async function projectRoute(req, res) {
       }
     }
 
-    // ── PROJECT.md（schema v2 — User Remarks + AI Overview）2026-10-09 ──
-    // GET：讀兩區內容；POST：只寫 User Remarks 區（AI 區保留）；POST /regenerate：重寫 AI 區
+    // ── PROJECT.md（schema v3 — User Remarks / Product Spec / AI Overview）2026-11-16 ──
+    // GET：讀三區；POST：寫 User Remarks 和/或 Product Spec 區（AI 區保留）；POST /regenerate：重寫 AI 區；POST /spec-draft：生 spec 初稿
     if (url.startsWith("/api/coding-project/project-md") && method === "GET") {
       if (!paaw.exists) await paaw.init();
       const md = await paaw.readFile("PROJECT.md");
       const respond = (obj) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
       if (md == null) {
-        respond({ exists: false, userSection: "", aiSection: "" });
+        respond({ exists: false, userSection: "", specSection: "", aiSection: "" });
       } else {
         const parsed = parseProjectMd(md);
         respond({ exists: true, ...parsed, full: md });
       }
+      return true;
+    }
+    if (url.startsWith("/api/coding-project/project-md/spec-draft") && method === "POST") {
+      if (!paaw.exists) await paaw.init();
+      let modelOverride = null;
+      try { const b = JSON.parse(await readBody(req) || "{}"); modelOverride = b.model || null; } catch {}
+      const { generateSpecDraft } = await import("../lib/project-md.mjs");
+      const r = await generateSpecDraft(root, { callLLM: (b) => callProjectLLM({ ...b, model: b.model || modelOverride || undefined }, { caller: "cu-spec-draft", timeoutMs: 120_000, maxRetries: 2 }) });
+      if (!r.generated) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ generated: false, reason: r.reason }));
+        return true;
+      }
+      // 寫入（只動 spec 區，user/ai 保留）
+      const md = await paaw.readFile("PROJECT.md");
+      const parsed = parseProjectMd(md);
+      let name = root.split(/[\\/]/).pop() || "Project";
+      try { const pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8")); if (pkg.name) name = pkg.name; } catch {}
+      const next = buildProjectMd(name, parsed.userSection, parsed.aiSection, r.specSection);
+      await paaw.writeFile("PROJECT.md", next);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ generated: true, source: r.source }));
       return true;
     }
     if (url.startsWith("/api/coding-project/project-md/regenerate") && method === "POST") {
@@ -597,7 +619,9 @@ export default async function projectRoute(req, res) {
       // 檔名：package.json name > root basename
       let name = root.split(/[\\/]/).pop() || "Project";
       try { const pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8")); if (pkg.name) name = pkg.name; } catch {}
-      const next = buildProjectMd(name, String(body.userSection ?? ""), parsed.aiSection);
+      const userSection = body.userSection !== undefined ? String(body.userSection) : parsed.userSection;
+      const specSection = body.specSection !== undefined ? String(body.specSection) : parsed.specSection;
+      const next = buildProjectMd(name, userSection, parsed.aiSection, specSection);
       await paaw.writeFile("PROJECT.md", next);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
@@ -1248,7 +1272,7 @@ export default async function projectRoute(req, res) {
         if (stepId === "api-map") {
           // CU 收尾：PROJECT.md 重生成（2026-10-09 Fleming — schema v2：AI 區每次重寫、USER 區絕不覆蓋）
           try {
-            const draft = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: body.model || cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
+            const draft = await regenerateProjectMd(root, { specDraft: true, callLLM: (b) => callProjectLLM({ ...b, model: body.model || cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
             try { await paaw.setCuStepStatus("overview", "done", { summary: `${draft.features} features（${draft.aiSource}）` }); } catch {}
             if (draft.written) {
               cuLog("overview", `PROJECT.md ${draft.reason} (${draft.features} features, ${draft.aiSource})`);
@@ -1785,7 +1809,7 @@ export default async function projectRoute(req, res) {
 
         // CU 收尾：PROJECT.md 重生成（2026-10-09 Fleming — schema v2：AI 區每次重寫、USER 區絕不覆蓋）
         try {
-          const draft = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: b.model || cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
+          const draft = await regenerateProjectMd(root, { specDraft: true, callLLM: (b) => callProjectLLM({ ...b, model: b.model || cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
           try { await paaw.setCuStepStatus("overview", "done", { summary: `${draft.features} features（${draft.aiSource}）` }); } catch {}
           if (draft.written) {
             cuLog("overview", `PROJECT.md ${draft.reason} (${draft.features} features, ${draft.aiSource})`);
