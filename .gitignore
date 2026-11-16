@@ -48,6 +48,43 @@ data/workspaces.json
 data/config/workspaces.json
 data/config/security.json
 packages/data/
+
+# ===== .paaw — whitelist：預設不進 git，只放行 project 定義類（2026-11-16）=====
+.paaw/*
+!.paaw/specs/
+!.paaw/design/
+!.paaw/features/
+!.paaw/project/
+!.paaw/product/
+!.paaw/runbook/
+!.paaw/prompts/
+!.paaw/skills/
+!.paaw/quality/
+!.paaw/troubleshooting/
+!.paaw/helpdesk/
+!.paaw/issues/
+!.paaw/agents/
+!.paaw/decisions/
+!.paaw/changelog/
+!.paaw/tasks/
+!.paaw/test-payloads/
+!.paaw/code-intelligence/
+!.paaw/actions/
+!.paaw/em/
+!.paaw/gates.json
+!.paaw/error-codes.json
+!.paaw/c4-model.json
+!.paaw/ui-map.json
+!.paaw/release-unit-model.json
+!.paaw/handover-*.json
+!.paaw/dev-config.json
+!.paaw/RU-API-TABLE.md
+!.paaw/HANDOVER.md
+!.paaw/DECISIONS.md
+!.paaw/CHANGELOG.md
+# runtime/log/db/session 類（coding.db、coding-memory、agent-memory、sessions、
+# uploads、action-log、overnight-reports、review-board、release-requests、
+# updates、exec-approval-log 等）不進版控
 node_modules/
 .DS_Store
 data/skills/.test-output/
