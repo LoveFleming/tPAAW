@@ -613,6 +613,23 @@ const PAAW_TOOLS = [
   {
     type: "function",
     function: {
+      name: "spec_write",
+      description: "寫入 Product Spec 的單一 section（PROJECT.md 的 Product Spec 區）。Prod Spec 頁面是唯讀渲染 — 討論收斂後用這個工具寫入。只能動 spec，碰不到其他檔案。",
+      parameters: {
+        type: "object",
+        properties: {
+          section: { type: "number", description: "Section 編號 1-8：1 Overview / 2 功能需求 / 3 非功能需求 / 4 API Contract / 5 架構設計 / 6 技術設計 / 7 測試策略 / 8 維運觀測" },
+          markdown: { type: "string", description: "該節完整 markdown（整節覆寫；流程/架構/互動附 mermaid 圈籃）" },
+        },
+        required: ["section", "markdown"],
+      },
+    },
+  },
+
+  // ── Unified project_edit tool (replaces 7 mutation tools) ──
+  {
+    type: "function",
+    function: {
       name: "project_edit",
       description: "Modify project data: create/update/delete issues, record changes, update feature docs/mapping, run safe commands.",
       parameters: {
