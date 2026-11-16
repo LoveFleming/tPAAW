@@ -606,7 +606,7 @@ export default async function projectRoute(req, res) {
       let modelOverride = null;
       try { const b = JSON.parse(await readBody(req) || "{}"); modelOverride = b.model || null; } catch {}
       const r = await regenerateProjectMd(root, { callLLM: (b) => callProjectLLM({ ...b, model: b.model || modelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
-      try { await paaw.setCuStepStatus("overview", "done", { summary: `${r.features} features（${r.aiSource}）` }); } catch {}
+      try { await paaw.setCuStepStatus("overview", "done", { summary: `${r.features} features${r.specDraft?.generated ? " + spec 初稿" : ""}` }); } catch {}
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(r));
       return true;
@@ -1273,10 +1273,10 @@ export default async function projectRoute(req, res) {
           // CU 收尾：PROJECT.md 重生成（2026-10-09 Fleming — schema v2：AI 區每次重寫、USER 區絕不覆蓋）
           try {
             const draft = await regenerateProjectMd(root, { specDraft: true, callLLM: (b) => callProjectLLM({ ...b, model: body.model || cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
-            try { await paaw.setCuStepStatus("overview", "done", { summary: `${draft.features} features（${draft.aiSource}）` }); } catch {}
+            try { await paaw.setCuStepStatus("overview", "done", { summary: `${draft.features} features${draft.specDraft?.generated ? " + spec 初稿" : ""}` }); } catch {}
             if (draft.written) {
-              cuLog("overview", `PROJECT.md ${draft.reason} (${draft.features} features, ${draft.aiSource})`);
-              sendEvent("info", { message: `📝 PROJECT.md 已更新（${draft.reason}，${draft.features} features，${draft.aiSource === "llm" ? "AI 生成" : "確定性骨架"}）— User Remarks 區不受影響` });
+              cuLog("overview", `PROJECT.md ${draft.reason} (${draft.features} features${draft.specDraft?.generated ? `, spec ${draft.specDraft.source}` : ""})`);
+              sendEvent("info", { message: `📝 PROJECT.md 已更新（${draft.reason}${draft.specDraft?.generated ? `，Product Spec 初稿（${draft.specDraft.source === "llm" ? "AI 生成" : "確定性骨架"}）` : ""}）— User Remarks 區不受影響` });
             }
           } catch (e) { cuLog("overview", `regenerate failed: ${e.message}`); }
         }
@@ -1810,10 +1810,10 @@ export default async function projectRoute(req, res) {
         // CU 收尾：PROJECT.md 重生成（2026-10-09 Fleming — schema v2：AI 區每次重寫、USER 區絕不覆蓋）
         try {
           const draft = await regenerateProjectMd(root, { specDraft: true, callLLM: (b) => callProjectLLM({ ...b, model: b.model || cuModelOverride || undefined }, { caller: "cu-overview", timeoutMs: 120_000, maxRetries: 2 }) });
-          try { await paaw.setCuStepStatus("overview", "done", { summary: `${draft.features} features（${draft.aiSource}）` }); } catch {}
+          try { await paaw.setCuStepStatus("overview", "done", { summary: `${draft.features} features${draft.specDraft?.generated ? " + spec 初稿" : ""}` }); } catch {}
           if (draft.written) {
-            cuLog("overview", `PROJECT.md ${draft.reason} (${draft.features} features, ${draft.aiSource})`);
-            sendEvent("info", { message: `📝 PROJECT.md 已更新（${draft.reason}，${draft.features} features，${draft.aiSource === "llm" ? "AI 生成" : "確定性骨架"}）— User Remarks 區不受影響` });
+            cuLog("overview", `PROJECT.md ${draft.reason} (${draft.features} features${draft.specDraft?.generated ? `, spec ${draft.specDraft.source}` : ""})`);
+            sendEvent("info", { message: `📝 PROJECT.md 已更新（${draft.reason}${draft.specDraft?.generated ? `，Product Spec 初稿（${draft.specDraft.source === "llm" ? "AI 生成" : "確定性骨架"}）` : ""}）— User Remarks 區不受影響` });
           }
         } catch (e) { cuLog("overview", `regenerate failed: ${e.message}`); }
 

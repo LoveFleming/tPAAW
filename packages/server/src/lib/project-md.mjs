@@ -91,13 +91,14 @@ export function parseProjectMd(md) {
   return { userSection: stripped, specSection: "", aiSection: "", migrated: true };
 }
 
-/** 合成整檔（schema v3 — User Remarks / Product Spec / AI Overview） */
+/** 合成整檔（2026-11-16 晚：AI Overview 區移除 — Fleming；只剩 User Remarks + Product Spec） */
 export function buildProjectMd(name, userSection, aiSection, specSection = "") {
+  // aiSection 參數保留相容（忽略不寫）
   const ts = new Date().toISOString().slice(0, 16).replace("T", " ");
   const L = [];
   L.push(`# ${name}`);
   L.push("");
-  L.push(`> 📄 Schema v3 · AI 區每次 CU 重寫 · 上次生成 ${ts} · User Remarks 由人維護 · Product Spec 人+AI 共寫`);
+  L.push(`> 📄 上次更新 ${ts} · User Remarks 由人維護 · Product Spec 人+AI 共寫`);
   L.push("");
   L.push(USER_START);
   L.push("## 📌 User Remarks");
@@ -112,11 +113,6 @@ export function buildProjectMd(name, userSection, aiSection, specSection = "") {
   L.push(specSection?.trim() || "（尚未撰寫 — 人跟 AI 在 Prod Spec 頁共寫；import 專案首次 CU 可生成初稿，或按 ✨）");
   L.push("");
   L.push(SPEC_END);
-  L.push("");
-  L.push(AI_START);
-  L.push(aiSection?.trim() || "## 🤖 AI Overview\n\n（尚未生成 — 跑 CU 或按 🔄 重新生成）");
-  L.push("");
-  L.push(AI_END);
   L.push("");
   return L.join("\n");
 }
@@ -163,69 +159,6 @@ async function collectFacts(root) {
     codeIntel: ciSum ? { functions: ciSum.callGraph?.totalFunctions, symbols: ciSum.symbolIndex?.total } : null,
     adrTitles,
   };
-}
-
-/** 確定性 AI 區骨架（LLM 失敗的 fallback — 有事實就寫事實，沒有標待補） */
-function deterministicAiSection(facts) {
-  const L = [];
-  L.push("## 🤖 AI Overview");
-  L.push("");
-  L.push("### 一句話定位");
-  L.push(facts.description || `（資料待補 — package.json 無 description）`);
-  L.push("");
-  L.push("### 架構與模組");
-  L.push(`框架：${facts.frameworks.join(", ") || "—"}`);
-  if (facts.codeIntel) L.push(`程式規模：${facts.codeIntel.functions ?? "?"} functions / ${facts.codeIntel.symbols ?? "?"} symbols`);
-  L.push("");
-  L.push("### 如何建置/跑/測");
-  if (facts.scripts.length) { for (const [k, v] of facts.scripts) L.push(`- \`npm run ${k}\`${v.length < 60 ? " — " + v : ""}`); }
-  else L.push("- （package.json 無常用 script — 資料待補）");
-  L.push("");
-  L.push("### Feature 清單");
-  L.push("| Feature | 說明 | 檔案數 |");
-  L.push("|---|---|---|");
-  if (facts.features.length) {
-    for (const f of facts.features.slice(0, 25)) L.push(`| [${f.id}] ${f.name} | ${(f.desc || "").slice(0, 60)} | ${f.codeFiles} |`);
-    if (facts.features.length > 25) L.push(`| … | 共 ${facts.features.length} features | |`);
-  } else L.push("| （尚未跑 feature-map） | | |");
-  L.push("");
-  L.push("### 維運要點");
-  const bits = [];
-  if (facts.tests) bits.push(`測試：${facts.tests.files} 檔（unit ${facts.tests.byType.unit ?? 0} / e2e ${facts.tests.byType.e2e ?? 0}）coverage ${facts.tests.coverage ?? "—"}`);
-  if (facts.errorCodes != null) bits.push(`Error codes：${facts.errorCodes} 個`);
-  L.push(bits.length ? bits.map(b => `- ${b}`).join("\n") : "- （資料待補）");
-  L.push("");
-  L.push("### 最新決策");
-  L.push(facts.adrTitles.length ? facts.adrTitles.map(t => `- ${t}`).join("\n") : "- （DECISIONS.md 尚無 ADR）");
-  L.push("");
-  return L.join("\n");
-}
-
-/** LLM 潤飾：事實層 → 六小節 markdown（標題 schema 固定） */
-async function llmAiSection(facts, callLLM) {
-  const schemaNote = "### 一句話定位\n### 架構與模組\n### 如何建置/跑/測\n### Feature 清單（表格：| Feature | 說明 | 檔案數 |）\n### 維運要點\n### 最新決策";
-  const prompt = `你是 release unit 的技術文件工程師。根據下方「事實資料」寫 PROJECT.md 的 AI Overview 區塊。
-
-嚴格規則：
-- 只用事實資料，不捏造；資料沒有的寫「（資料待補）」
-- 固定六個小節，標題照抄（三級標題）：
-${schemaNote}
-- 一句話定位：1-2 句，講清楚這是什麼、給誰用（從 description/features 推導，不要發明新事實）
-- 架構與模組：框架 + 程式規模 + 從 features 推模組分佈
-- Feature 清單：全部 features 進表格
-- 維運要點：測試/error codes 現況 + 給維運工程師的提醒
-- 最新決策：照 ADR 標題列點；沒有就寫尚無
-- 只輸出六節 markdown 本體：不要在最外層包 \`\`\` 圍籬、不要 # 一級標題（頂層用 ## 🤖 AI Overview 開頭）、不要前言結語；小節內需要 code block 時正常用 \`\`\` 圍籬（如指令清單）
-
-事實資料（JSON）：
-${JSON.stringify(facts, null, 2)}`;
-  const r = await callLLM({ messages: [{ role: "user", content: prompt }], temperature: 0.2, maxTokens: 8192, thinking: { type: "disabled" } }); // 摘要任務停 thinking（2026-08-30 教訓：thinking 燸光 max_tokens → content 空）
-  let content = r?.content?.trim() || "";
-  if (!content) return null;
-  // 去圍籬 + 確保頂層標題
-  content = content.replace(/^```(?:markdown)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
-  if (!content.startsWith("## ")) content = `## 🤖 AI Overview\n\n${content}`;
-  return content;
 }
 
 /**
@@ -297,16 +230,7 @@ export async function regenerateProjectMd(root, opts = {}) {
   const parsed = parseProjectMd(existing);
   const facts = await collectFacts(root);
 
-  // AI 區：LLM 優先，失敗 fallback 確定性骨架
-  let aiSection = null;
-  let aiSource = "deterministic";
-  if (opts.callLLM) {
-    try {
-      aiSection = await llmAiSection(facts, opts.callLLM);
-      if (aiSection) aiSource = "llm";
-    } catch { /* fallback below */ }
-  }
-  if (!aiSection) aiSection = deterministicAiSection(facts);
+  // 2026-11-16 晚：AI Overview 區移除 — 不再生成；重點只剩 spec 初稿 + 檔案遷移
 
   // Spec 初稿：只在 spec 區空且明確要求（CU 收尾 import 場景 / 手動 ✨）時生
   let specSection = parsed.specSection || "";
@@ -317,16 +241,15 @@ export async function regenerateProjectMd(root, opts = {}) {
     if (d.generated) specSection = d.specSection;
   }
 
-  const next = buildProjectMd(facts.name, parsed.userSection, aiSection, specSection);
+  const next = buildProjectMd(facts.name, parsed.userSection, null, specSection);
 
   // diff-write：內容相同就不動檔案 mtime（git 友善）
-  if (existing === next) return { written: false, reason: "identical", features: facts.features.length, aiSource, specDraft: specDraftInfo };
+  if (existing === next) return { written: false, reason: "identical", features: facts.features.length, specDraft: specDraftInfo };
   await paaw.writeFile("PROJECT.md", next);
   return {
     written: true,
-    reason: existing ? (parsed.migrated ? "migrated" : "ai-updated") : "created",
+    reason: existing ? (parsed.migrated ? "migrated" : "updated") : "created",
     features: facts.features.length,
-    aiSource,
     specDraft: specDraftInfo,
   };
 }

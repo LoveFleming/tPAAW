@@ -2,16 +2,15 @@
  * ProjectMdPage — 📄 Prod Spec（PROJECT.md，schema v3）檢視/編輯頁
  *
  * 2026-11-16 Fleming：product spec 做在 project page（不另開頁/agent）；tab 改名 Prod Spec、跟 PAAW project 解耦
+ * 2026-11-16 Fleming（晚）：AI Overview 區移除 — 頁面只剩 User Remarks + Product Spec
  * - 上：📌 User Remarks（人寫區 — textarea + 儲存；AI/CU 絕不覆蓋）
- * - 中：📄 Product Spec（人+AI 共寫 — 8 節 schema；✨ AI 初稿只在空著時可按）
- * - 下：🤖 AI Overview（CU 每次重寫 — 唯讀渲染 + 🔄 手動重新生成）
- * 檔案：.paaw/PROJECT.md（marker 切三區，server lib/project-md.mjs 同 schema）
+ * - 下：📄 Product Spec（人+AI 共寫 — 8 節 schema；✨ AI 初稿只在空著時可按）
+ * 檔案：.paaw/PROJECT.md（marker 切區，server lib/project-md.mjs 同 schema）
  */
 
 import React, { useState, useEffect, useCallback } from "react";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
-import MarkdownText from "./MarkdownText";
 import { uiAlert } from "./ui/uiFeedback";
 
 interface Props {
@@ -25,11 +24,9 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
   const [exists, setExists] = useState<boolean | null>(null); // null = loading
   const [userSection, setUserSection] = useState("");
   const [specSection, setSpecSection] = useState("");
-  const [aiSection, setAiSection] = useState("");
   const [editing, setEditing] = useState("");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [regen, setRegen] = useState(false);
   // Product Spec 區（2026-11-16 schema v3 — 人+AI 共寫）
   const [specEditing, setSpecEditing] = useState("");
   const [specDirty, setSpecDirty] = useState(false);
@@ -46,7 +43,6 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
       setEditing(d.userSection || "");
       setSpecSection(d.specSection || "");
       setSpecEditing(d.specSection || "");
-      setAiSection(d.aiSection || "");
       setDirty(false);
       setSpecDirty(false);
     } catch {
@@ -73,25 +69,6 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
       uiAlert(`${t("projectMd.saveFail")}: ${e?.message || e}`);
     }
     setSaving(false);
-  };
-
-  const regenerate = async () => {
-    if (!rootPath || regen) return;
-    setRegen(true);
-    try {
-      const r = await fetch(`${API_BASE}/api/coding-project/project-md/regenerate?path=${encodeURIComponent(rootPath)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "failed");
-      uiAlert(`✅ ${t("projectMd.regenDone")}${d.aiSource === "llm" ? "（AI）" : "（確定性）"}`);
-      await load();
-    } catch (e: any) {
-      uiAlert(`${t("projectMd.regenFail")}: ${e?.message || e}`);
-    }
-    setRegen(false);
   };
 
   const saveSpec = async () => {
@@ -213,34 +190,6 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
               style={{ borderColor: tk.borderLight || "#e7e5e4" }}
             />
             <p className="text-[10px] text-stone-400 mt-1.5">{t("projectMd.specHint")}</p>
-          </div>
-        </section>
-
-        {/* ── 下半：AI Overview（CU 生成區）── */}
-        <section className="rounded-xl border flex-1 min-h-0 flex flex-col" style={{ borderColor: tk.borderLight || "#e7e5e4" }}>
-          <div className="px-4 py-2.5 flex items-center gap-2 border-b flex-none" style={{ borderColor: tk.borderLight || "#e7e5e4", background: tk.bgMuted || "#fafaf9" }}>
-            <span className="text-sm font-bold">🤖 {t("projectMd.aiOverview")}</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">{t("projectMd.autoGen")}</span>
-            <div className="flex-1" />
-            <button
-              onClick={regenerate}
-              disabled={regen}
-              className="text-xs px-2.5 py-1 rounded-lg border transition-colors disabled:opacity-40"
-              style={{ borderColor: tk.borderLight || "#e7e5e4", color: tk.accent || "#8b5e3c" }}
-              title={t("projectMd.regenTitle")}
-            >{regen ? `⏳ ${t("projectMd.regening")}` : "🔄"}</button>
-          </div>
-          <div className="p-4 overflow-y-auto flex-1 min-h-0">
-            {aiSection ? (
-              <div className="text-sm leading-relaxed" style={{ color: tk.text || "#44403c" }}>
-                <MarkdownText>{aiSection}</MarkdownText>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-stone-400 text-sm">
-                <div className="text-2xl mb-2">🤖</div>
-                {exists ? t("projectMd.noAiYet") : t("projectMd.notExists")}
-              </div>
-            )}
           </div>
         </section>
 
