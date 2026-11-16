@@ -1,10 +1,9 @@
 /**
- * ProjectMdPage — 📄 Prod Spec（PROJECT.md，schema v3）檢視/編輯頁
+ * ProjectMdPage — 📄 Prod Spec（PROJECT.md）編輯頁
  *
  * 2026-11-16 Fleming：product spec 做在 project page（不另開頁/agent）；tab 改名 Prod Spec、跟 PAAW project 解耦
- * 2026-11-16 Fleming（晚）：AI Overview 區移除 — 頁面只剩 User Remarks + Product Spec
- * - 上：📌 User Remarks（人寫區 — textarea + 儲存；AI/CU 絕不覆蓋）
- * - 下：📄 Product Spec（人+AI 共寫 — 8 節 schema；✨ AI 初稿只在空著時可按）
+ * 2026-11-16 Fleming（晚）：AI Overview 區、User Remarks 區先後移除 — 頁面只剩 Product Spec
+ * - 📄 Product Spec（人+AI 共寫 — 8 節 schema；✨ AI 初稿只在空著時可按）
  * 檔案：.paaw/PROJECT.md（marker 切區，server lib/project-md.mjs 同 schema）
  */
 
@@ -22,12 +21,7 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
   const { t } = useI18n();
   const tk = theme || {};
   const [exists, setExists] = useState<boolean | null>(null); // null = loading
-  const [userSection, setUserSection] = useState("");
   const [specSection, setSpecSection] = useState("");
-  const [editing, setEditing] = useState("");
-  const [dirty, setDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
-  // Product Spec 區（2026-11-16 schema v3 — 人+AI 共寫）
   const [specEditing, setSpecEditing] = useState("");
   const [specDirty, setSpecDirty] = useState(false);
   const [specSaving, setSpecSaving] = useState(false);
@@ -39,11 +33,8 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
       const r = await fetch(`${API_BASE}/api/coding-project/project-md?path=${encodeURIComponent(rootPath)}`);
       const d = await r.json();
       setExists(!!d.exists);
-      setUserSection(d.userSection || "");
-      setEditing(d.userSection || "");
       setSpecSection(d.specSection || "");
       setSpecEditing(d.specSection || "");
-      setDirty(false);
       setSpecDirty(false);
     } catch {
       setExists(false);
@@ -51,25 +42,6 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
   }, [rootPath]);
 
   useEffect(() => { setExists(null); load(); }, [load]);
-
-  const save = async () => {
-    if (!rootPath || saving) return;
-    setSaving(true);
-    try {
-      const r = await fetch(`${API_BASE}/api/coding-project/project-md?path=${encodeURIComponent(rootPath)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userSection: editing }),
-      });
-      if (!r.ok) throw new Error(await r.text());
-      uiAlert(`✅ ${t("projectMd.saved")}`);
-      setDirty(false);
-      await load();
-    } catch (e: any) {
-      uiAlert(`${t("projectMd.saveFail")}: ${e?.message || e}`);
-    }
-    setSaving(false);
-  };
 
   const saveSpec = async () => {
     if (!rootPath || specSaving) return;
@@ -116,44 +88,11 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: tk.bg || "#fff" }}>
-      <div className="w-full h-full px-6 py-4 space-y-5 flex flex-col">
+      <div className="w-full h-full px-6 py-4 flex flex-col overflow-y-auto">
 
-        {/* ── 上半：User Remarks（人寫區）── */}
-        <section className="rounded-xl border flex-none" style={{ borderColor: tk.borderLight || "#e7e5e4" }}>
-          <div className="px-4 py-2.5 flex items-center gap-2 border-b" style={{ borderColor: tk.borderLight || "#e7e5e4", background: tk.bgMuted || "#fafaf9" }}>
-            <span className="text-sm font-bold">📌 {t("projectMd.userRemarks")}</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">{t("projectMd.humanOnly")}</span>
-            <div className="flex-1" />
-            {dirty && <span className="text-[10px] text-amber-600">{t("projectMd.unsaved")}</span>}
-            <button
-              onClick={() => { setEditing(userSection); setDirty(false); }}
-              disabled={!dirty || saving}
-              className="text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-30"
-              style={{ borderColor: tk.borderLight || "#e7e5e4", color: "#78716c" }}
-            >{t("projectMd.revert")}</button>
-            <button
-              onClick={save}
-              disabled={!dirty || saving}
-              className="text-xs px-3 py-1 rounded-lg text-white disabled:opacity-40 font-medium"
-              style={{ backgroundColor: tk.accent || "#8b5e3c" }}
-            >{saving ? "…" : t("projectMd.save")}</button>
-          </div>
-          <div className="p-3">
-            <textarea
-              value={editing}
-              onChange={(e) => { setEditing(e.target.value); setDirty(true); }}
-              rows={8}
-              placeholder={t("projectMd.userPlaceholder")}
-              className="w-full text-sm rounded-lg border px-3 py-2 resize-y focus:outline-none focus:border-stone-400 bg-white leading-relaxed"
-              style={{ borderColor: tk.borderLight || "#e7e5e4" }}
-            />
-            <p className="text-[10px] text-stone-400 mt-1.5">{t("projectMd.userHint")}</p>
-          </div>
-        </section>
-
-        {/* ── 中段：📄 Product Spec（人+AI 共寫）2026-11-16 ── */}
-        <section className="rounded-xl border flex-none" style={{ borderColor: tk.borderLight || "#e7e5e4" }}>
-          <div className="px-4 py-2.5 flex items-center gap-2 border-b" style={{ borderColor: tk.borderLight || "#e7e5e4", background: tk.bgMuted || "#fafaf9" }}>
+        {/* ── 📄 Product Spec（人+AI 共寫）── */}
+        <section className="rounded-xl border flex-1 min-h-0 flex flex-col" style={{ borderColor: tk.borderLight || "#e7e5e4" }}>
+          <div className="px-4 py-2.5 flex items-center gap-2 border-b flex-none" style={{ borderColor: tk.borderLight || "#e7e5e4", background: tk.bgMuted || "#fafaf9" }}>
             <span className="text-sm font-bold">📄 {t("projectMd.specTitle")}</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">{t("projectMd.coWrite")}</span>
             <div className="flex-1" />
@@ -180,13 +119,12 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
               style={{ backgroundColor: tk.accent || "#8b5e3c" }}
             >{specSaving ? "…" : t("projectMd.save")}</button>
           </div>
-          <div className="p-3">
+          <div className="p-3 flex-1 min-h-0 flex flex-col">
             <textarea
               value={specEditing}
               onChange={(e) => { setSpecEditing(e.target.value); setSpecDirty(true); }}
-              rows={12}
               placeholder={t("projectMd.specPlaceholder")}
-              className="w-full text-sm rounded-lg border px-3 py-2 resize-y focus:outline-none focus:border-stone-400 bg-white leading-relaxed font-mono"
+              className="w-full flex-1 text-sm rounded-lg border px-3 py-2 resize-none focus:outline-none focus:border-stone-400 bg-white leading-relaxed font-mono"
               style={{ borderColor: tk.borderLight || "#e7e5e4" }}
             />
             <p className="text-[10px] text-stone-400 mt-1.5">{t("projectMd.specHint")}</p>

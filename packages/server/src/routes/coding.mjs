@@ -572,7 +572,7 @@ export default async function projectRoute(req, res) {
       const md = await paaw.readFile("PROJECT.md");
       const respond = (obj) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
       if (md == null) {
-        respond({ exists: false, userSection: "", specSection: "", aiSection: "" });
+        respond({ exists: false, specSection: "" });
       } else {
         const parsed = parseProjectMd(md);
         respond({ exists: true, ...parsed, full: md });
@@ -595,7 +595,7 @@ export default async function projectRoute(req, res) {
       const parsed = parseProjectMd(md);
       let name = root.split(/[\\/]/).pop() || "Project";
       try { const pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8")); if (pkg.name) name = pkg.name; } catch {}
-      const next = buildProjectMd(name, parsed.userSection, parsed.aiSection, r.specSection);
+      const next = buildProjectMd(name, null, null, r.specSection);
       await paaw.writeFile("PROJECT.md", next);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ generated: true, source: r.source }));
@@ -619,9 +619,8 @@ export default async function projectRoute(req, res) {
       // 檔名：package.json name > root basename
       let name = root.split(/[\\/]/).pop() || "Project";
       try { const pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8")); if (pkg.name) name = pkg.name; } catch {}
-      const userSection = body.userSection !== undefined ? String(body.userSection) : parsed.userSection;
       const specSection = body.specSection !== undefined ? String(body.specSection) : parsed.specSection;
-      const next = buildProjectMd(name, userSection, parsed.aiSection, specSection);
+      const next = buildProjectMd(name, null, null, specSection);
       await paaw.writeFile("PROJECT.md", next);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));

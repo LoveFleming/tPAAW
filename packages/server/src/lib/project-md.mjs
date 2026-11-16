@@ -91,21 +91,14 @@ export function parseProjectMd(md) {
   return { userSection: stripped, specSection: "", aiSection: "", migrated: true };
 }
 
-/** 合成整檔（2026-11-16 晚：AI Overview 區移除 — Fleming；只剩 User Remarks + Product Spec） */
+/** 合成整檔（2026-11-16 晚：User Remarks 區也移除 — Fleming；只剩 Product Spec） */
 export function buildProjectMd(name, userSection, aiSection, specSection = "") {
-  // aiSection 參數保留相容（忽略不寫）
+  // userSection/aiSection 參數保留相容（忽略不寫）
   const ts = new Date().toISOString().slice(0, 16).replace("T", " ");
   const L = [];
   L.push(`# ${name}`);
   L.push("");
-  L.push(`> 📄 上次更新 ${ts} · User Remarks 由人維護 · Product Spec 人+AI 共寫`);
-  L.push("");
-  L.push(USER_START);
-  L.push("## 📌 User Remarks");
-  L.push("");
-  L.push(userSection?.trim() || "（人在 UI 或直接編輯這區 — AI 絕不覆蓋。放專案背景、地雷、口頭知識…）");
-  L.push("");
-  L.push(USER_END);
+  L.push(`> 📄 Product Spec · 上次更新 ${ts} · 人+AI 共寫`);
   L.push("");
   L.push(SPEC_START);
   L.push("## 📄 Product Spec");
@@ -241,7 +234,7 @@ export async function regenerateProjectMd(root, opts = {}) {
     if (d.generated) specSection = d.specSection;
   }
 
-  const next = buildProjectMd(facts.name, parsed.userSection, null, specSection);
+  const next = buildProjectMd(facts.name, null, null, specSection);
 
   // diff-write：內容相同就不動檔案 mtime（git 友善）
   if (existing === next) return { written: false, reason: "identical", features: facts.features.length, specDraft: specDraftInfo };
