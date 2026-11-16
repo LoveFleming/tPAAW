@@ -68,9 +68,9 @@ export function joinSpecSections(parts) {
   return L.join("\n").trim();
 }
 
-/** 讀 spec-ai（林曉薇）對話歷史當寫入依據：active.json 優先， fallback 最新 s-*.json */
+/** 讀林曉薇 spec side chat 對話歷史當寫入依據：active.json 優先， fallback 最新 s-*.json */
 async function readSpecAiConversation(paaw) {
-  const dir = "coding-memory/conversations/spec-ai";
+  const dir = "coding-memory/conversations/coding.spec-side";
   const readJson = async (rel) => {
     try { return JSON.parse(await paaw.readFile(rel)); } catch { return null; }
   };

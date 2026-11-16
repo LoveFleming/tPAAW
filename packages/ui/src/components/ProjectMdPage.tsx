@@ -16,36 +16,8 @@ import { uiAlert } from "./ui/uiFeedback";
 import AgentSideChat, { type AgentSideChatHandle } from "./AgentSideChat";
 
 /** 林曉薇 — Prod Spec side chat AI 的 system prompt（2026-11-16 Fleming） */
-const SPEC_AI_PROMPT = `你是林曉薇，Product Spec 架構師，出現在 Prod Spec 頁面右側 side chat。
-
-## 使命
-跟人**一個 section 一個 section討論**，把這個專案的 Product Spec 寫好 — 頁面左邊有 8 個 section tab，内容存在 .paaw/PROJECT.md 的 Product Spec 區。
-
-## Product Spec Schema（固定 8 sections = 8 個 tab）
-1. Product Overview — 產品定位、目標、範圍、使用情境
-2. Functional Requirements — 功能需求、業務規則、Acceptance Criteria
-3. Non-Functional Requirements — Performance、Availability、Security、Scalability
-4. API & Data Contract — API、Request/Response、Error Code、Schema
-5. Architecture Design — Components、Sequence、Integration、Data Flow
-6. Technical Design — Modules、Interface、核心邏輯、技術選型
-7. Testing Strategy — Unit、Integration、E2E、Failure Scenarios
-8. Operations & Observability — Metrics、Logging、Tracing、Deployment、Alerting
-
-## 工作方式
-- 逐段討論：一次聚焦人目前打開的那個 section。人給 What & Why，你協助定義 How
-- 討論收斂後跟人說「可以寫入了」— 人按左邊的「✍️ 曉薇寫入本節」按鈕，系統會把你們的討論結論寫進該 section（你要確保討論裡結論夠完整）
-- 人也可以貼現有 section 內容給你，你幫忙 review、補齊、潤飾
-- 證據優先：講 API/feature 事實前先查專案脈絡（.paaw 產物）— 不可發明不存在的 API
-- 對規格有明確觀點，不同意就說理由 — 你是討論對手不是應聲蟲
-
-## 回答風格
-- 繁體中文，技術名詞保留英文
-- 直接、具體、可反駁
-- 每次回覆結尾一句「下一步」建議（下個該討論的點或下個 section）
-
-## 護欄
-- 你只討論/撰寫 spec 內容，不改 source code、不做開發派工
-- 不替人決定產品方向，但對技術方案要有立場`;
+// 2026-11-16 Fleming 更正：林曉薇 = coding app 現有架構師（coding.architect crew）
+// side chat 走 a2a 直連本體（帶她的 crew 工具：read .paaw 產物 / decisions / memory…）
 
 interface Props {
   rootPath: string;
@@ -216,24 +188,20 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
         <div className="flex-none border-l" style={{ borderColor: tk.borderLight || "#e7e5e4", width: 380 }}>
           <AgentSideChat
             ref={chatRef}
-            agentId="spec-ai"
+            agentId="architect"
             agentName={t("projectMd.chatName")}
-            agentEmoji="👩‍💼"
+            agentEmoji="🏛️"
             greeting={t("projectMd.chatGreeting")}
             cwd={rootPath}
             accent={tk.accent || "#8b5e3c"}
-            persistCrewId="spec-ai"
+            persistCrewId="coding.spec-side"
+            modelFeature="sideChat.architect"
             placeholder={t("projectMd.chatPlaceholder")}
             suggestions={[
               { label: t("projectMd.sugg1Label"), prompt: `${t("projectMd.sugg1Prompt")}「${activeIdx + 1}. ${tabLabels[activeIdx]}」` },
               { label: t("projectMd.sugg2Label"), prompt: t("projectMd.sugg2Prompt") },
               { label: t("projectMd.sugg3Label"), prompt: `${t("projectMd.sugg3Prompt")}「${activeIdx + 1}. ${tabLabels[activeIdx]}」` },
             ]}
-            paawChat={{
-              contextTarget: "project",
-              contextSeed: t("projectMd.chatContextSeed"),
-              systemPrompt: SPEC_AI_PROMPT,
-            }}
           />
         </div>
       )}
