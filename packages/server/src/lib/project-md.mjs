@@ -35,6 +35,98 @@ export const SPEC_SECTIONS = [
 ];
 const LEGACY_AUTO_SIGN = "🤖 CU 自動生成初稿"; // 舊 deterministic draft 的簽名
 
+/** 分節用純標題（tab sheet / split-join 對齊這個） */
+export const SPEC_SECTION_TITLES = SPEC_SECTIONS.map(s => s.split(" — ")[0]);
+
+/** 把 spec markdown 切成 8 節內容（無標題的空字串）— tab sheet 用（2026-11-16 Fleming） */
+export function splitSpecSections(specMd) {
+  const parts = new Array(8).fill("");
+  if (!specMd) return parts;
+  const lines = specMd.split("\n");
+  let idx = -1;
+  for (const line of lines) {
+    const m = line.match(/^##\s+(\d)\.\s/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      idx = n >= 1 && n <= 8 ? n - 1 : -1;
+      continue;
+    }
+    if (idx >= 0) parts[idx] += line + "\n";
+  }
+  return parts.map(p => p.split("\n").filter(l => l.trim() !== "（尚未撰寫 — 跟右邊林曉薇討論後按「✍️ 曉薇寫入本節」，或手動編輯）").join("\n").trim());
+}
+
+/** 8 節内容合回 spec markdown */
+export function joinSpecSections(parts) {
+  const L = [];
+  for (let i = 0; i < 8; i++) {
+    L.push(`## ${SPEC_SECTION_TITLES[i]}`);
+    const c = (parts[i] || "").trim();
+    L.push(c || "（尚未撰寫 — 跟右邊林曉薇討論後按「✍️ 曉薇寫入本節」，或手動編輯）");
+    L.push("");
+  }
+  return L.join("\n").trim();
+}
+
+/** 讀 spec-ai（林曉薇）對話歷史當寫入依據：active.json 優先， fallback 最新 s-*.json */
+async function readSpecAiConversation(paaw) {
+  const dir = "coding-memory/conversations/spec-ai";
+  const readJson = async (rel) => {
+    try { return JSON.parse(await paaw.readFile(rel)); } catch { return null; }
+  };
+  let conv = await readJson(`${dir}/active.json`);
+  if (!conv || !Array.isArray(conv.messages) || !conv.messages.length) {
+    try {
+      const { readdir } = await import("fs/promises");
+      const { join } = await import("node:path");
+      const names = (await readdir(join(paaw.paawDir, dir))).filter(n => n.startsWith("s-") && n.endsWith(".json")).sort();
+      if (names.length) conv = await readJson(`${dir}/${names[names.length - 1]}`);
+    } catch {}
+  }
+  const msgs = Array.isArray(conv?.messages) ? conv.messages : (Array.isArray(conv) ? conv : []);
+  return msgs.filter(m => (m.role === "user" || m.role === "assistant") && m.content).slice(-30);
+}
+
+/**
+ * 林曉薇寫入單一 section（2026-11-16 Fleming — 人不用寫，AI 觸發頁面更新）
+ * 依據：跟曉薇的討論對話 + 專案事實（.paaw 產物）。LLM 失敗回 null 不寫。
+ */
+export async function generateSpecSection(root, index, opts = {}) {
+  if (!(index >= 0 && index < 8)) throw new Error("bad index");
+  const paaw = createPaawProject(root);
+  const [conversation, facts] = await Promise.all([readSpecAiConversation(paaw), collectFacts(root)]);
+  const title = SPEC_SECTIONS[index];
+  const transcript = conversation.map(m => `${m.role === "user" ? "人" : "曉薇"}: ${m.content}`).join("\n\n").slice(-16000);
+  const prompt = `你是林曉薇（Product Spec 協作助理）。根據下方「與人的討論紀錄」和「專案事實」，寫出 Product Spec 的其中一節。
+
+目標 section：## ${title}
+
+嚴格規則：
+- 討論紀錄裡人的決定/結論最優先；其次專案事實；都没有的寫「（待討論）」
+- 不得起造事實；專案事實沒有的 API/feature 不要發明
+- 輸出 5-15 條 markdown 要點（### 小標可自訂），直接可用
+- 只輸出這一節的 markdown 本體：不加 ## 標題（外層會加）、不包 \`\`\` 圍籬、無前言結語
+${transcript ? `
+與人的討論紀錄（最新在後）：
+${transcript}` : "\n（尚無討論紀錄 — 依專案事實寫，沒有的寫待討論）"}
+
+專案事實（JSON）：
+${JSON.stringify(facts, null, 2)}`;
+  const r = await opts.callLLM({ messages: [{ role: "user", content: prompt }], temperature: 0.3, maxTokens: 8192, thinking: { type: "disabled" } });
+  let content = r?.content?.trim() || "";
+  if (!content) return null;
+  content = content.replace(/^```(?:markdown)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+  // 寫入：只動這一節
+  const existing = await paaw.readFile("PROJECT.md");
+  const parsed = parseProjectMd(existing);
+  const parts = splitSpecSections(parsed.specSection || "");
+  parts[index] = content;
+  const specSection = joinSpecSections(parts);
+  let name = facts.name || "Project";
+  await paaw.writeFile("PROJECT.md", buildProjectMd(name, null, null, specSection));
+  return { written: true, index, content };
+}
+
 function sliceBetween(md, startMark, endMark) {
   const s = md.indexOf(startMark);
   const e = md.indexOf(endMark);

@@ -572,10 +572,32 @@ export default async function projectRoute(req, res) {
       const md = await paaw.readFile("PROJECT.md");
       const respond = (obj) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
       if (md == null) {
-        respond({ exists: false, specSection: "" });
+        respond({ exists: false, specSection: "", specSections: new Array(8).fill("") });
       } else {
         const parsed = parseProjectMd(md);
-        respond({ exists: true, ...parsed, full: md });
+        const { splitSpecSections } = await import("../lib/project-md.mjs");
+        respond({ exists: true, ...parsed, specSections: splitSpecSections(parsed.specSection || ""), full: md });
+      }
+      return true;
+    }
+    if (url.startsWith("/api/coding-project/project-md/spec-section") && method === "POST") {
+      // 林曉薇寫入單一 section（2026-11-16 Fleming — 討論對話 + 事實 → AI 觸發頁面更新）
+      if (!paaw.exists) await paaw.init();
+      const body = JSON.parse(await readBody(req) || "{}");
+      const modelOverride = body.model || null;
+      try {
+        const { generateSpecSection } = await import("../lib/project-md.mjs");
+        const r = await generateSpecSection(root, Number(body.index), { callLLM: (b) => callProjectLLM({ ...b, model: b.model || modelOverride || undefined }, { caller: "spec-section-write", timeoutMs: 120_000, maxRetries: 2 }) });
+        if (!r) {
+          res.writeHead(502, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "LLM 回覆空 — 未寫入" }));
+          return true;
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(r));
+      } catch (e) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: e.message }));
       }
       return true;
     }
@@ -619,7 +641,9 @@ export default async function projectRoute(req, res) {
       // 檔名：package.json name > root basename
       let name = root.split(/[\\/]/).pop() || "Project";
       try { const pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8")); if (pkg.name) name = pkg.name; } catch {}
-      const specSection = body.specSection !== undefined ? String(body.specSection) : parsed.specSection;
+      const specSection = Array.isArray(body.specSections) && body.specSections.length === 8
+        ? (await import("../lib/project-md.mjs")).joinSpecSections(body.specSections.map(String))
+        : body.specSection !== undefined ? String(body.specSection) : parsed.specSection;
       const next = buildProjectMd(name, null, null, specSection);
       await paaw.writeFile("PROJECT.md", next);
       res.writeHead(200, { "Content-Type": "application/json" });
