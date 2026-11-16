@@ -321,23 +321,6 @@ const DOMAIN_AGENTS = {
       },
     ],
   },
-  spec: {
-    agentId: "spec",
-    crewId: "coding.spec",
-    name: "架構師 Spec 主持人",
-    description: "Product Spec 架構師 — 與人逐 section 討論並維護 AI-Native Product Development Specification",
-    contextProviders: ["project", "decisions", "codeIntelligence"],
-    tools: null,
-    maxTurns: 15,
-    skills: [
-      {
-        id: "spec-discuss",
-        name: "Section 討論",
-        description: "針對單一 section 跟人來回討論，確認後寫入 spec",
-        tags: ["spec", "discussion"],
-      },
-    ],
-  },
   ops: {
     agentId: "ops",
     crewId: "coding.ops",

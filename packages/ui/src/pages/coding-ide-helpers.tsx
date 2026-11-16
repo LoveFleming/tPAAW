@@ -146,7 +146,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "review-board" | "handover" | "troubleshooting" | "code-intel" | "tests" | "qa-records" | "dispatch-reports" | "project" | "spec" | "ru-info";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "review-board" | "handover" | "troubleshooting" | "code-intel" | "tests" | "qa-records" | "dispatch-reports" | "project" | "ru-info";
 
 interface MainTab {
   id: string;

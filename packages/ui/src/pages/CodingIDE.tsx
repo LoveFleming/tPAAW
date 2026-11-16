@@ -46,7 +46,6 @@ import SessionHistory from "../components/SessionHistory";
 
 import DecisionLog from "../components/DecisionLog";
 import ProjectMdPage from "../components/ProjectMdPage"; // 📖 PROJECT.md（schema v2 — 2026-10-09）
-import SpecPanel from "../components/SpecPanel"; // 📄 Product Spec（2026-11-15）
 import ModelSelector, { getModelForFeature } from "../components/ModelSelector";
 import { ChatMessages, type ChatMessageItem } from "../components/ChatMessages";
 import IssueTracker from "../components/IssueTracker";
@@ -529,7 +528,6 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
       { id: "tool:decisions", type: "decisions", label: "Decisions", icon: "📜", closable: true },
       { id: "tool:features", type: "features", label: "API Map", icon: "🌐", closable: true },
       { id: "tool:project", type: "project", label: tt("projectMd.toolbar"), icon: "📖", closable: true },
-      { id: "tool:spec", type: "spec", label: tt("spec.toolbar"), icon: "📄", closable: true },
     ]},
     { id: "production", icon: "👷", tools: [
       { id: "tool:crew", type: "crew-manager", label: "AI Crew", icon: "👥", closable: true },
@@ -3614,17 +3612,6 @@ const sendChat = useCallback(async () => {
               <div key="tool:project" className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTab?.type === "project" ? undefined : "none" }}>
                 <ProjectMdPage
-                  rootPath={rootPath}
-                  theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
-                />
-              </div>
-            )}
-
-            {/* === 📄 Product Spec Tab（2026-11-15）=== */}
-            {mainTabs.some(t => t.type === "spec") && rootPath && (
-              <div key="tool:spec" className="flex-1 flex flex-col min-w-0"
-                style={{ display: activeMainTab?.type === "spec" ? undefined : "none" }}>
-                <SpecPanel
                   rootPath={rootPath}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                 />

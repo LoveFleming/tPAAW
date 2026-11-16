@@ -82,7 +82,6 @@ const CU_STEP_FILES = {
   "test-intelligence": "code-intelligence/test-intelligence.json",
   "error-codes": "error-codes.json",
   "c4-model": "c4-model.json",
-  "product-spec": "spec/meta.json", // 2026-11-15 Fleming：Product Spec（8 sections）— CU 只做第一次空 section 初稿，不自動同步
   // 人寫的非自動 step（給健康檢查參考）
   overview: "project/PROJECT.md", // ⚠️ FILE_MAP 映射：PaawProject 讀寫 PROJECT.md 實際落在 project/ 子目錄（含自動遷移）— staleness 要看實體路徑
 };
@@ -566,24 +565,6 @@ export default async function projectRoute(req, res) {
       }
     }
 
-    // ── Product Spec（2026-11-15 Fleming）─ GET 讀 8 sections + meta；POST 存單一 section（content + status）──
-    if (url.startsWith("/api/coding-project/spec/section") && method === "POST") {
-      const body = JSON.parse(await readBody(req) || "{}");
-      const { writeSpecSection, ensureSpecFiles } = await import("../lib/product-spec.mjs");
-      ensureSpecFiles(root);
-      const r = writeSpecSection(root, String(body.section || ""), String(body.content ?? ""), body.status ? String(body.status) : undefined);
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(r));
-      return true;
-    }
-    if (url.startsWith("/api/coding-project/spec") && method === "GET") {
-      const { readSpecState, ensureSpecFiles } = await import("../lib/product-spec.mjs");
-      ensureSpecFiles(root); // 空 scaffold 檔 = 討論起點
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(readSpecState(root)));
-      return true;
-    }
-
     // ── PROJECT.md（schema v2 — User Remarks + AI Overview）2026-10-09 ──
     // GET：讀兩區內容；POST：只寫 User Remarks 區（AI 區保留）；POST /regenerate：重寫 AI 區
     if (url.startsWith("/api/coding-project/project-md") && method === "GET") {
@@ -768,7 +749,6 @@ export default async function projectRoute(req, res) {
         { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
         { id: "error-codes", name: "🔢 Error Codes by Feature", promptFile: null },
         { id: "c4-model", name: "🏛️ C4 Model（對外連線）", promptFile: null },
-        { id: "product-spec", name: "📄 Product Spec 初稿（空 section）", promptFile: null },
       ];
       const step = ALL_STEPS.find(s => s.id === stepId);
       if (!step) {
@@ -1003,32 +983,6 @@ export default async function projectRoute(req, res) {
             sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
           }
           sendEvent("done", { message: "Change intelligence complete" });
-          res.end();
-          return true;
-        }
-
-        // 2026-11-15 Fleming：Product Spec 初稿 — 只做空 section 第一次（既有內容不碰；新專案不跑）
-        if (step.id === "product-spec") {
-          try {
-            const { generateMissingSpecSections } = await import("../lib/product-spec.mjs");
-            const r = await generateMissingSpecSections(root, {
-              onProgress: (msg) => sendEvent("step_progress", { step: step.id, name: step.name, message: msg }),
-              callLLM: (prompt) => callProjectLLM({
-                model: body.model || cuModelOverride || undefined,
-                messages: [{ role: "user", content: prompt }],
-                temperature: 0,
-                thinking: { type: "disabled" },
-              }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 1 }),
-            });
-            const summary = r.generated.length ? `初稿 ${r.generated.length} sections（${r.generated.join(", ")}）` : (r.reason || "全部已存在，跳過");
-            cuLog(step.id, `Product spec: ${summary}`);
-            sendEvent("step_done", { step: step.id, name: step.name, summary });
-            try { await paaw.setCuStepStatus(step.id, "done", { summary }); } catch {}
-          } catch (err) {
-            cuLog(step.id, `Product spec failed: ${err.message}`);
-            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
-            try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
-          }
           res.end();
           return true;
         }
@@ -1323,7 +1277,6 @@ export default async function projectRoute(req, res) {
         { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
         { id: "error-codes", name: "🔢 Error Codes by Feature", promptFile: null },
         { id: "c4-model", name: "🏛️ C4 Model（對外連線）", promptFile: null },
-        { id: "product-spec", name: "📄 Product Spec 初稿（空 section）", promptFile: null },
       ];
 
       // SSE stream — send progress as each step completes
@@ -1585,31 +1538,6 @@ export default async function projectRoute(req, res) {
               try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.totalCommits} commits` }); } catch {}
             } catch (err) {
               cuLog(step.id, `[bulk] Change intelligence failed: ${err.message}`);
-              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
-              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
-            }
-            continue;
-          }
-
-          // 2026-11-15 Fleming：Product Spec 初稿（bulk 版）— 只做空 section 第一次；新專案自動略過
-          if (step.id === "product-spec") {
-            try {
-              const { generateMissingSpecSections } = await import("../lib/product-spec.mjs");
-              const r = await generateMissingSpecSections(root, {
-                onProgress: (msg) => sendEvent("step_progress", { step: step.id, name: step.name, message: msg }),
-                callLLM: (prompt) => callProjectLLM({
-                  model: cuModelOverride || undefined,
-                  messages: [{ role: "user", content: prompt }],
-                  temperature: 0,
-                  thinking: { type: "disabled" },
-                }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 1 }),
-              });
-              const summary = r.generated.length ? `初稿 ${r.generated.length} sections` : (r.reason || "全部已存在，跳過");
-              cuLog(step.id, `[bulk] Product spec: ${summary}`);
-              sendEvent("step_done", { step: step.id, name: step.name, summary });
-              try { await paaw.setCuStepStatus(step.id, "done", { summary }); } catch {}
-            } catch (err) {
-              cuLog(step.id, `[bulk] Product spec failed: ${err.message}`);
               sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
               try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
             }
