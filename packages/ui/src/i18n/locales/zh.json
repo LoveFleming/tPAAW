@@ -2166,5 +2166,16 @@
   "projectMd.specHint": "這區由人跟 AI 共寫 — CU / AI Overview 重跑不會覆蓋。固定 8 節 schema，跟 side chat AI 討論收斂後存回這裡。",
   "projectMd.specDraftDone": "Product Spec 初稿已生成",
   "projectMd.specDraftFail": "生成初稿失敗",
-  "projectMd.specDraftNoCode": "專案尚無 code 事實（features/code-intelligence）— 先跑 CU 或留給人+AI 共寫"
+  "projectMd.specDraftNoCode": "專案尚無 code 事實（features/code-intelligence）— 先跑 CU 或留給人+AI 共寫",
+  "projectMd.chatName": "林曉薇 · Spec 助理",
+  "projectMd.chatGreeting": "嗨，我是林曉薇 👩‍💼 Product Spec 協作助理。從哪一節開始？我建議「1. Product Overview」— 一句話講清楚這產品是什麼、給誰用。",
+  "projectMd.chatPlaceholder": "跟曉薇討論 spec…（一次聚焦一個 section）",
+  "projectMd.chatToggle": "顯示/隱藏 side chat",
+  "projectMd.chatContextSeed": "專案脈絡已注入（contextTarget: project）",
+  "projectMd.sugg1Label": "從 Overview 開始",
+  "projectMd.sugg1Prompt": "我們從「1. Product Overview」開始 — 先幫我列出這個專案目前已知的產品定位事實，再問我需要的問題",
+  "projectMd.sugg2Label": "Review 現有 spec",
+  "projectMd.sugg2Prompt": "我會貼現有的 Product Spec 內容給你 — 幫我 review 哪些 section 缺漏、哪些描述含糊，照 8 節 schema 給改善建議",
+  "projectMd.sugg3Label": "收斂寫入",
+  "projectMd.sugg3Prompt": "剛剛討論的結論幫我整理成該 section 的 markdown（照 schema 格式），我要貼到左邊編輯區存檔"
 }

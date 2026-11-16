@@ -2166,5 +2166,16 @@
   "projectMd.specHint": "Co-written by human and AI — never overwritten by CU / AI Overview regen. Fixed 8-section schema.",
   "projectMd.specDraftDone": "Product Spec draft generated",
   "projectMd.specDraftFail": "Draft generation failed",
-  "projectMd.specDraftNoCode": "No code facts yet (features/code-intelligence) — run CU first or co-write with AI"
+  "projectMd.specDraftNoCode": "No code facts yet (features/code-intelligence) — run CU first or co-write with AI",
+  "projectMd.chatName": "Lin Xiaowei · Spec Assistant",
+  "projectMd.chatGreeting": "Hi, I'm Lin Xiaowei 👩‍💼 your Product Spec co-writer. Which section shall we start with? I suggest \"1. Product Overview\".",
+  "projectMd.chatPlaceholder": "Discuss spec with Xiaowei… (one section at a time)",
+  "projectMd.chatToggle": "Show/hide side chat",
+  "projectMd.chatContextSeed": "Project context injected (contextTarget: project)",
+  "projectMd.sugg1Label": "Start with Overview",
+  "projectMd.sugg1Prompt": "Let's start with \"1. Product Overview\" — list known product positioning facts, then ask me what you need",
+  "projectMd.sugg2Label": "Review current spec",
+  "projectMd.sugg2Prompt": "I'll paste the current Product Spec — review gaps and vague descriptions against the 8-section schema",
+  "projectMd.sugg3Label": "Wrap into section",
+  "projectMd.sugg3Prompt": "Summarize our discussion into that section's markdown (schema format) so I can paste it into the editor"
 }

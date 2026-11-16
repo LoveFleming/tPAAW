@@ -71,6 +71,7 @@ interface AgentSideChatProps {
                              //   選的 model 透過 a2a params.metadata.model 送出（per-chat user preference）
   paawChat?: {              // 2026-10-09 Fleming：AI 專案助理 / AI 寫筆記 統一用 side chat — 走 /api/paaw/chat
     contextTarget: string;  //   "project" | "notes" | ...（context-engine build target）
+    systemPrompt?: string;   //   2026-11-16：自訂 persona/prompt（林曉薇 spec 助理）— 覆寫 context-engine systemPrompt
     contextSeed?: string;   //   訊息區頂部的 📋 context 提示條（原本 ProjectAiPanel 的 context hint）
   };
   onClose?: () => void;     // 有帶 → header 右側 ✕（Panel 形式）
@@ -346,6 +347,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
             messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content, ...(m.images?.length ? { images: m.images } : {}) })),
             model: model || undefined,
             contextTarget: paawChat.contextTarget,
+            systemPrompt: paawChat.systemPrompt || undefined,
           }),
           signal: ac.signal,
         });
