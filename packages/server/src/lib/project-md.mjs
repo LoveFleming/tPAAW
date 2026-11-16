@@ -93,6 +93,7 @@ async function readSpecAiConversation(paaw) {
  */
 export async function generateSpecSection(root, index, opts = {}) {
   if (!(index >= 0 && index < 8)) throw new Error("bad index");
+  if (!opts.callLLM) return null; // 無 LLM 管線不寫入（间單拒絕，不破壞檔案）
   const paaw = createPaawProject(root);
   const [conversation, facts] = await Promise.all([readSpecAiConversation(paaw), collectFacts(root)]);
   const title = SPEC_SECTIONS[index];
