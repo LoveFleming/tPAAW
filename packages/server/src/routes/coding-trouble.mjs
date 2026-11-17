@@ -145,6 +145,10 @@ Rules:
       { role: "user", content: prompt },
     ],
     temperature: 0.2,
+    // 2026-11-17 修：thinking 燒光 max_tokens（finish=length、reasoning_tokens=13480、content 空）
+    // → 結構化 JSON 輸出任務不需要 thinking，比熙 CU 帶 disabled（2026-08-30 教訓）
+    thinking: { type: "disabled" },
+    maxTokens: 16384,
   }, { caller: "coding-trouble" });
 
   const m = (result?.content || "").match(/\{[\s\S]*\}/);
