@@ -317,38 +317,6 @@ const ApiRequestTabSheet = forwardRef<ApiRequestTabSheetHandle, Props>(function 
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-stone-500">🌐 API Tester</span>
           <span className="flex-1" />
-          {rootPath && (
-            <button onClick={async () => {
-              try {
-                const res = await fetch(`${API_BASE}/api/coding-project/file?path=${encodeURIComponent(rootPath)}&file=test-payloads/all-payloads.json`);
-                if (res.ok) {
-                  const data = await res.json();
-                  if (data.content) {
-                    try {
-                      const payloads = JSON.parse(data.content);
-                      if (payloads.tests?.[0]?.request) {
-                        const t = payloads.tests[0];
-                        updateTab(active.id, {
-                          method: t.request.method || "GET",
-                          url: t.request.path || "",
-                          headers: t.request.headers ? Object.entries(t.request.headers).map(([k, v]) => ({ key: k, value: String(v), enabled: true })) : active.headers,
-                          body: t.request.body ? (typeof t.request.body === "string" ? t.request.body : JSON.stringify(t.request.body, null, 2)) : active.body,
-                        });
-                        uiAlert(tt("apiTester.aiPayloadLoaded"));
-                      } else if (payloads.endpoint) {
-                        updateTab(active.id, {
-                          method: payloads.tests?.[0]?.request?.method || payloads.request?.method || "GET",
-                          url: payloads.endpoint.split(" ").pop() || payloads.request?.path || "",
-                        });
-                      }
-                    } catch { uiAlertError(tt("apiTester.aiPayloadBadFormat")); }
-                  } else { uiAlert(tt("apiTester.aiPayloadNone")); }
-                } else { uiAlert(tt("apiTester.aiPayloadNone")); }
-              } catch { uiAlertError(tt("apiTester.loadFailed")); }
-            }} className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 font-bold" title={tt("apiTester.aiPayloadBtn")}>
-              🧪 AI
-            </button>
-          )}
           <div className="relative">
             <button onClick={() => setSaveColOpen(v => !v)} className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 hover:bg-amber-200 font-bold" title={tt("apiTester.saveToCollection")}>
               💾+

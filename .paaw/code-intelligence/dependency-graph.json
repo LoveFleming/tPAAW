@@ -1113,9 +1113,9 @@
           "names": []
         },
         {
-          "source": "./coding.mjs",
+          "source": "./coding-helpers.mjs",
           "resolved": true,
-          "targetFile": "packages/server/src/routes/coding.mjs",
+          "targetFile": "packages/server/src/routes/coding-helpers.mjs",
           "names": []
         },
         {
@@ -1511,9 +1511,9 @@
           "names": []
         },
         {
-          "source": "./coding.mjs",
+          "source": "./coding-helpers.mjs",
           "resolved": true,
-          "targetFile": "packages/server/src/routes/coding.mjs",
+          "targetFile": "packages/server/src/routes/coding-helpers.mjs",
           "names": []
         },
         {
@@ -6610,10 +6610,6 @@
           "names": []
         },
         {
-          "source": "packages/ui/src/components/AgentBuilder.tsx",
-          "names": []
-        },
-        {
           "source": "packages/ui/src/components/AgentConsole.tsx",
           "names": []
         },
@@ -8428,9 +8424,9 @@
           "names": []
         },
         {
-          "source": "../components/FeatureMap",
+          "source": "../components/ApiMapView",
           "resolved": true,
-          "targetFile": "packages/ui/src/components/FeatureMap.tsx",
+          "targetFile": "packages/ui/src/components/ApiMapView.tsx",
           "names": []
         },
         {
@@ -9749,15 +9745,15 @@
           "names": []
         },
         {
-          "source": "packages/ui/src/components/AgentBuilder.tsx",
-          "names": []
-        },
-        {
           "source": "packages/ui/src/components/AgentConsole.tsx",
           "names": []
         },
         {
           "source": "packages/ui/src/components/AgentSideChat.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/components/ApiMapView.tsx",
           "names": []
         },
         {
@@ -9805,14 +9801,6 @@
           "names": []
         },
         {
-          "source": "packages/ui/src/components/FeatureCockpit.tsx",
-          "names": []
-        },
-        {
-          "source": "packages/ui/src/components/FeatureMap.tsx",
-          "names": []
-        },
-        {
           "source": "packages/ui/src/components/FileImportPicker.tsx",
           "names": []
         },
@@ -9853,19 +9841,11 @@
           "names": []
         },
         {
-          "source": "packages/ui/src/components/ReleaseRequests.tsx",
-          "names": []
-        },
-        {
           "source": "packages/ui/src/components/RuCloneModal.tsx",
           "names": []
         },
         {
           "source": "packages/ui/src/components/RuOnboardingModal.tsx",
-          "names": []
-        },
-        {
-          "source": "packages/ui/src/components/RuQaSection.tsx",
           "names": []
         },
         {
@@ -11576,8 +11556,8 @@
         "TabErrorBoundary"
       ]
     },
-    "packages/ui/src/components/FeatureMap.tsx": {
-      "path": "packages/ui/src/components/FeatureMap.tsx",
+    "packages/ui/src/components/ApiMapView.tsx": {
+      "path": "packages/ui/src/components/ApiMapView.tsx",
       "language": "tsx",
       "imports": [
         {
@@ -11844,10 +11824,6 @@
         },
         {
           "source": "packages/ui/src/components/ReleaseManagerPanel.tsx",
-          "names": []
-        },
-        {
-          "source": "packages/ui/src/components/ReleaseRequests.tsx",
           "names": []
         },
         {
@@ -12261,9 +12237,9 @@
           "names": []
         },
         {
-          "source": "../components/FeatureMap",
+          "source": "../components/ApiMapView",
           "resolved": true,
-          "targetFile": "packages/ui/src/components/FeatureMap.tsx",
+          "targetFile": "packages/ui/src/components/ApiMapView.tsx",
           "names": []
         },
         {
@@ -12498,34 +12474,6 @@
         "useI18n"
       ]
     },
-    "packages/ui/src/components/AgentBuilder.tsx": {
-      "path": "packages/ui/src/components/AgentBuilder.tsx",
-      "language": "tsx",
-      "imports": [
-        {
-          "source": "react",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "../utils",
-          "resolved": true,
-          "targetFile": "packages/ui/src/utils/index.ts",
-          "names": []
-        },
-        {
-          "source": "../api",
-          "resolved": true,
-          "targetFile": "packages/ui/src/api.ts",
-          "names": []
-        }
-      ],
-      "importedBy": [],
-      "exports": [
-        "AgentBuilder"
-      ]
-    },
     "packages/ui/src/components/MarkdownText.tsx": {
       "path": "packages/ui/src/components/MarkdownText.tsx",
       "language": "tsx",
@@ -12601,22 +12549,6 @@
       ],
       "exports": [
         "MarkdownText"
-      ]
-    },
-    "packages/ui/src/components/CrewAvatar.tsx": {
-      "path": "packages/ui/src/components/CrewAvatar.tsx",
-      "language": "tsx",
-      "imports": [
-        {
-          "source": "react",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        }
-      ],
-      "importedBy": [],
-      "exports": [
-        "CrewAvatar"
       ]
     },
     "packages/ui/src/components/SkillSuggestModal.tsx": {
@@ -12777,29 +12709,6 @@
         "DispatchWizard"
       ]
     },
-    "packages/ui/src/components/FeatureCockpit.tsx": {
-      "path": "packages/ui/src/components/FeatureCockpit.tsx",
-      "language": "tsx",
-      "imports": [
-        {
-          "source": "react",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "../api",
-          "resolved": true,
-          "targetFile": "packages/ui/src/api.ts",
-          "names": []
-        }
-      ],
-      "importedBy": [],
-      "exports": [
-        "FeatureCockpit",
-        "EntryRow"
-      ]
-    },
     "packages/ui/src/components/FileImportPicker.tsx": {
       "path": "packages/ui/src/components/FileImportPicker.tsx",
       "language": "tsx",
@@ -12872,70 +12781,6 @@
       ],
       "exports": [
         "MoveFolderPicker"
-      ]
-    },
-    "packages/ui/src/components/ReleaseRequests.tsx": {
-      "path": "packages/ui/src/components/ReleaseRequests.tsx",
-      "language": "tsx",
-      "imports": [
-        {
-          "source": "react",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "../api",
-          "resolved": true,
-          "targetFile": "packages/ui/src/api.ts",
-          "names": []
-        },
-        {
-          "source": "../i18n",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "./AgentSideChat",
-          "resolved": true,
-          "targetFile": "packages/ui/src/components/AgentSideChat.tsx",
-          "names": []
-        }
-      ],
-      "importedBy": [],
-      "exports": [
-        "RrChecklistItem",
-        "RrDetail",
-        "ReleaseRequests"
-      ]
-    },
-    "packages/ui/src/components/RuQaSection.tsx": {
-      "path": "packages/ui/src/components/RuQaSection.tsx",
-      "language": "tsx",
-      "imports": [
-        {
-          "source": "react",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "../i18n",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "../api",
-          "resolved": true,
-          "targetFile": "packages/ui/src/api.ts",
-          "names": []
-        }
-      ],
-      "importedBy": [],
-      "exports": [
-        "RuQaSection"
       ]
     },
     "packages/ui/src/components/useRuModel.ts": {
@@ -15640,9 +15485,9 @@
           "names": []
         },
         {
-          "source": "./coding.mjs",
+          "source": "./coding-helpers.mjs",
           "resolved": true,
-          "targetFile": "packages/server/src/routes/coding.mjs",
+          "targetFile": "packages/server/src/routes/coding-helpers.mjs",
           "names": []
         }
       ],
@@ -15703,26 +15548,14 @@
         "organizeC4Model"
       ]
     },
-    "packages/server/src/routes/coding.mjs": {
-      "path": "packages/server/src/routes/coding.mjs",
+    "packages/server/src/routes/coding-helpers.mjs": {
+      "path": "packages/server/src/routes/coding-helpers.mjs",
       "language": "javascript",
       "imports": [
         {
           "source": "fs/promises",
           "resolved": false,
           "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "../lib/feature-registry.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/feature-registry.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/coding-db/docs.repo.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/coding-db/docs.repo.mjs",
           "names": []
         },
         {
@@ -15774,27 +15607,9 @@
           "names": []
         },
         {
-          "source": "./shared.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/routes/shared.mjs",
-          "names": []
-        },
-        {
           "source": "../lib/coding-security.mjs",
           "resolved": true,
           "targetFile": "packages/server/src/lib/coding-security.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/audit-log.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/audit-log.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/coding-db/index.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/coding-db/index.mjs",
           "names": []
         },
         {
@@ -15822,12 +15637,6 @@
           "names": []
         },
         {
-          "source": "../lib/qa-results.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/qa-results.mjs",
-          "names": []
-        },
-        {
           "source": "../lib/change-intelligence.mjs",
           "resolved": true,
           "targetFile": "packages/server/src/lib/change-intelligence.mjs",
@@ -15846,21 +15655,33 @@
           "names": []
         },
         {
-          "source": "./coding-crew-routes.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/routes/coding-crew-routes.mjs",
-          "names": []
-        },
-        {
           "source": "fs",
           "resolved": false,
           "targetFile": null,
           "names": []
         },
         {
-          "source": "./coding-helpers.mjs",
+          "source": "../lib/agent-rules.mjs",
           "resolved": true,
-          "targetFile": "packages/server/src/routes/coding-helpers.mjs",
+          "targetFile": "packages/server/src/lib/agent-rules.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/security-rules.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/security-rules.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/llm-utils.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/running-agents.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/running-agents.mjs",
           "names": []
         },
         {
@@ -15868,17 +15689,19 @@
           "resolved": true,
           "targetFile": "packages/server/src/data-home.mjs",
           "names": []
-        },
-        {
-          "source": "./coding-health.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/routes/coding-health.mjs",
-          "names": []
         }
       ],
       "importedBy": [
         {
           "source": "packages/server/src/routes/coding-c4-model.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-crew-routes.mjs",
           "names": []
         },
         {
@@ -15900,11 +15723,26 @@
         {
           "source": "packages/server/src/routes/coding-trouble.mjs",
           "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding.mjs",
+          "names": []
         }
       ],
       "exports": [
-        "computeCuStaleness",
-        "projectRoute"
+        "CU_LLM_OPTS",
+        "callProjectLLM",
+        "PAAW_ROOT",
+        "cuLog",
+        "diffWriteFile",
+        "_stripCodeFence",
+        "_sanitizeMd",
+        "cuStepSkillKey",
+        "loadCuStepSkills",
+        "parseQuery",
+        "_extractJsonArray",
+        "backfillApiTests",
+        "_buildManifestContext"
       ]
     },
     "packages/server/src/routes/coding-crew-routes.mjs": {
@@ -16723,179 +16561,6 @@
         "countSourceFiles"
       ]
     },
-    "packages/server/src/routes/coding-helpers.mjs": {
-      "path": "packages/server/src/routes/coding-helpers.mjs",
-      "language": "javascript",
-      "imports": [
-        {
-          "source": "fs/promises",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "fs",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "path",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "url",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "child_process",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "../lib/shell-exec.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/shell-exec.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/paaw-project.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/paaw-project.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/project-md.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/project-md.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/llm-utils.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/llm-utils.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/coding-security.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/coding-security.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/tree-sitter-parser.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/tree-sitter-parser.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/semgrep-runner.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/semgrep-runner.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/code-intelligence.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/code-intelligence.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/test-intelligence.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/test-intelligence.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/change-intelligence.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/change-intelligence.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/cu-mechanical.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/cu-mechanical.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/cu-source-scan.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/cu-source-scan.mjs",
-          "names": []
-        },
-        {
-          "source": "fs",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "../lib/agent-rules.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/agent-rules.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/security-rules.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/security-rules.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/llm-utils.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/llm-utils.mjs",
-          "names": []
-        },
-        {
-          "source": "../lib/running-agents.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/running-agents.mjs",
-          "names": []
-        },
-        {
-          "source": "../data-home.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/data-home.mjs",
-          "names": []
-        }
-      ],
-      "importedBy": [
-        {
-          "source": "packages/server/src/routes/coding-crew-routes.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/routes/coding-crew-routes.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/routes/coding.mjs",
-          "names": []
-        }
-      ],
-      "exports": [
-        "CU_LLM_OPTS",
-        "callProjectLLM",
-        "PAAW_ROOT",
-        "cuLog",
-        "diffWriteFile",
-        "_stripCodeFence",
-        "_sanitizeMd",
-        "cuStepSkillKey",
-        "loadCuStepSkills",
-        "parseQuery",
-        "_extractJsonArray",
-        "backfillApiTests",
-        "_buildManifestContext"
-      ]
-    },
     "packages/server/src/lib/coding-db/index.mjs": {
       "path": "packages/server/src/lib/coding-db/index.mjs",
       "language": "javascript",
@@ -17263,9 +16928,9 @@
           "names": []
         },
         {
-          "source": "./coding.mjs",
+          "source": "./coding-helpers.mjs",
           "resolved": true,
-          "targetFile": "packages/server/src/routes/coding.mjs",
+          "targetFile": "packages/server/src/routes/coding-helpers.mjs",
           "names": []
         }
       ],
@@ -17327,9 +16992,9 @@
           "names": []
         },
         {
-          "source": "./coding.mjs",
+          "source": "./coding-helpers.mjs",
           "resolved": true,
-          "targetFile": "packages/server/src/routes/coding.mjs",
+          "targetFile": "packages/server/src/routes/coding-helpers.mjs",
           "names": []
         },
         {
@@ -18280,9 +17945,9 @@
           "names": []
         },
         {
-          "source": "./coding.mjs",
+          "source": "./coding-helpers.mjs",
           "resolved": true,
-          "targetFile": "packages/server/src/routes/coding.mjs",
+          "targetFile": "packages/server/src/routes/coding-helpers.mjs",
           "names": []
         },
         {
@@ -18514,6 +18179,185 @@
         "loadApiMapPrompt",
         "normalizeApiFeatures",
         "generateApiMap"
+      ]
+    },
+    "packages/server/src/routes/coding.mjs": {
+      "path": "packages/server/src/routes/coding.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs/promises",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../lib/feature-registry.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/feature-registry.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/coding-db/docs.repo.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/coding-db/docs.repo.mjs",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "url",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../lib/shell-exec.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/paaw-project.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/project-md.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/project-md.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/llm-utils.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/llm-utils.mjs",
+          "names": []
+        },
+        {
+          "source": "./shared.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/routes/shared.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/coding-security.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/coding-security.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/audit-log.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/audit-log.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/coding-db/index.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/coding-db/index.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/tree-sitter-parser.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/tree-sitter-parser.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/semgrep-runner.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/semgrep-runner.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/code-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/code-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/test-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/test-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/qa-results.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/qa-results.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/change-intelligence.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/change-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/cu-mechanical.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/cu-mechanical.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/cu-source-scan.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/cu-source-scan.mjs",
+          "names": []
+        },
+        {
+          "source": "./coding-crew-routes.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/routes/coding-crew-routes.mjs",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./coding-helpers.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "../data-home.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/data-home.mjs",
+          "names": []
+        },
+        {
+          "source": "./coding-health.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/routes/coding-health.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [],
+      "exports": [
+        "computeCuStaleness",
+        "projectRoute"
       ]
     },
     "packages/server/src/routes/crew.mjs": {
@@ -20697,6 +20541,16 @@
         "devServerRestart",
         "readDevLog",
         "devServerAction"
+      ]
+    },
+    "packages/server/src/lib/dispatch-catalog.mjs": {
+      "path": "packages/server/src/lib/dispatch-catalog.mjs",
+      "language": "javascript",
+      "imports": [],
+      "importedBy": [],
+      "exports": [
+        "DIRECT_AGENTS",
+        "DISPATCH_CATALOG"
       ]
     },
     "packages/server/src/lib/dispatch-stream-state.mjs": {
@@ -23646,7 +23500,7 @@
     },
     {
       "from": "packages/ui/src/pages/CodingIDE.tsx",
-      "to": "packages/ui/src/components/FeatureMap.tsx",
+      "to": "packages/ui/src/components/ApiMapView.tsx",
       "names": []
     },
     {
@@ -24146,7 +24000,7 @@
     },
     {
       "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
-      "to": "packages/ui/src/components/FeatureMap.tsx",
+      "to": "packages/ui/src/components/ApiMapView.tsx",
       "names": []
     },
     {
@@ -24197,16 +24051,6 @@
     {
       "from": "packages/ui/src/pages/coding-ide-helpers.tsx",
       "to": "packages/ui/src/components/ui/uiFeedback.ts",
-      "names": []
-    },
-    {
-      "from": "packages/ui/src/components/AgentBuilder.tsx",
-      "to": "packages/ui/src/utils/index.ts",
-      "names": []
-    },
-    {
-      "from": "packages/ui/src/components/AgentBuilder.tsx",
-      "to": "packages/ui/src/api.ts",
       "names": []
     },
     {
@@ -24262,6 +24106,11 @@
     {
       "from": "packages/ui/src/components/AgentSideChat.tsx",
       "to": "packages/ui/src/components/ChatInputBar.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/ApiMapView.tsx",
+      "to": "packages/ui/src/api.ts",
       "names": []
     },
     {
@@ -24465,16 +24314,6 @@
       "names": []
     },
     {
-      "from": "packages/ui/src/components/FeatureCockpit.tsx",
-      "to": "packages/ui/src/api.ts",
-      "names": []
-    },
-    {
-      "from": "packages/ui/src/components/FeatureMap.tsx",
-      "to": "packages/ui/src/api.ts",
-      "names": []
-    },
-    {
       "from": "packages/ui/src/components/FileImportPicker.tsx",
       "to": "packages/ui/src/theme.tsx",
       "names": []
@@ -24645,16 +24484,6 @@
       "names": []
     },
     {
-      "from": "packages/ui/src/components/ReleaseRequests.tsx",
-      "to": "packages/ui/src/api.ts",
-      "names": []
-    },
-    {
-      "from": "packages/ui/src/components/ReleaseRequests.tsx",
-      "to": "packages/ui/src/components/AgentSideChat.tsx",
-      "names": []
-    },
-    {
       "from": "packages/ui/src/components/RuCloneModal.tsx",
       "to": "packages/ui/src/api.ts",
       "names": []
@@ -24667,11 +24496,6 @@
     {
       "from": "packages/ui/src/components/RuOnboardingModal.tsx",
       "to": "packages/ui/src/components/SkillSuggestModal.tsx",
-      "names": []
-    },
-    {
-      "from": "packages/ui/src/components/RuQaSection.tsx",
-      "to": "packages/ui/src/api.ts",
       "names": []
     },
     {
@@ -25286,7 +25110,7 @@
     },
     {
       "from": "packages/server/src/routes/coding-c4-model.mjs",
-      "to": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/routes/coding-helpers.mjs",
       "names": []
     },
     {
@@ -25426,7 +25250,7 @@
     },
     {
       "from": "packages/server/src/routes/coding-error-codes.mjs",
-      "to": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/routes/coding-helpers.mjs",
       "names": []
     },
     {
@@ -25456,7 +25280,7 @@
     },
     {
       "from": "packages/server/src/routes/coding-features.mjs",
-      "to": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/routes/coding-helpers.mjs",
       "names": []
     },
     {
@@ -25491,7 +25315,7 @@
     },
     {
       "from": "packages/server/src/routes/coding-handover.mjs",
-      "to": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/routes/coding-helpers.mjs",
       "names": []
     },
     {
@@ -25811,7 +25635,7 @@
     },
     {
       "from": "packages/server/src/routes/coding-skill-suggest.mjs",
-      "to": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/routes/coding-helpers.mjs",
       "names": []
     },
     {
@@ -25851,7 +25675,7 @@
     },
     {
       "from": "packages/server/src/routes/coding-trouble.mjs",
-      "to": "packages/server/src/routes/coding.mjs",
+      "to": "packages/server/src/routes/coding-helpers.mjs",
       "names": []
     },
     {
@@ -27856,9 +27680,9 @@
     }
   ],
   "stats": {
-    "totalFiles": 449,
-    "totalEdges": 1021,
-    "resolvedImports": 1021,
-    "unresolvedImports": 1177
+    "totalFiles": 445,
+    "totalEdges": 1015,
+    "resolvedImports": 1015,
+    "unresolvedImports": 1170
   }
 }

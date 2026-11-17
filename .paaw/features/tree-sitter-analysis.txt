@@ -1,6 +1,6 @@
 # Project Source Analysis (Tree-sitter)
-Parsed 441 of 447 source files
-Languages: typescript(57), javascript(291), tsx(99)
+Parsed 450 of 456 source files
+Languages: typescript(57), javascript(298), tsx(101)
 
 ## playwright.config.ts [typescript]
   Imports:
@@ -175,6 +175,14 @@ Languages: typescript(57), javascript(291), tsx(99)
     function pathUrl(base, root)
     function writeStatus(obj)
     function readStatus()
+    arrow release()
+    arrow release()
+    function writeRun(id, obj)
+    function runsDir()
+    function listRuns()
+    arrow release()
+    arrow release()
+    arrow release()
     arrow release()
     arrow release()
 
@@ -602,6 +610,19 @@ Languages: typescript(57), javascript(291), tsx(99)
     * ← node:os
     * ← node:path
     * ← ../../packages/server/src/lib/paaw-sandbox.mjs
+
+## tests/unit/page-inventory.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← assert
+    * ← fs
+    * ← os
+    * ← path
+    * ← ../../packages/server/src/lib/page-inventory.mjs
+  Functions:
+    function mkProject()
+    arrow mk(p, c)
+    function mk2(root, p, c)
 
 ## tests/unit/parse-model-reference.test.mjs [javascript]
   Imports:
@@ -1558,34 +1579,10 @@ Languages: typescript(57), javascript(291), tsx(99)
     * ← ../utils/pasteFiles
     * ← ../pages/FileViewer
     * ← ../components/ui/uiFeedback
+    * ← ./coding-ide-helpers
   Exports:
     default function: CodingIDE
   Functions:
-    function ToolLogRow({ name, args, running }: { name: string; args: string; running: boolean })
-    arrow crewToAgentId(crewId: string)
-    arrow TREE_NOOP()
-    function getFileIcon(name: string)
-    function getLanguage(name: string)
-    function getHljsLang(name: string)
-    function escapeHtml(str: string)
-    function fmtTime(iso: string)
-    function safeStr(v: any)
-    function EditorTabContent({ tabId, filePath, tabData, isActive, isEditing, textareaRef, lineNumWidth, handleContentChange, stopEditing, handleCodeViewClick, startEditing, tk, tt, openFile }: {
-  tabId: string;
-  filePath: string;
-  tabData: OpenTab | undefined;
-  isActive: boolean;
-  isEditing: boolean;
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
-  lineNumWidth: number;
-  handleContentChange: (v: string) => void;
-  stopEditing: () => void;
-  handleCodeViewClick: (e: React.MouseEvent) => void;
-  startEditing: () => void;
-  tk: any;
-  tt: (k: string) => string;
-  openFile: (path: string) => void;
-})
     function CodingIDE()
     async arrow saveRuInfo()
     async arrow runAiAdjust()
@@ -1595,11 +1592,7 @@ Languages: typescript(57), javascript(291), tsx(99)
     arrow handler(e: KeyboardEvent)
     arrow onMove(ev: MouseEvent)
     arrow onUp()
-    function highlightMatch(text: string, query: string, caseSensitive: boolean)
   React Components:
-    function: ToolLogRow
-    arrow: TREE_NOOP
-    function: EditorTabContent
     function: CodingIDE
 
 ## packages/ui/src/pages/CronJobsPage.tsx [tsx]
@@ -1973,6 +1966,115 @@ Languages: typescript(57), javascript(291), tsx(99)
     async arrow toggleFiles(id: string)
   React Components:
     function: StarterKitsSettings
+
+## packages/ui/src/pages/coding-ide-helpers.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../theme
+    * ← ../i18n
+    * ← ../utils
+    * ← ../components/ShellTerminal
+    * ← ../components/Icon
+    * ← ../components/ConsoleLogView
+    * ← ../components/JanitorPanel
+    * ← ../components/JsonViewer
+    * ← ../components/FileEmoji
+    * ← highlight.js
+    * ← highlight.js/styles/github.css
+    * ← ../api
+    * ← ../components/DirectoryExplorer
+    * ← ../components/SidebarFileTree
+    * ← ../components/CodeIntelPage
+    * ← ../components/TestsPage
+    * ← ../components/EMDashboard
+    * ← ../components/RuCloneModal
+    * ← ../components/RuOnboardingModal
+    * ← ../components/git
+    * ← ../components/browser/BrowserPanel
+    * ← ../components/DiffViewer
+    * ← ../components/SessionHistory
+    * ← ../components/DecisionLog
+    * ← ../components/ProjectMdPage
+    * ← ../components/ModelSelector
+    * ← ../components/ChatMessages
+    * ← ../components/IssueTracker
+    * ← ../components/QaRecords
+    * ← ../components/DispatchReports
+    * ← ../components/TaskBoard
+    * ← ../components/ReleaseManagerPanel
+    * ← ../components/CodeReviewBoardPanel
+    * ← ../components/HandoverPanel
+    * ← ../components/TroubleshootingPanel
+    * ← ../components/TabErrorBoundary
+    * ← ../components/FeatureMap
+    * ← ../components/ApiMapSidebar
+    * ← ../components/ApiTesterTabs
+    * ← ../components/ApiRequestTabSheet
+    * ← ../components/AgentSideChat
+    * ← ../components/ColResizer
+    * ← ../components/CrewManager
+    * ← ../components/SecurityTab
+    * ← ../utils/pasteFiles
+    * ← ../pages/FileViewer
+    * ← ../components/ui/uiFeedback
+  Exports:
+    named: ApiHeader
+    named: ApiHistoryItem
+    named: ApiResponse
+    named: BlameLine
+    named: ChatMessage
+    named: CodingEvent
+    named: FsItem
+    named: GitCommit
+    named: GitFileStatus
+    named: MainTab
+    named: MainTabType
+    named: OpenTab
+    named: CREW_TO_AGENT
+    named: EMPTY_TOOL_LOG
+    named: EditorTabContent
+    named: TREE_NOOP
+    named: ToolLogRow
+    named: _chatScrollCache
+    named: crewToAgentId
+    named: escapeHtml
+    named: fmtTime
+    named: getFileIcon
+    named: getHljsLang
+    named: getLanguage
+    named: highlightMatch
+    named: safeStr
+  Functions:
+    function ToolLogRow({ name, args, running }: { name: string; args: string; running: boolean })
+    arrow crewToAgentId(crewId: string)
+    arrow TREE_NOOP()
+    function getFileIcon(name: string)
+    function getLanguage(name: string)
+    function getHljsLang(name: string)
+    function escapeHtml(str: string)
+    function fmtTime(iso: string)
+    function safeStr(v: any)
+    function EditorTabContent({ tabId, filePath, tabData, isActive, isEditing, textareaRef, lineNumWidth, handleContentChange, stopEditing, handleCodeViewClick, startEditing, tk, tt, openFile }: {
+  tabId: string;
+  filePath: string;
+  tabData: OpenTab | undefined;
+  isActive: boolean;
+  isEditing: boolean;
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  lineNumWidth: number;
+  handleContentChange: (v: string) => void;
+  stopEditing: () => void;
+  handleCodeViewClick: (e: React.MouseEvent) => void;
+  startEditing: () => void;
+  tk: any;
+  tt: (k: string) => string;
+  openFile: (path: string) => void;
+})
+    function highlightMatch(text: string, query: string, caseSensitive: boolean)
+  React Components:
+    function: ToolLogRow
+    arrow: TREE_NOOP
+    function: EditorTabContent
 
 ## packages/ui/src/i18n/index.tsx [tsx]
   Imports:
@@ -2415,10 +2517,28 @@ Languages: typescript(57), javascript(291), tsx(99)
   React Components:
     function: DispatchReports
 
+## packages/ui/src/components/DispatchWizard.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../api
+    * ← ../i18n
+    * ← ./ui/shared
+  Exports:
+    default function: DispatchWizard
+  Functions:
+    function DispatchWizard({ rootPath, theme: tk, onClose, onLaunch }: Props)
+    function selectJob(j: JobDef, agentList?: AgentOpt[])
+    arrow setVal(id: string, val: any)
+    async function readSSE(r: Response, onEvent: (d: any) => boolean | void)
+    async function submit()
+  React Components:
+    function: DispatchWizard
+
 ## packages/ui/src/components/EMDashboard.tsx [tsx]
   Imports:
     * ← react
     * ← ../api
+    * ← ./DispatchWizard
     * ← ./ChatMessages
     * ← ./ModelSelector
     * ← ../utils
@@ -2439,6 +2559,8 @@ Languages: typescript(57), javascript(291), tsx(99)
     arrow fmt(label: string, x?: { added: number; removed: number; modified: number })
     async arrow sendMessage()
     arrow stopAgent()
+    arrow update(content: string)
+    async arrow readSSE(r: Response, onEvent: (d: any) => boolean | void)
     async arrow confirmEMPlan(_plan: PendingPlan)
     async arrow stopDispatch()
   React Components:
@@ -2542,8 +2664,7 @@ Languages: typescript(57), javascript(291), tsx(99)
   Functions:
     function SafeMarkdown({ content }: { content: string })
     function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, active = true }: Props)
-    arrow section(key: string, icon: string, title: string, content: string | null)
-    arrow cleanKnowledge(raw: string)
+    arrow docSection(key: string, icon: string, content: string)
   Classes:
     class HandoverErrorBoundary { state, getDerivedStateFromError, render }
     class ErrorBoundary { getDerivedStateFromError, componentDidCatch, render }
@@ -2823,6 +2944,7 @@ Languages: typescript(57), javascript(291), tsx(99)
     function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashboard, onOpenReviewBoard, onOpenQaRecords }: Props)
     async arrow loadEvApi(sha?: string)
     async arrow loadE2eInv()
+    async arrow loadPageInv()
     async arrow loadApiStatus()
     async arrow genApiSummary()
     async arrow runTests()
@@ -4210,7 +4332,7 @@ Languages: typescript(57), javascript(291), tsx(99)
     * ← fs
     * ← path
     * ← ../lib/c4-model-scan.mjs
-    * ← ./coding.mjs
+    * ← ./coding-helpers.mjs
   Exports:
     default function: c4ModelRoutes
   Functions:
@@ -4220,6 +4342,73 @@ Languages: typescript(57), javascript(291), tsx(99)
   Routes:
     GET /api/coding-project/c4-model
     POST /api/coding-project/c4-model/rescan
+
+## packages/server/src/routes/coding-crew-routes.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← child_process
+    * ← ../lib/shell-exec.mjs
+    * ← ../lib/paaw-project.mjs
+    * ← ../lib/project-md.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../lib/coding-security.mjs
+    * ← ../lib/tree-sitter-parser.mjs
+    * ← ../lib/semgrep-runner.mjs
+    * ← ../lib/code-intelligence.mjs
+    * ← ../lib/test-intelligence.mjs
+    * ← ../lib/change-intelligence.mjs
+    * ← ../lib/cu-mechanical.mjs
+    * ← ../lib/cu-source-scan.mjs
+    * ← fs
+    * ← ./coding-helpers.mjs
+    * ← ./shared.mjs
+    * ← ../lib/coding-db/index.mjs
+    * ← ../lib/qa-results.mjs
+    * ← ./coding-helpers.mjs
+    * ← ../lib/agent-rules.mjs
+    * ← ../lib/security-rules.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../lib/running-agents.mjs
+    * ← ../data-home.mjs
+  Exports:
+    function: crewRoutes
+  Functions:
+    async function crewRoutes({ req, res, method, url, q, projectPath })
+    arrow cleanupChatAgent()
+    arrow cleanupDispatch()
+    arrow verifyWork()
+    function getConvPaths(cwd, crewId)
+    async function readConvFile(filePath)
+    async function migrateFlatConversations(cwd)
+    arrow estimateTokens(text)
+    arrow rbSend(d)
+    arrow sendSSE(type, data)
+    arrow sendSSE(type, data)
+  Routes:
+    POST /api/coding-crew/chat
+    POST /api/coding-crew/dispatch
+    GET /api/coding-crew/qa-results
+    POST /api/coding-crew/qa-results
+    POST /api/coding-crew/context-window
+    GET /api/coding-project/ru-log
+    GET /api/coding-crew/action-log/*
+    POST /api/coding-crew/em-job
+    GET /api/coding-crew/dispatch-catalog
+    POST /api/coding-crew/review-board-run
+    POST /api/coding-crew/em-plan
+    POST /api/coding-crew/em-execute
+    POST /api/coding-crew/interrupt
+    GET /api/coding-crew/running
+    POST /api/coding-project/cu-skills/*
+    GET /api/coding-project/skills/*
+    GET /api/coding-project/agent-memory/*
+    PUT /api/coding-project/agent-memory/*
+    DELETE /api/coding-project/agent-memory/*
+    GET /api/coding-project/crew-export/*
+    POST /api/coding-project/crew-import/*
 
 ## packages/server/src/routes/coding-db.mjs [javascript]
   Imports:
@@ -4270,7 +4459,7 @@ Languages: typescript(57), javascript(291), tsx(99)
     * ← fs
     * ← path
     * ← ../lib/error-code-scan.mjs
-    * ← ./coding.mjs
+    * ← ./coding-helpers.mjs
   Exports:
     default function: errorCodesRoutes
   Functions:
@@ -4318,7 +4507,7 @@ Languages: typescript(57), javascript(291), tsx(99)
     * ← url
     * ← ./shared.mjs
     * ← ../lib/llm-utils.mjs
-    * ← ./coding.mjs
+    * ← ./coding-helpers.mjs
     * ← ../data-home.mjs
     * ← ../lib/feature-registry.mjs
     * ← ../lib/feature-risk-scan.mjs
@@ -4361,7 +4550,7 @@ Languages: typescript(57), javascript(291), tsx(99)
     * ← child_process
     * ← util
     * ← ../lib/release-unit/handover-state.mjs
-    * ← ./coding.mjs
+    * ← ./coding-helpers.mjs
     * ← ../lib/stable-stringify.mjs
     * ← ../lib/feature-registry.mjs
   Exports:
@@ -4382,6 +4571,13 @@ Languages: typescript(57), javascript(291), tsx(99)
     async function saveJson(pathAbs, obj)
     async function collectBriefFacts(projectPath)
     async function generateBriefAi(facts)
+    function handoverDocPath(projectPath)
+    async function loadHandoverDoc(projectPath)
+    function walkProject(projectPath, { maxFiles = 500, maxDepth = 4, maxBytes = 200 * 1024 } = {})
+    arrow walk(dir, depth)
+    async function collectDocFacts(projectPath)
+    async function generateHandoverDoc(projectPath)
+    async function generateHelpdeskFaq(projectPath, facts)
     async function handoverRoutes(req, res, next)
     function readBody(req)
   Routes:
@@ -4391,21 +4587,97 @@ Languages: typescript(57), javascript(291), tsx(99)
     POST /api/coding-handover/brief
     PUT /api/coding-handover/remark
     DELETE /api/coding-handover/remark
+    GET /api/coding-handover/doc
+    POST /api/coding-handover/doc
     POST /api/coding-handover/generate
 
 ## packages/server/src/routes/coding-health.mjs [javascript]
   Imports:
+    * ← fs/promises
     * ← fs
     * ← path
     * ← url
+    * ← child_process
+    * ← ../lib/shell-exec.mjs
+    * ← ../lib/paaw-project.mjs
+    * ← ../lib/project-md.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../lib/coding-security.mjs
+    * ← ../lib/tree-sitter-parser.mjs
+    * ← ../lib/semgrep-runner.mjs
+    * ← ../lib/code-intelligence.mjs
+    * ← ../lib/test-intelligence.mjs
+    * ← ../lib/change-intelligence.mjs
+    * ← ../lib/cu-mechanical.mjs
+    * ← ../lib/cu-source-scan.mjs
+    * ← fs
+    * ← ../lib/agent-rules.mjs
+    * ← ../lib/security-rules.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../lib/running-agents.mjs
+    * ← ../data-home.mjs
   Exports:
-    default function: codingHealthRoute
+    named: runShellCmd
+    named: scanProjectFiles
+    named: collectProjectHealth
   Functions:
-    function sendJSON(res, code, data)
-    async function getAllowedRoots()
-    function withinRoots(absPath, roots)
-    function parsePath(req, roots)
-    async function codingHealthRoute(req, res)
+    async function runShellCmd(command, cwd, timeoutMs = 10_000)
+    async function scanProjectFiles(cwd, maxFiles = 0)
+    async function collectProjectHealth(root, paaw)
+    arrow fixId(cat, name)
+
+## packages/server/src/routes/coding-helpers.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← fs
+    * ← path
+    * ← url
+    * ← child_process
+    * ← ../lib/shell-exec.mjs
+    * ← ../lib/paaw-project.mjs
+    * ← ../lib/project-md.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../lib/coding-security.mjs
+    * ← ../lib/tree-sitter-parser.mjs
+    * ← ../lib/semgrep-runner.mjs
+    * ← ../lib/code-intelligence.mjs
+    * ← ../lib/test-intelligence.mjs
+    * ← ../lib/change-intelligence.mjs
+    * ← ../lib/cu-mechanical.mjs
+    * ← ../lib/cu-source-scan.mjs
+    * ← fs
+    * ← ../lib/agent-rules.mjs
+    * ← ../lib/security-rules.mjs
+    * ← ../lib/llm-utils.mjs
+    * ← ../lib/running-agents.mjs
+    * ← ../data-home.mjs
+  Exports:
+    variable: CU_LLM_OPTS
+    function: callProjectLLM
+    variable: PAAW_ROOT
+    named: cuLog
+    named: diffWriteFile
+    named: _stripCodeFence
+    named: _sanitizeMd
+    named: cuStepSkillKey
+    named: loadCuStepSkills
+    named: parseQuery
+    named: _extractJsonArray
+    named: backfillApiTests
+    named: _buildManifestContext
+  Functions:
+    function cuLog(step, msg)
+    async function diffWriteFile(paaw, filename, newContent)
+    function _stripCodeFence(text)
+    function _sanitizeMd(md)
+    function cuStepSkillKey(stepId)
+    async function loadCuStepSkills(root, stepId)
+    async function callProjectLLM(body, opts = {})
+    function parseQuery(url)
+    function _extractJsonArray(text)
+    async function backfillApiTests(root)
+    arrow walk(v)
+    function _buildManifestContext(root)
 
 ## packages/server/src/routes/coding-issues.mjs [javascript]
   Imports:
@@ -4537,6 +4809,7 @@ Languages: typescript(57), javascript(291), tsx(99)
     GET /api/coding-releases/readiness
     GET /api/coding-releases/api-status
     GET /api/coding-releases/e2e-inventory
+    GET /api/coding-releases/page-inventory
     GET /api/coding-releases/evidence-by-api
     POST /api/coding-releases/review-report
     POST /api/coding-releases/api-summary
@@ -4601,7 +4874,7 @@ Languages: typescript(57), javascript(291), tsx(99)
   Imports:
     * ← fs
     * ← ../lib/skill-suggest.mjs
-    * ← ./coding.mjs
+    * ← ./coding-helpers.mjs
     * ← ../lib/stable-stringify.mjs
   Exports:
     default function: skillSuggestRoutes
@@ -4666,7 +4939,7 @@ Languages: typescript(57), javascript(291), tsx(99)
     * ← node:child_process
     * ← node:util
     * ← node:crypto
-    * ← ./coding.mjs
+    * ← ./coding-helpers.mjs
     * ← ../lib/stable-stringify.mjs
   Exports:
     function: collectTroubleFacts
@@ -4716,75 +4989,31 @@ Languages: typescript(57), javascript(291), tsx(99)
     * ← ../lib/change-intelligence.mjs
     * ← ../lib/cu-mechanical.mjs
     * ← ../lib/cu-source-scan.mjs
+    * ← ./coding-crew-routes.mjs
     * ← fs
-    * ← ../lib/agent-rules.mjs
-    * ← ../lib/security-rules.mjs
-    * ← ../lib/llm-utils.mjs
-    * ← ../lib/running-agents.mjs
+    * ← ./coding-helpers.mjs
     * ← ../data-home.mjs
+    * ← ./coding-health.mjs
   Exports:
     function: computeCuStaleness
-    function: callProjectLLM
     default function: projectRoute
   Functions:
     async function computeCuStaleness(root, steps, codeLastModifiedMs)
     arrow flag()
-    function cuLog(step, msg)
-    async function diffWriteFile(paaw, filename, newContent)
-    function _stripCodeFence(text)
-    function _sanitizeMd(md)
-    function cuStepSkillKey(stepId)
-    async function loadCuStepSkills(root, stepId)
-    async function callProjectLLM(body, opts = {})
-    function parseQuery(url)
-    function _extractJsonArray(text)
-    async function backfillApiTests(root)
-    arrow walk(v)
-    function _buildManifestContext(root)
     async function projectRoute(req, res)
-    arrow cleanupChatAgent()
-    arrow cleanupDispatch()
-    arrow verifyWork()
-    function getConvPaths(cwd, crewId)
-    async function readConvFile(filePath)
-    async function migrateFlatConversations(cwd)
-    arrow estimateTokens(text)
-    arrow sendSSE(type, data)
-    arrow sendSSE(type, data)
     arrow respond(obj)
     arrow sendEvent(event, data)
     arrow loadPrompt(filename)
     arrow loadProjectPrompt(filename)
     async arrow loadCtx(file, label, maxLen = 3000)
+    arrow writeSSE(event, data)
     arrow sendEvent(event, data)
     arrow loadPrompt(filename)
     arrow loadProjectPrompt(filename)
     arrow sendEvent(event, data)
-    async function runShellCmd(command, cwd, timeoutMs = 10_000)
-    async function scanProjectFiles(cwd, maxFiles = 0)
-    async function collectProjectHealth(root, paaw)
-    arrow fixId(cat, name)
   Routes:
     GET /api/coding-project/api-features
     GET /api/coding-project/ui-features
-    POST /api/coding-crew/chat
-    POST /api/coding-crew/dispatch
-    GET /api/coding-crew/qa-results
-    POST /api/coding-crew/qa-results
-    POST /api/coding-crew/context-window
-    GET /api/coding-project/ru-log
-    GET /api/coding-crew/action-log/*
-    POST /api/coding-crew/em-plan
-    POST /api/coding-crew/em-execute
-    POST /api/coding-crew/interrupt
-    GET /api/coding-crew/running
-    POST /api/coding-project/cu-skills/*
-    GET /api/coding-project/skills/*
-    GET /api/coding-project/agent-memory/*
-    PUT /api/coding-project/agent-memory/*
-    DELETE /api/coding-project/agent-memory/*
-    GET /api/coding-project/crew-export/*
-    POST /api/coding-project/crew-import/*
     POST /api/coding-project/create/*
     POST /api/coding-project/exec-approval/*
     GET /api/coding-project/context/*
@@ -6150,6 +6379,11 @@ Languages: typescript(57), javascript(291), tsx(99)
     async function devServerAction(ruRoot, args = {})
     function normalize(p)
 
+## packages/server/src/lib/dispatch-catalog.mjs [javascript]
+  Exports:
+    variable: DIRECT_AGENTS
+    variable: DISPATCH_CATALOG
+
 ## packages/server/src/lib/dispatch-stream-state.mjs [javascript]
   Exports:
     function: attachDispatchVisibility
@@ -6836,8 +7070,9 @@ Languages: typescript(57), javascript(291), tsx(99)
   Classes:
     class OvernightRunner { constructor, _loadTasks, _saveTasks, _saveResult, getQueue, getLastResults, _runPhase, run }
 
-## packages/server/src/lib/paaw-agent-loop.mjs [javascript]
+## packages/server/src/lib/paaw-agent-exec.mjs [javascript]
   Imports:
+    * ← ./paaw-agent-loop.mjs
     * ← fs/promises
     * ← ./temp-janitor.mjs
     * ← fs
@@ -6845,7 +7080,6 @@ Languages: typescript(57), javascript(291), tsx(99)
     * ← ./feature-boundary.mjs
     * ← child_process
     * ← ./proc-ledger.mjs
-    * ← ./audit-log.mjs
     * ← ./shell-exec.mjs
     * ← path
     * ← ./dependency-context.mjs
@@ -6864,35 +7098,34 @@ Languages: typescript(57), javascript(291), tsx(99)
     * ← ./tool-registry.mjs
     * ← ../data-home.mjs
     * ← ./browser-session.mjs
-    * ← ./coding-db/docs.repo.mjs
   Exports:
-    function: resolveLLMConfig
-    variable: PAAW_TOOLS
-    function: clearCrewGroupCache
-    function: getToolsForAgent
-    function: getToolGroupInfo
-    function: getAgentGroups
-    function: setAgentConfig
-    function: executeTool
-    function: trimMessagesToFit
-    function: callLLM
-    function: appendSkillBindings
-    function: runAgentLoop
-    function: runAgentLoopStream
+    variable: _crewGroupCache
+    variable: DEFAULT_CONTEXT_WINDOW
+    named: TOOL_GROUP_MAP
+    named: CORE_READ_TOOLS
+    named: AGENT_FALLBACK_GROUPS
+    named: _crewDenyCache
+    named: CONTEXT_SAFETY_MARGIN
+    named: LLM_CALL_TIMEOUT_MS
+    named: executeTool
+    named: toolExecTimeoutMs
+    named: raceAbortTool
+    named: setAgentConfig
+    named: _agentCfg
+    named: _agentCfgDefaults
+    named: APPROVAL_WAIT_BUDGET_MS
+    named: runShell
+    named: _nativeGlob
+    named: _nativeGrep
+    named: _buildTestCommand
+    named: _parseTestResult
+    named: _findConventionTests
+    named: LOG
   Functions:
-    function loadProviderConfig()
-    function resolveLLMConfig(_rootDir, modelOverride, fallbackModels)
     function toolExecTimeoutMs(toolName, args, agentCfg)
     function raceAbortTool(promise, abortSignal, toolName)
     arrow mk()
     arrow onAbort()
-    function resolveCrewId(agentId)
-    function getAgentToolsDeny(agentId, cwd = null)
-    function getAgentGroupsFromConfig(agentId, cwd = null)
-    function clearCrewGroupCache()
-    function getToolsForAgent(agentId, extraGroups = [], cwd = null)
-    function getToolGroupInfo()
-    function getAgentGroups(agentId)
     arrow LOG(...args)
     function setAgentConfig(cfg)
     function _buildTestCommand(cwd, testFiles)
@@ -6935,6 +7168,66 @@ Languages: typescript(57), javascript(291), tsx(99)
     arrow normType
     arrow normStatus
     arrow normType
+  React Components:
+    arrow: LOG
+
+## packages/server/src/lib/paaw-agent-loop.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← ./temp-janitor.mjs
+    * ← fs
+    * ← ./module-registry.mjs
+    * ← ./feature-boundary.mjs
+    * ← child_process
+    * ← ./proc-ledger.mjs
+    * ← ./audit-log.mjs
+    * ← ./shell-exec.mjs
+    * ← path
+    * ← ./dependency-context.mjs
+    * ← ./task-retrofit.mjs
+    * ← url
+    * ← fs
+    * ← path
+    * ← ./llm-utils.mjs
+    * ← ./context-truncation.mjs
+    * ← ./context-compaction.mjs
+    * ← ./vision-content.mjs
+    * ← ./agent-exec-logger.mjs
+    * ← ./paaw-project.mjs
+    * ← ./paaw-snapshot.mjs
+    * ← ./llm-utils.mjs
+    * ← ./tool-registry.mjs
+    * ← ../data-home.mjs
+    * ← ./browser-session.mjs
+    * ← ./coding-db/docs.repo.mjs
+    * ← ./paaw-agent-tools.mjs
+    * ← ./paaw-agent-exec.mjs
+  Exports:
+    variable: _PAAW_ROOT
+    function: resolveLLMConfig
+    named: PAAW_TOOLS
+    named: executeTool
+    named: _setAgentConfig
+    named: LOG
+    function: clearCrewGroupCache
+    function: getToolsForAgent
+    function: getToolGroupInfo
+    function: getAgentGroups
+    function: trimMessagesToFit
+    function: callLLM
+    function: appendSkillBindings
+    function: runAgentLoop
+    function: runAgentLoopStream
+  Functions:
+    function loadProviderConfig()
+    function resolveLLMConfig(_rootDir, modelOverride, fallbackModels)
+    function resolveCrewId(agentId)
+    function getAgentToolsDeny(agentId, cwd = null)
+    function getAgentGroupsFromConfig(agentId, cwd = null)
+    function clearCrewGroupCache()
+    function getToolsForAgent(agentId, extraGroups = [], cwd = null)
+    function getToolGroupInfo()
+    function getAgentGroups(agentId)
     function trimMessagesToFit(messages, contextWindow = DEFAULT_CONTEXT_WINDOW)
     function _normalizeReasoningValue(v)
     function getAgentReasoning(agentId, cwd = null)
@@ -6952,8 +7245,36 @@ Languages: typescript(57), javascript(291), tsx(99)
     async function runAgentLoop(config)
     async function runAgentLoopStream(config, res)
     arrow sendSSE(event, data)
-  React Components:
-    arrow: LOG
+
+## packages/server/src/lib/paaw-agent-tools.mjs [javascript]
+  Imports:
+    * ← fs/promises
+    * ← ./temp-janitor.mjs
+    * ← fs
+    * ← ./module-registry.mjs
+    * ← ./feature-boundary.mjs
+    * ← child_process
+    * ← ./proc-ledger.mjs
+    * ← ./shell-exec.mjs
+    * ← path
+    * ← ./dependency-context.mjs
+    * ← ./task-retrofit.mjs
+    * ← url
+    * ← fs
+    * ← path
+    * ← ./llm-utils.mjs
+    * ← ./context-truncation.mjs
+    * ← ./context-compaction.mjs
+    * ← ./vision-content.mjs
+    * ← ./agent-exec-logger.mjs
+    * ← ./paaw-project.mjs
+    * ← ./paaw-snapshot.mjs
+    * ← ./llm-utils.mjs
+    * ← ./tool-registry.mjs
+    * ← ../data-home.mjs
+    * ← ./browser-session.mjs
+  Exports:
+    named: PAAW_TOOLS
 
 ## packages/server/src/lib/paaw-project.mjs [javascript]
   Imports:
@@ -7040,6 +7361,40 @@ Languages: typescript(57), javascript(291), tsx(99)
     async function runShell(command, cwd, timeoutMs = 10_000)
   Classes:
     class PaawSnapshot { constructor, create, createPreEdit, list, restoreFile, diffFile, cleanup }
+
+## packages/server/src/lib/page-inventory.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← ./cu-source-scan.mjs
+  Exports:
+    function: buildPageInventory
+  Functions:
+    function isParamSeg(seg)
+    function normRoute(p)
+    function esc(s)
+    function validRouteStr(p)
+    function urlMatchesRoute(url, route)
+    arrow segEq(u, r)
+    function extractApiCallUrls(src)
+    function urlMatchesApiEntry(url, entry)
+    arrow segEq(u, a)
+    function walkSrc(root, maxDepth = 10)
+    arrow walk(dir, depth, prefix)
+    function readSafe(full)
+    function extractRoutesFromCode(src, kind)
+    arrow add(p)
+    function tanstackRoutes(files)
+    function fileBasedRoutes(files)
+    function tabRoutes(files, filesByRel)
+    function findRouterFiles(files)
+    function resolveImport(fromRel, spec, filesByRel)
+    function resolveAlias(spec, filesByRel)
+    function importGraph(rel, filesByRel, cache, depth = 0)
+    function unitTestFor(relFile, testIndex)
+    function collectE2eUrls(root)
+    arrow walk(dir, depth, prefix)
+    function buildPageInventory(root, apis = [], opts = {})
 
 ## packages/server/src/lib/proc-ledger.mjs [javascript]
   Imports:
@@ -7150,8 +7505,8 @@ Languages: typescript(57), javascript(291), tsx(99)
     function: regenerateProjectMd
   Functions:
     function sliceBetween(md, startMark, endMark)
+    arrow stripSkeletonLines(s)
     function parseProjectMd(md)
-    arrow stripSkeleton(s)
     function buildProjectMd(name, userSection, aiSection)
     async function collectFacts(root)
     async arrow readJson(rel)

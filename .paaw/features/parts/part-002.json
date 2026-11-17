@@ -1,0 +1,30 @@
+{
+  "sig": "parent::22:packages/server/src/lib/coding-security.mjs:packages/server/src/routes/vibe-sessions.mjs",
+  "flesh": {
+    "name": "專案工作區工具集（備份還原、執行計畫、文件覆蓋、App 與 Vibe 檔案）",
+    "description": "此 feature 是 server 端「以單一專案/RU 為單位」的各式工具型 API 集合，由五個穩定子群構成：SF1 資料備份/還原（config、run、list、restore、delete）、SF2 文件覆蓋追蹤（doc coverage / undocumented commits）、SF3 EM 自動派工執行計畫（plan create/latest/list/incomplete 與 sub-task 狀態機）、SF4 App 建置與報告（apps CRUD、frontmatter、training/publish report）、SF5 Vibe 檔案系統與 Git（目錄挑選、vibe-fs 讀寫、git 操作、vibe session）。共用底座是 routes/shared.mjs（PAAW_ROOT/DATA_ROOT/readBody 等路徑與工具）以及 coding-security.mjs 的 sanitizeId/safeResolve 路徑邊界防護。",
+    "bizLogic": "所有路由都以 ?path= 或 body.projectPath 指定目標專案根目錄，將狀態寫進該專案的 .paaw/ 子目錄（.paaw/auto-dispatch/plans/*.json、.paaw/api-tester/、.paaw/doc-coverage.json、.paaw/runbook/），未帶 path 時退回全域 DATA_HOME 行為（兼容舊腳本/curl）。備份子群把 DATA_HOME 下的 ai-settings/apps/app-data/chats/config/crews/cron/db/knowledge/mindmaps/notes/skills/workflows/api-registry 以純 Node.js USTAR+gunzip 打包成跨平台 tar.gz（不依賴系統 tar），並以 config/backup.json 管理備份目錄與保留份數；還原與刪除屬高風險操作。執行計畫子群實作明確狀態機：plan status 為 created/running/completed/failed/partial/interrupted，terminal 狀態不可回到 running，sub-task 僅允許白名單欄位（status/durationMs/tokenUsage/costUsd/model/result/error）被 PATCH，並以 per-plan promise 鎖序列化讀-改-寫、temp 檔 + rename 原子寫入，預設 sub-task timeout 2 小時；plan 與 TASKS.json 嚴格分離，sub-task 完成可回寫 note 到對應 TASK。文件覆蓋子群以 lastDocumentedCommit..HEAD 的 git log 計算未文件化 commits，首次無 marker 時取最近 10 筆，documentedCommits 只保留最後 200 筆。App 子群管理 apps/<id> 的 app.json/app.html、schema/dataShape/triggers/skills 與 app-data，並提供訓練/發佈報告。Vibe 子群提供目錄瀏覽與挑選、檔案讀寫、git 指令（spawn + GIT_TERMINAL_PROMPT=0 避免卡在認證 prompt）與 node_modules/.git 等忽略清單；所有使用者提供的 id/path 都經 sanitizeId 與 safeResolve 驗證以防路徑逃逸。",
+    "tags": [
+      "server-routes",
+      "backup-restore",
+      "execution-plan",
+      "auto-dispatch",
+      "doc-coverage",
+      "apps",
+      "vibe-fs",
+      "git",
+      "path-security",
+      "workspace-tools"
+    ]
+  },
+  "turns": 8,
+  "durationMs": 10784,
+  "wallMs": 11042,
+  "usage": {
+    "prompt": 131365,
+    "completion": 1634,
+    "total": 132999
+  },
+  "degraded": false,
+  "finishedAt": "2026-11-09T12:42:14.057Z"
+}

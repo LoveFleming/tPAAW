@@ -1680,6 +1680,94 @@
       ]
     },
     {
+      "method": "GET",
+      "path": "/api/coding-crew/dispatch-catalog",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-crew/review-board-run",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "handler": "sendSSE",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
       "method": "POST",
       "path": "/api/coding-crew/em-plan",
       "file": "packages/server/src/routes/coding-crew-routes.mjs",
@@ -2471,6 +2559,20 @@
     {
       "method": "DELETE",
       "path": "/api/coding-handover/remark",
+      "file": "packages/server/src/routes/coding-handover.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-handover/doc",
+      "file": "packages/server/src/routes/coding-handover.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-handover/doc",
       "file": "packages/server/src/routes/coding-handover.mjs",
       "handler": "",
       "callChain": []
@@ -20163,8 +20265,8 @@
     }
   ],
   "stats": {
-    "totalRoutes": 380,
-    "withHandler": 143,
-    "withoutHandler": 237
+    "totalRoutes": 384,
+    "withHandler": 145,
+    "withoutHandler": 239
   }
 }

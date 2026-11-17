@@ -6014,46 +6014,6 @@
     },
     {
       "type": "function",
-      "name": "AgentBuilder",
-      "file": "packages/ui/src/components/AgentBuilder.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ rootPath, theme: t, onClose, onCreated }: AgentBuilderProps)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "toggleTool",
-      "file": "packages/ui/src/components/AgentBuilder.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "(id: string)",
-      "callCount": 3
-    },
-    {
-      "type": "function",
-      "name": "handleCreate",
-      "file": "packages/ui/src/components/AgentBuilder.tsx",
-      "kind": "arrow",
-      "async": true,
-      "params": "()",
-      "callCount": 9
-    },
-    {
-      "type": "export",
-      "name": "AgentBuilder",
-      "file": "packages/ui/src/components/AgentBuilder.tsx",
-      "kind": "function",
-      "isDefault": true
-    },
-    {
-      "type": "component",
-      "name": "AgentBuilder",
-      "file": "packages/ui/src/components/AgentBuilder.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "function",
       "name": "handleChatSend",
       "file": "packages/ui/src/components/AgentConsole.tsx",
       "kind": "arrow",
@@ -6216,6 +6176,106 @@
       "type": "component",
       "name": "ApiMapSidebar",
       "file": "packages/ui/src/components/ApiMapSidebar.tsx",
+      "kind": "function"
+    },
+    {
+      "type": "function",
+      "name": "methodOf",
+      "file": "packages/ui/src/components/ApiMapView.tsx",
+      "kind": "arrow",
+      "async": false,
+      "params": "(entry: string)",
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "ApiMapView",
+      "file": "packages/ui/src/components/ApiMapView.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "({ rootPath, theme, onOpenFile, refreshKey }: Props)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "toggleCat",
+      "file": "packages/ui/src/components/ApiMapView.tsx",
+      "kind": "arrow",
+      "async": false,
+      "params": "(cat: string)",
+      "callCount": 4
+    },
+    {
+      "type": "function",
+      "name": "Section",
+      "file": "packages/ui/src/components/ApiMapView.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "({ title, count, theme, children }: {\n  title: string;\n  count?: number;\n  theme: Props[\"theme\"];\n  children?: React.ReactNode;\n})",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "FileChip",
+      "file": "packages/ui/src/components/ApiMapView.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "({ file, theme, onOpenFile }: { file: string; theme: Props[\"theme\"]; onOpenFile?: (p: string) => void })",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "ApiDetail",
+      "file": "packages/ui/src/components/ApiMapView.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "({ api, theme, t, onOpenFile }: {\n  api: ApiFeature;\n  theme: Props[\"theme\"];\n  t: (k: string) => string;\n  onOpenFile?: (p: string) => void;\n})",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "UiDetail",
+      "file": "packages/ui/src/components/ApiMapView.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "({ ui, theme, t, onOpenFile }: {\n  ui: UiFeature;\n  theme: Props[\"theme\"];\n  t: (k: string) => string;\n  onOpenFile?: (p: string) => void;\n})",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "ApiMapView",
+      "file": "packages/ui/src/components/ApiMapView.tsx",
+      "kind": "function",
+      "isDefault": true
+    },
+    {
+      "type": "component",
+      "name": "ApiMapView",
+      "file": "packages/ui/src/components/ApiMapView.tsx",
+      "kind": "function"
+    },
+    {
+      "type": "component",
+      "name": "Section",
+      "file": "packages/ui/src/components/ApiMapView.tsx",
+      "kind": "function"
+    },
+    {
+      "type": "component",
+      "name": "FileChip",
+      "file": "packages/ui/src/components/ApiMapView.tsx",
+      "kind": "function"
+    },
+    {
+      "type": "component",
+      "name": "ApiDetail",
+      "file": "packages/ui/src/components/ApiMapView.tsx",
+      "kind": "function"
+    },
+    {
+      "type": "component",
+      "name": "UiDetail",
+      "file": "packages/ui/src/components/ApiMapView.tsx",
       "kind": "function"
     },
     {
@@ -7006,28 +7066,6 @@
     },
     {
       "type": "function",
-      "name": "CrewAvatar",
-      "file": "packages/ui/src/components/CrewAvatar.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ crewId, codename, size = 120 }: AvatarProps)",
-      "callCount": 0
-    },
-    {
-      "type": "export",
-      "name": "CrewAvatar",
-      "file": "packages/ui/src/components/CrewAvatar.tsx",
-      "kind": "function",
-      "isDefault": true
-    },
-    {
-      "type": "component",
-      "name": "CrewAvatar",
-      "file": "packages/ui/src/components/CrewAvatar.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "function",
       "name": "Section",
       "file": "packages/ui/src/components/CrewManager.tsx",
       "kind": "function",
@@ -7356,7 +7394,34 @@
       "file": "packages/ui/src/components/DispatchWizard.tsx",
       "kind": "function",
       "async": false,
-      "params": "({ rootPath, theme: tk, onClose }: Props)",
+      "params": "({ rootPath, theme: tk, onClose, onLaunch }: Props)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "selectJob",
+      "file": "packages/ui/src/components/DispatchWizard.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "(j: JobDef, agentList?: AgentOpt[])",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "setVal",
+      "file": "packages/ui/src/components/DispatchWizard.tsx",
+      "kind": "arrow",
+      "async": false,
+      "params": "(id: string, val: any)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "readSSE",
+      "file": "packages/ui/src/components/DispatchWizard.tsx",
+      "kind": "function",
+      "async": true,
+      "params": "(r: Response, onEvent: (d: any) => boolean | void)",
       "callCount": 0
     },
     {
@@ -7473,6 +7538,24 @@
     },
     {
       "type": "function",
+      "name": "update",
+      "file": "packages/ui/src/components/EMDashboard.tsx",
+      "kind": "arrow",
+      "async": false,
+      "params": "(content: string)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "readSSE",
+      "file": "packages/ui/src/components/EMDashboard.tsx",
+      "kind": "arrow",
+      "async": true,
+      "params": "(r: Response, onEvent: (d: any) => boolean | void)",
+      "callCount": 14
+    },
+    {
+      "type": "function",
       "name": "confirmEMPlan",
       "file": "packages/ui/src/components/EMDashboard.tsx",
       "kind": "arrow",
@@ -7500,207 +7583,6 @@
       "type": "component",
       "name": "EMDashboard",
       "file": "packages/ui/src/components/EMDashboard.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "function",
-      "name": "joinPath",
-      "file": "packages/ui/src/components/FeatureCockpit.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "(root: string, rel: string)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "baseName",
-      "file": "packages/ui/src/components/FeatureCockpit.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "(p: string)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "shortDate",
-      "file": "packages/ui/src/components/FeatureCockpit.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "(iso?: string)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "KindBadge",
-      "file": "packages/ui/src/components/FeatureCockpit.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ kind }: { kind?: string | null })",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "CallChainTree",
-      "file": "packages/ui/src/components/FeatureCockpit.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ chain, t, borderLight }: { chain: { function: string; depth: number; file?: string; resolved?: boolean }[]; t: any; borderLight: string })",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "FeatureCockpit",
-      "file": "packages/ui/src/components/FeatureCockpit.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ feature, model, callChainMap, t, accent, borderLight, accentText, FileLink, onBack }: any)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "EntryRow",
-      "file": "packages/ui/src/components/FeatureCockpit.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ api, chain, t, borderLight }: any)",
-      "callCount": 0
-    },
-    {
-      "type": "export",
-      "name": "FeatureCockpit",
-      "file": "packages/ui/src/components/FeatureCockpit.tsx",
-      "kind": "function",
-      "isDefault": false
-    },
-    {
-      "type": "export",
-      "name": "EntryRow",
-      "file": "packages/ui/src/components/FeatureCockpit.tsx",
-      "kind": "function",
-      "isDefault": false
-    },
-    {
-      "type": "component",
-      "name": "KindBadge",
-      "file": "packages/ui/src/components/FeatureCockpit.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "component",
-      "name": "CallChainTree",
-      "file": "packages/ui/src/components/FeatureCockpit.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "component",
-      "name": "FeatureCockpit",
-      "file": "packages/ui/src/components/FeatureCockpit.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "component",
-      "name": "EntryRow",
-      "file": "packages/ui/src/components/FeatureCockpit.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "function",
-      "name": "methodOf",
-      "file": "packages/ui/src/components/FeatureMap.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "(entry: string)",
-      "callCount": 3
-    },
-    {
-      "type": "function",
-      "name": "ApiMapView",
-      "file": "packages/ui/src/components/FeatureMap.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ rootPath, theme, onOpenFile, refreshKey }: Props)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "toggleCat",
-      "file": "packages/ui/src/components/FeatureMap.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "(cat: string)",
-      "callCount": 4
-    },
-    {
-      "type": "function",
-      "name": "Section",
-      "file": "packages/ui/src/components/FeatureMap.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ title, count, theme, children }: {\n  title: string;\n  count?: number;\n  theme: Props[\"theme\"];\n  children?: React.ReactNode;\n})",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "FileChip",
-      "file": "packages/ui/src/components/FeatureMap.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ file, theme, onOpenFile }: { file: string; theme: Props[\"theme\"]; onOpenFile?: (p: string) => void })",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "ApiDetail",
-      "file": "packages/ui/src/components/FeatureMap.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ api, theme, t, onOpenFile }: {\n  api: ApiFeature;\n  theme: Props[\"theme\"];\n  t: (k: string) => string;\n  onOpenFile?: (p: string) => void;\n})",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "UiDetail",
-      "file": "packages/ui/src/components/FeatureMap.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ ui, theme, t, onOpenFile }: {\n  ui: UiFeature;\n  theme: Props[\"theme\"];\n  t: (k: string) => string;\n  onOpenFile?: (p: string) => void;\n})",
-      "callCount": 0
-    },
-    {
-      "type": "export",
-      "name": "ApiMapView",
-      "file": "packages/ui/src/components/FeatureMap.tsx",
-      "kind": "function",
-      "isDefault": true
-    },
-    {
-      "type": "component",
-      "name": "ApiMapView",
-      "file": "packages/ui/src/components/FeatureMap.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "component",
-      "name": "Section",
-      "file": "packages/ui/src/components/FeatureMap.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "component",
-      "name": "FileChip",
-      "file": "packages/ui/src/components/FeatureMap.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "component",
-      "name": "ApiDetail",
-      "file": "packages/ui/src/components/FeatureMap.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "component",
-      "name": "UiDetail",
-      "file": "packages/ui/src/components/FeatureMap.tsx",
       "kind": "function"
     },
     {
@@ -7788,21 +7670,12 @@
     },
     {
       "type": "function",
-      "name": "section",
+      "name": "docSection",
       "file": "packages/ui/src/components/HandoverPanel.tsx",
       "kind": "arrow",
       "async": false,
-      "params": "(key: string, icon: string, title: string, content: string | null)",
-      "callCount": 19
-    },
-    {
-      "type": "function",
-      "name": "cleanKnowledge",
-      "file": "packages/ui/src/components/HandoverPanel.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "(raw: string)",
-      "callCount": 14
+      "params": "(key: string, icon: string, content: string)",
+      "callCount": 2
     },
     {
       "type": "class",
@@ -8826,222 +8699,6 @@
     },
     {
       "type": "function",
-      "name": "RrCostCard",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ rrId, rootPath }: { rrId: string; rootPath: string })",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "fmtUsd",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "(n: number)",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "fmtTok",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "(n: number)",
-      "callCount": 3
-    },
-    {
-      "type": "function",
-      "name": "ReleaseRequests",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ rootPath, theme: tk, notify, chatRef }: Props)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "openCreate",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow",
-      "async": true,
-      "params": "()",
-      "callCount": 6
-    },
-    {
-      "type": "function",
-      "name": "create",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow",
-      "async": true,
-      "params": "()",
-      "callCount": 12
-    },
-    {
-      "type": "function",
-      "name": "patch",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow",
-      "async": true,
-      "params": "(body: Record<string, unknown>, okText: string)",
-      "callCount": 11
-    },
-    {
-      "type": "function",
-      "name": "act",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow",
-      "async": true,
-      "params": "(action: \"open\" | \"close\" | \"cancel\" | \"lock\" | \"unlock\", body: Record<string, unknown>, okText: string)",
-      "callCount": 17
-    },
-    {
-      "type": "function",
-      "name": "resolveQr",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow",
-      "async": true,
-      "params": "(qrId: string)",
-      "callCount": 14
-    },
-    {
-      "type": "function",
-      "name": "review",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow",
-      "async": true,
-      "params": "(itemId: string, verdict: string, note?: string)",
-      "callCount": 11
-    },
-    {
-      "type": "function",
-      "name": "askAi",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 2
-    },
-    {
-      "type": "function",
-      "name": "applySuggestions",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow",
-      "async": true,
-      "params": "()",
-      "callCount": 11
-    },
-    {
-      "type": "function",
-      "name": "renderNextSteps",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 52
-    },
-    {
-      "type": "function",
-      "name": "checklistDone",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "(cl: { verdict: string }[])",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "StatusBadge",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "({ st }: { st: string })",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "MiniLights",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "({ cl }: { cl: { id: string; verdict: string; auto: string }[] })",
-      "callCount": 3
-    },
-    {
-      "type": "function",
-      "name": "candOptions",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 6
-    },
-    {
-      "type": "function",
-      "name": "patchBaseline",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "()",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "fmtShort",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "(iso?: string)",
-      "callCount": 0
-    },
-    {
-      "type": "export",
-      "name": "RrChecklistItem",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "type",
-      "isDefault": false
-    },
-    {
-      "type": "export",
-      "name": "RrDetail",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "type",
-      "isDefault": false
-    },
-    {
-      "type": "export",
-      "name": "ReleaseRequests",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "function",
-      "isDefault": true
-    },
-    {
-      "type": "component",
-      "name": "RrCostCard",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "component",
-      "name": "ReleaseRequests",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "component",
-      "name": "StatusBadge",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow"
-    },
-    {
-      "type": "component",
-      "name": "MiniLights",
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "kind": "arrow"
-    },
-    {
-      "type": "function",
       "name": "RuCloneModal",
       "file": "packages/ui/src/components/RuCloneModal.tsx",
       "kind": "function",
@@ -9091,37 +8748,6 @@
       "type": "component",
       "name": "RuOnboardingModal",
       "file": "packages/ui/src/components/RuOnboardingModal.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "function",
-      "name": "RuQaSection",
-      "file": "packages/ui/src/components/RuQaSection.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ rootPath, theme, onAskAi }: { rootPath: string; theme: any; onAskAi?: (question: string, engineResult: Answer | null) => void })",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "chip",
-      "file": "packages/ui/src/components/RuQaSection.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "(e: Evidence, i: number)",
-      "callCount": 0
-    },
-    {
-      "type": "export",
-      "name": "RuQaSection",
-      "file": "packages/ui/src/components/RuQaSection.tsx",
-      "kind": "function",
-      "isDefault": true
-    },
-    {
-      "type": "component",
-      "name": "RuQaSection",
-      "file": "packages/ui/src/components/RuQaSection.tsx",
       "kind": "function"
     },
     {
@@ -14289,6 +13915,15 @@
     },
     {
       "type": "function",
+      "name": "rbSend",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(d)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
       "name": "sendSSE",
       "file": "packages/server/src/routes/coding-crew-routes.mjs",
       "kind": "arrow",
@@ -14367,6 +14002,20 @@
       "file": "packages/server/src/routes/coding-crew-routes.mjs",
       "method": "POST",
       "path": "/api/coding-crew/em-job"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-crew/dispatch-catalog",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "GET",
+      "path": "/api/coding-crew/dispatch-catalog"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-crew/review-board-run",
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "method": "POST",
+      "path": "/api/coding-crew/review-board-run"
     },
     {
       "type": "route",
@@ -15106,6 +14755,69 @@
     },
     {
       "type": "function",
+      "name": "handoverDocPath",
+      "file": "packages/server/src/routes/coding-handover.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "loadHandoverDoc",
+      "file": "packages/server/src/routes/coding-handover.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "walkProject",
+      "file": "packages/server/src/routes/coding-handover.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, { maxFiles = 500, maxDepth = 4, maxBytes = 200 * 1024 } = {})",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "walk",
+      "file": "packages/server/src/routes/coding-handover.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(dir, depth)",
+      "callCount": 9
+    },
+    {
+      "type": "function",
+      "name": "collectDocFacts",
+      "file": "packages/server/src/routes/coding-handover.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "generateHandoverDoc",
+      "file": "packages/server/src/routes/coding-handover.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "generateHelpdeskFaq",
+      "file": "packages/server/src/routes/coding-handover.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath, facts)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
       "name": "handoverRoutes",
       "file": "packages/server/src/routes/coding-handover.mjs",
       "kind": "function",
@@ -15170,6 +14882,20 @@
       "file": "packages/server/src/routes/coding-handover.mjs",
       "method": "DELETE",
       "path": "/api/coding-handover/remark"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-handover/doc",
+      "file": "packages/server/src/routes/coding-handover.mjs",
+      "method": "GET",
+      "path": "/api/coding-handover/doc"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-handover/doc",
+      "file": "packages/server/src/routes/coding-handover.mjs",
+      "method": "POST",
+      "path": "/api/coding-handover/doc"
     },
     {
       "type": "route",
@@ -16670,12 +16396,21 @@
     },
     {
       "type": "function",
-      "name": "sendEvent",
+      "name": "writeSSE",
       "file": "packages/server/src/routes/coding.mjs",
       "kind": "arrow",
       "async": false,
       "params": "(event, data)",
       "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "sendEvent",
+      "file": "packages/server/src/routes/coding.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(event, data)",
+      "callCount": 3
     },
     {
       "type": "function",
@@ -23562,6 +23297,20 @@
       "isDefault": false
     },
     {
+      "type": "export",
+      "name": "DIRECT_AGENTS",
+      "file": "packages/server/src/lib/dispatch-catalog.mjs",
+      "kind": "variable",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "DISPATCH_CATALOG",
+      "file": "packages/server/src/lib/dispatch-catalog.mjs",
+      "kind": "variable",
+      "isDefault": false
+    },
+    {
       "type": "function",
       "name": "attachDispatchVisibility",
       "file": "packages/server/src/lib/dispatch-stream-state.mjs",
@@ -23878,7 +23627,7 @@
       "kind": "arrow",
       "async": false,
       "params": "(u)",
-      "callCount": 2
+      "callCount": 3
     },
     {
       "type": "function",
@@ -28640,6 +28389,15 @@
     },
     {
       "type": "function",
+      "name": "tabRoutes",
+      "file": "packages/server/src/lib/page-inventory.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(files, filesByRel)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
       "name": "findRouterFiles",
       "file": "packages/server/src/lib/page-inventory.mjs",
       "kind": "function",
@@ -28699,7 +28457,7 @@
       "kind": "arrow",
       "async": false,
       "params": "(dir, depth, prefix)",
-      "callCount": 15
+      "callCount": 16
     },
     {
       "type": "function",
@@ -29303,21 +29061,21 @@
     },
     {
       "type": "function",
+      "name": "stripSkeletonLines",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(s)",
+      "callCount": 10
+    },
+    {
+      "type": "function",
       "name": "parseProjectMd",
       "file": "packages/server/src/lib/project-md.mjs",
       "kind": "function",
       "async": false,
       "params": "(md)",
       "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "stripSkeleton",
-      "file": "packages/server/src/lib/project-md.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(s)",
-      "callCount": 10
     },
     {
       "type": "function",
@@ -41833,7 +41591,7 @@
         "kind": "arrow",
         "async": false,
         "params": "(u)",
-        "callCount": 2
+        "callCount": 3
       },
       {
         "type": "function",
@@ -42761,6 +42519,15 @@
       {
         "type": "function",
         "name": "walk",
+        "file": "packages/server/src/routes/coding-handover.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(dir, depth)",
+        "callCount": 9
+      },
+      {
+        "type": "function",
+        "name": "walk",
         "file": "packages/server/src/routes/coding-helpers.mjs",
         "kind": "arrow",
         "async": false,
@@ -42864,7 +42631,7 @@
         "kind": "arrow",
         "async": false,
         "params": "(dir, depth, prefix)",
-        "callCount": 15
+        "callCount": 16
       },
       {
         "type": "function",
@@ -43969,15 +43736,6 @@
       {
         "type": "function",
         "name": "handleCreate",
-        "file": "packages/ui/src/components/AgentBuilder.tsx",
-        "kind": "arrow",
-        "async": true,
-        "params": "()",
-        "callCount": 9
-      },
-      {
-        "type": "function",
-        "name": "handleCreate",
         "file": "packages/ui/src/components/IssueTracker.tsx",
         "kind": "arrow",
         "async": true,
@@ -44446,15 +44204,6 @@
         "kind": "function",
         "async": false,
         "params": "(dir: string, rel: string)",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "joinPath",
-        "file": "packages/ui/src/components/FeatureCockpit.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(root: string, rel: string)",
         "callCount": 0
       }
     ],
@@ -46491,6 +46240,15 @@
         "async": false,
         "params": "(key: K, value: SkillForm[K])",
         "callCount": 2
+      },
+      {
+        "type": "function",
+        "name": "update",
+        "file": "packages/ui/src/components/EMDashboard.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(content: string)",
+        "callCount": 2
       }
     ],
     "addInput": [
@@ -47216,41 +46974,6 @@
         "isDefault": false
       }
     ],
-    "AgentBuilder": [
-      {
-        "type": "function",
-        "name": "AgentBuilder",
-        "file": "packages/ui/src/components/AgentBuilder.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ rootPath, theme: t, onClose, onCreated }: AgentBuilderProps)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "AgentBuilder",
-        "file": "packages/ui/src/components/AgentBuilder.tsx",
-        "kind": "function",
-        "isDefault": true
-      },
-      {
-        "type": "component",
-        "name": "AgentBuilder",
-        "file": "packages/ui/src/components/AgentBuilder.tsx",
-        "kind": "function"
-      }
-    ],
-    "toggleTool": [
-      {
-        "type": "function",
-        "name": "toggleTool",
-        "file": "packages/ui/src/components/AgentBuilder.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "(id: string)",
-        "callCount": 3
-      }
-    ],
     "handleChatSend": [
       {
         "type": "function",
@@ -47436,6 +47159,135 @@
         "file": "packages/ui/src/components/ApiMapSidebar.tsx",
         "kind": "variable",
         "isDefault": false
+      }
+    ],
+    "methodOf": [
+      {
+        "type": "function",
+        "name": "methodOf",
+        "file": "packages/ui/src/components/ApiMapView.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(entry: string)",
+        "callCount": 3
+      }
+    ],
+    "ApiMapView": [
+      {
+        "type": "function",
+        "name": "ApiMapView",
+        "file": "packages/ui/src/components/ApiMapView.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "({ rootPath, theme, onOpenFile, refreshKey }: Props)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "ApiMapView",
+        "file": "packages/ui/src/components/ApiMapView.tsx",
+        "kind": "function",
+        "isDefault": true
+      },
+      {
+        "type": "component",
+        "name": "ApiMapView",
+        "file": "packages/ui/src/components/ApiMapView.tsx",
+        "kind": "function"
+      }
+    ],
+    "toggleCat": [
+      {
+        "type": "function",
+        "name": "toggleCat",
+        "file": "packages/ui/src/components/ApiMapView.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(cat: string)",
+        "callCount": 4
+      }
+    ],
+    "Section": [
+      {
+        "type": "function",
+        "name": "Section",
+        "file": "packages/ui/src/components/ApiMapView.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "({ title, count, theme, children }: {\n  title: string;\n  count?: number;\n  theme: Props[\"theme\"];\n  children?: React.ReactNode;\n})",
+        "callCount": 0
+      },
+      {
+        "type": "component",
+        "name": "Section",
+        "file": "packages/ui/src/components/ApiMapView.tsx",
+        "kind": "function"
+      },
+      {
+        "type": "function",
+        "name": "Section",
+        "file": "packages/ui/src/components/CrewManager.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "({ title, icon, children, defaultOpen = false }: { title: string; icon: string; children: React.ReactNode; defaultOpen?: boolean })",
+        "callCount": 0
+      },
+      {
+        "type": "component",
+        "name": "Section",
+        "file": "packages/ui/src/components/CrewManager.tsx",
+        "kind": "function"
+      }
+    ],
+    "FileChip": [
+      {
+        "type": "function",
+        "name": "FileChip",
+        "file": "packages/ui/src/components/ApiMapView.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "({ file, theme, onOpenFile }: { file: string; theme: Props[\"theme\"]; onOpenFile?: (p: string) => void })",
+        "callCount": 0
+      },
+      {
+        "type": "component",
+        "name": "FileChip",
+        "file": "packages/ui/src/components/ApiMapView.tsx",
+        "kind": "function"
+      }
+    ],
+    "ApiDetail": [
+      {
+        "type": "function",
+        "name": "ApiDetail",
+        "file": "packages/ui/src/components/ApiMapView.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "({ api, theme, t, onOpenFile }: {\n  api: ApiFeature;\n  theme: Props[\"theme\"];\n  t: (k: string) => string;\n  onOpenFile?: (p: string) => void;\n})",
+        "callCount": 0
+      },
+      {
+        "type": "component",
+        "name": "ApiDetail",
+        "file": "packages/ui/src/components/ApiMapView.tsx",
+        "kind": "function"
+      }
+    ],
+    "UiDetail": [
+      {
+        "type": "function",
+        "name": "UiDetail",
+        "file": "packages/ui/src/components/ApiMapView.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "({ ui, theme, t, onOpenFile }: {\n  ui: UiFeature;\n  theme: Props[\"theme\"];\n  t: (k: string) => string;\n  onOpenFile?: (p: string) => void;\n})",
+        "callCount": 0
+      },
+      {
+        "type": "component",
+        "name": "UiDetail",
+        "file": "packages/ui/src/components/ApiMapView.tsx",
+        "kind": "function"
       }
     ],
     "fmtBytes": [
@@ -48290,62 +48142,6 @@
         "callCount": 0
       }
     ],
-    "CrewAvatar": [
-      {
-        "type": "function",
-        "name": "CrewAvatar",
-        "file": "packages/ui/src/components/CrewAvatar.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ crewId, codename, size = 120 }: AvatarProps)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "CrewAvatar",
-        "file": "packages/ui/src/components/CrewAvatar.tsx",
-        "kind": "function",
-        "isDefault": true
-      },
-      {
-        "type": "component",
-        "name": "CrewAvatar",
-        "file": "packages/ui/src/components/CrewAvatar.tsx",
-        "kind": "function"
-      }
-    ],
-    "Section": [
-      {
-        "type": "function",
-        "name": "Section",
-        "file": "packages/ui/src/components/CrewManager.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ title, icon, children, defaultOpen = false }: { title: string; icon: string; children: React.ReactNode; defaultOpen?: boolean })",
-        "callCount": 0
-      },
-      {
-        "type": "component",
-        "name": "Section",
-        "file": "packages/ui/src/components/CrewManager.tsx",
-        "kind": "function"
-      },
-      {
-        "type": "function",
-        "name": "Section",
-        "file": "packages/ui/src/components/FeatureMap.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ title, count, theme, children }: {\n  title: string;\n  count?: number;\n  theme: Props[\"theme\"];\n  children?: React.ReactNode;\n})",
-        "callCount": 0
-      },
-      {
-        "type": "component",
-        "name": "Section",
-        "file": "packages/ui/src/components/FeatureMap.tsx",
-        "kind": "function"
-      }
-    ],
     "CrewManager": [
       {
         "type": "function",
@@ -48688,7 +48484,7 @@
         "file": "packages/ui/src/components/DispatchWizard.tsx",
         "kind": "function",
         "async": false,
-        "params": "({ rootPath, theme: tk, onClose }: Props)",
+        "params": "({ rootPath, theme: tk, onClose, onLaunch }: Props)",
         "callCount": 0
       },
       {
@@ -48703,6 +48499,48 @@
         "name": "DispatchWizard",
         "file": "packages/ui/src/components/DispatchWizard.tsx",
         "kind": "function"
+      }
+    ],
+    "selectJob": [
+      {
+        "type": "function",
+        "name": "selectJob",
+        "file": "packages/ui/src/components/DispatchWizard.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(j: JobDef, agentList?: AgentOpt[])",
+        "callCount": 0
+      }
+    ],
+    "setVal": [
+      {
+        "type": "function",
+        "name": "setVal",
+        "file": "packages/ui/src/components/DispatchWizard.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(id: string, val: any)",
+        "callCount": 1
+      }
+    ],
+    "readSSE": [
+      {
+        "type": "function",
+        "name": "readSSE",
+        "file": "packages/ui/src/components/DispatchWizard.tsx",
+        "kind": "function",
+        "async": true,
+        "params": "(r: Response, onEvent: (d: any) => boolean | void)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "readSSE",
+        "file": "packages/ui/src/components/EMDashboard.tsx",
+        "kind": "arrow",
+        "async": true,
+        "params": "(r: Response, onEvent: (d: any) => boolean | void)",
+        "callCount": 14
       }
     ],
     "submit": [
@@ -48848,216 +48686,6 @@
         "callCount": 9
       }
     ],
-    "baseName": [
-      {
-        "type": "function",
-        "name": "baseName",
-        "file": "packages/ui/src/components/FeatureCockpit.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(p: string)",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "baseName",
-        "file": "packages/ui/src/components/TestsPage.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "(p: string)",
-        "callCount": 2
-      }
-    ],
-    "shortDate": [
-      {
-        "type": "function",
-        "name": "shortDate",
-        "file": "packages/ui/src/components/FeatureCockpit.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(iso?: string)",
-        "callCount": 0
-      }
-    ],
-    "KindBadge": [
-      {
-        "type": "function",
-        "name": "KindBadge",
-        "file": "packages/ui/src/components/FeatureCockpit.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ kind }: { kind?: string | null })",
-        "callCount": 0
-      },
-      {
-        "type": "component",
-        "name": "KindBadge",
-        "file": "packages/ui/src/components/FeatureCockpit.tsx",
-        "kind": "function"
-      }
-    ],
-    "CallChainTree": [
-      {
-        "type": "function",
-        "name": "CallChainTree",
-        "file": "packages/ui/src/components/FeatureCockpit.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ chain, t, borderLight }: { chain: { function: string; depth: number; file?: string; resolved?: boolean }[]; t: any; borderLight: string })",
-        "callCount": 0
-      },
-      {
-        "type": "component",
-        "name": "CallChainTree",
-        "file": "packages/ui/src/components/FeatureCockpit.tsx",
-        "kind": "function"
-      }
-    ],
-    "FeatureCockpit": [
-      {
-        "type": "function",
-        "name": "FeatureCockpit",
-        "file": "packages/ui/src/components/FeatureCockpit.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ feature, model, callChainMap, t, accent, borderLight, accentText, FileLink, onBack }: any)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "FeatureCockpit",
-        "file": "packages/ui/src/components/FeatureCockpit.tsx",
-        "kind": "function",
-        "isDefault": false
-      },
-      {
-        "type": "component",
-        "name": "FeatureCockpit",
-        "file": "packages/ui/src/components/FeatureCockpit.tsx",
-        "kind": "function"
-      }
-    ],
-    "EntryRow": [
-      {
-        "type": "function",
-        "name": "EntryRow",
-        "file": "packages/ui/src/components/FeatureCockpit.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ api, chain, t, borderLight }: any)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "EntryRow",
-        "file": "packages/ui/src/components/FeatureCockpit.tsx",
-        "kind": "function",
-        "isDefault": false
-      },
-      {
-        "type": "component",
-        "name": "EntryRow",
-        "file": "packages/ui/src/components/FeatureCockpit.tsx",
-        "kind": "function"
-      }
-    ],
-    "methodOf": [
-      {
-        "type": "function",
-        "name": "methodOf",
-        "file": "packages/ui/src/components/FeatureMap.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "(entry: string)",
-        "callCount": 3
-      }
-    ],
-    "ApiMapView": [
-      {
-        "type": "function",
-        "name": "ApiMapView",
-        "file": "packages/ui/src/components/FeatureMap.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ rootPath, theme, onOpenFile, refreshKey }: Props)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "ApiMapView",
-        "file": "packages/ui/src/components/FeatureMap.tsx",
-        "kind": "function",
-        "isDefault": true
-      },
-      {
-        "type": "component",
-        "name": "ApiMapView",
-        "file": "packages/ui/src/components/FeatureMap.tsx",
-        "kind": "function"
-      }
-    ],
-    "toggleCat": [
-      {
-        "type": "function",
-        "name": "toggleCat",
-        "file": "packages/ui/src/components/FeatureMap.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "(cat: string)",
-        "callCount": 4
-      }
-    ],
-    "FileChip": [
-      {
-        "type": "function",
-        "name": "FileChip",
-        "file": "packages/ui/src/components/FeatureMap.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ file, theme, onOpenFile }: { file: string; theme: Props[\"theme\"]; onOpenFile?: (p: string) => void })",
-        "callCount": 0
-      },
-      {
-        "type": "component",
-        "name": "FileChip",
-        "file": "packages/ui/src/components/FeatureMap.tsx",
-        "kind": "function"
-      }
-    ],
-    "ApiDetail": [
-      {
-        "type": "function",
-        "name": "ApiDetail",
-        "file": "packages/ui/src/components/FeatureMap.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ api, theme, t, onOpenFile }: {\n  api: ApiFeature;\n  theme: Props[\"theme\"];\n  t: (k: string) => string;\n  onOpenFile?: (p: string) => void;\n})",
-        "callCount": 0
-      },
-      {
-        "type": "component",
-        "name": "ApiDetail",
-        "file": "packages/ui/src/components/FeatureMap.tsx",
-        "kind": "function"
-      }
-    ],
-    "UiDetail": [
-      {
-        "type": "function",
-        "name": "UiDetail",
-        "file": "packages/ui/src/components/FeatureMap.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ ui, theme, t, onOpenFile }: {\n  ui: UiFeature;\n  theme: Props[\"theme\"];\n  t: (k: string) => string;\n  onOpenFile?: (p: string) => void;\n})",
-        "callCount": 0
-      },
-      {
-        "type": "component",
-        "name": "UiDetail",
-        "file": "packages/ui/src/components/FeatureMap.tsx",
-        "kind": "function"
-      }
-    ],
     "fileEmoji": [
       {
         "type": "function",
@@ -49170,26 +48798,15 @@
         "kind": "function"
       }
     ],
-    "section": [
+    "docSection": [
       {
         "type": "function",
-        "name": "section",
+        "name": "docSection",
         "file": "packages/ui/src/components/HandoverPanel.tsx",
         "kind": "arrow",
         "async": false,
-        "params": "(key: string, icon: string, title: string, content: string | null)",
-        "callCount": 19
-      }
-    ],
-    "cleanKnowledge": [
-      {
-        "type": "function",
-        "name": "cleanKnowledge",
-        "file": "packages/ui/src/components/HandoverPanel.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "(raw: string)",
-        "callCount": 14
+        "params": "(key: string, icon: string, content: string)",
+        "callCount": 2
       }
     ],
     "HandoverErrorBoundary": [
@@ -50258,289 +49875,6 @@
         "async": false,
         "params": "(iso?: string)",
         "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "fmtShort",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(iso?: string)",
-        "callCount": 0
-      }
-    ],
-    "RrCostCard": [
-      {
-        "type": "function",
-        "name": "RrCostCard",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ rrId, rootPath }: { rrId: string; rootPath: string })",
-        "callCount": 0
-      },
-      {
-        "type": "component",
-        "name": "RrCostCard",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "function"
-      }
-    ],
-    "fmtUsd": [
-      {
-        "type": "function",
-        "name": "fmtUsd",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "(n: number)",
-        "callCount": 1
-      },
-      {
-        "type": "function",
-        "name": "fmtUsd",
-        "file": "packages/ui/src/components/UsageReportPanel.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "(n: number)",
-        "callCount": 2
-      }
-    ],
-    "fmtTok": [
-      {
-        "type": "function",
-        "name": "fmtTok",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "(n: number)",
-        "callCount": 3
-      },
-      {
-        "type": "function",
-        "name": "fmtTok",
-        "file": "packages/ui/src/components/UsageReportPanel.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "(n: number)",
-        "callCount": 4
-      }
-    ],
-    "ReleaseRequests": [
-      {
-        "type": "function",
-        "name": "ReleaseRequests",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ rootPath, theme: tk, notify, chatRef }: Props)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "ReleaseRequests",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "function",
-        "isDefault": true
-      },
-      {
-        "type": "component",
-        "name": "ReleaseRequests",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "function"
-      }
-    ],
-    "openCreate": [
-      {
-        "type": "function",
-        "name": "openCreate",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow",
-        "async": true,
-        "params": "()",
-        "callCount": 6
-      }
-    ],
-    "create": [
-      {
-        "type": "function",
-        "name": "create",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow",
-        "async": true,
-        "params": "()",
-        "callCount": 12
-      }
-    ],
-    "patch": [
-      {
-        "type": "function",
-        "name": "patch",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow",
-        "async": true,
-        "params": "(body: Record<string, unknown>, okText: string)",
-        "callCount": 11
-      }
-    ],
-    "act": [
-      {
-        "type": "function",
-        "name": "act",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow",
-        "async": true,
-        "params": "(action: \"open\" | \"close\" | \"cancel\" | \"lock\" | \"unlock\", body: Record<string, unknown>, okText: string)",
-        "callCount": 17
-      },
-      {
-        "type": "function",
-        "name": "act",
-        "file": "packages/ui/src/components/RuSkillManagerModal.tsx",
-        "kind": "arrow",
-        "async": true,
-        "params": "(id: string, kind: \"sync\" | \"add\" | \"remove\")",
-        "callCount": 20
-      }
-    ],
-    "resolveQr": [
-      {
-        "type": "function",
-        "name": "resolveQr",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow",
-        "async": true,
-        "params": "(qrId: string)",
-        "callCount": 14
-      }
-    ],
-    "review": [
-      {
-        "type": "function",
-        "name": "review",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow",
-        "async": true,
-        "params": "(itemId: string, verdict: string, note?: string)",
-        "callCount": 11
-      }
-    ],
-    "askAi": [
-      {
-        "type": "function",
-        "name": "askAi",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 2
-      }
-    ],
-    "applySuggestions": [
-      {
-        "type": "function",
-        "name": "applySuggestions",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow",
-        "async": true,
-        "params": "()",
-        "callCount": 11
-      }
-    ],
-    "renderNextSteps": [
-      {
-        "type": "function",
-        "name": "renderNextSteps",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 52
-      }
-    ],
-    "checklistDone": [
-      {
-        "type": "function",
-        "name": "checklistDone",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "(cl: { verdict: string }[])",
-        "callCount": 1
-      }
-    ],
-    "StatusBadge": [
-      {
-        "type": "function",
-        "name": "StatusBadge",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "({ st }: { st: string })",
-        "callCount": 0
-      },
-      {
-        "type": "component",
-        "name": "StatusBadge",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow"
-      }
-    ],
-    "MiniLights": [
-      {
-        "type": "function",
-        "name": "MiniLights",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "({ cl }: { cl: { id: string; verdict: string; auto: string }[] })",
-        "callCount": 3
-      },
-      {
-        "type": "component",
-        "name": "MiniLights",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow"
-      }
-    ],
-    "candOptions": [
-      {
-        "type": "function",
-        "name": "candOptions",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 6
-      }
-    ],
-    "patchBaseline": [
-      {
-        "type": "function",
-        "name": "patchBaseline",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "()",
-        "callCount": 0
-      }
-    ],
-    "RrChecklistItem": [
-      {
-        "type": "export",
-        "name": "RrChecklistItem",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "type",
-        "isDefault": false
-      }
-    ],
-    "RrDetail": [
-      {
-        "type": "export",
-        "name": "RrDetail",
-        "file": "packages/ui/src/components/ReleaseRequests.tsx",
-        "kind": "type",
-        "isDefault": false
       }
     ],
     "RuCloneModal": [
@@ -50591,41 +49925,6 @@
         "kind": "function"
       }
     ],
-    "RuQaSection": [
-      {
-        "type": "function",
-        "name": "RuQaSection",
-        "file": "packages/ui/src/components/RuQaSection.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ rootPath, theme, onAskAi }: { rootPath: string; theme: any; onAskAi?: (question: string, engineResult: Answer | null) => void })",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "RuQaSection",
-        "file": "packages/ui/src/components/RuQaSection.tsx",
-        "kind": "function",
-        "isDefault": true
-      },
-      {
-        "type": "component",
-        "name": "RuQaSection",
-        "file": "packages/ui/src/components/RuQaSection.tsx",
-        "kind": "function"
-      }
-    ],
-    "chip": [
-      {
-        "type": "function",
-        "name": "chip",
-        "file": "packages/ui/src/components/RuQaSection.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "(e: Evidence, i: number)",
-        "callCount": 0
-      }
-    ],
     "RuSkillManagerModal": [
       {
         "type": "function",
@@ -50648,6 +49947,17 @@
         "name": "RuSkillManagerModal",
         "file": "packages/ui/src/components/RuSkillManagerModal.tsx",
         "kind": "function"
+      }
+    ],
+    "act": [
+      {
+        "type": "function",
+        "name": "act",
+        "file": "packages/ui/src/components/RuSkillManagerModal.tsx",
+        "kind": "arrow",
+        "async": true,
+        "params": "(id: string, kind: \"sync\" | \"add\" | \"remove\")",
+        "callCount": 20
       }
     ],
     "viewSkill": [
@@ -51105,6 +50415,17 @@
         "callCount": 0
       }
     ],
+    "baseName": [
+      {
+        "type": "function",
+        "name": "baseName",
+        "file": "packages/ui/src/components/TestsPage.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(p: string)",
+        "callCount": 2
+      }
+    ],
     "TestsPageInner": [
       {
         "type": "function",
@@ -51186,6 +50507,28 @@
         "name": "TroubleshootingPanel",
         "file": "packages/ui/src/components/TroubleshootingPanel.tsx",
         "kind": "function"
+      }
+    ],
+    "fmtUsd": [
+      {
+        "type": "function",
+        "name": "fmtUsd",
+        "file": "packages/ui/src/components/UsageReportPanel.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(n: number)",
+        "callCount": 2
+      }
+    ],
+    "fmtTok": [
+      {
+        "type": "function",
+        "name": "fmtTok",
+        "file": "packages/ui/src/components/UsageReportPanel.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(n: number)",
+        "callCount": 4
       }
     ],
     "fmtInt": [
@@ -56691,6 +56034,17 @@
         "callCount": 0
       }
     ],
+    "rbSend": [
+      {
+        "type": "function",
+        "name": "rbSend",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(d)",
+        "callCount": 2
+      }
+    ],
     "POST /api/coding-crew/chat": [
       {
         "type": "route",
@@ -56761,6 +56115,24 @@
         "file": "packages/server/src/routes/coding-crew-routes.mjs",
         "method": "POST",
         "path": "/api/coding-crew/em-job"
+      }
+    ],
+    "GET /api/coding-crew/dispatch-catalog": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-crew/dispatch-catalog",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "GET",
+        "path": "/api/coding-crew/dispatch-catalog"
+      }
+    ],
+    "POST /api/coding-crew/review-board-run": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-crew/review-board-run",
+        "file": "packages/server/src/routes/coding-crew-routes.mjs",
+        "method": "POST",
+        "path": "/api/coding-crew/review-board-run"
       }
     ],
     "POST /api/coding-crew/em-plan": [
@@ -57787,6 +57159,72 @@
         "callCount": 0
       }
     ],
+    "handoverDocPath": [
+      {
+        "type": "function",
+        "name": "handoverDocPath",
+        "file": "packages/server/src/routes/coding-handover.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath)",
+        "callCount": 0
+      }
+    ],
+    "loadHandoverDoc": [
+      {
+        "type": "function",
+        "name": "loadHandoverDoc",
+        "file": "packages/server/src/routes/coding-handover.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath)",
+        "callCount": 0
+      }
+    ],
+    "walkProject": [
+      {
+        "type": "function",
+        "name": "walkProject",
+        "file": "packages/server/src/routes/coding-handover.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, { maxFiles = 500, maxDepth = 4, maxBytes = 200 * 1024 } = {})",
+        "callCount": 0
+      }
+    ],
+    "collectDocFacts": [
+      {
+        "type": "function",
+        "name": "collectDocFacts",
+        "file": "packages/server/src/routes/coding-handover.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath)",
+        "callCount": 0
+      }
+    ],
+    "generateHandoverDoc": [
+      {
+        "type": "function",
+        "name": "generateHandoverDoc",
+        "file": "packages/server/src/routes/coding-handover.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath)",
+        "callCount": 0
+      }
+    ],
+    "generateHelpdeskFaq": [
+      {
+        "type": "function",
+        "name": "generateHelpdeskFaq",
+        "file": "packages/server/src/routes/coding-handover.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath, facts)",
+        "callCount": 0
+      }
+    ],
     "handoverRoutes": [
       {
         "type": "function",
@@ -57857,6 +57295,24 @@
         "file": "packages/server/src/routes/coding-handover.mjs",
         "method": "DELETE",
         "path": "/api/coding-handover/remark"
+      }
+    ],
+    "GET /api/coding-handover/doc": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-handover/doc",
+        "file": "packages/server/src/routes/coding-handover.mjs",
+        "method": "GET",
+        "path": "/api/coding-handover/doc"
+      }
+    ],
+    "POST /api/coding-handover/doc": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-handover/doc",
+        "file": "packages/server/src/routes/coding-handover.mjs",
+        "method": "POST",
+        "path": "/api/coding-handover/doc"
       }
     ],
     "POST /api/coding-handover/generate": [
@@ -59545,7 +59001,7 @@
         "kind": "arrow",
         "async": false,
         "params": "(event, data)",
-        "callCount": 2
+        "callCount": 3
       },
       {
         "type": "function",
@@ -59615,6 +59071,17 @@
         "async": true,
         "params": "(file, label, maxLen = 3000)",
         "callCount": 3
+      }
+    ],
+    "writeSSE": [
+      {
+        "type": "function",
+        "name": "writeSSE",
+        "file": "packages/server/src/routes/coding.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(event, data)",
+        "callCount": 2
       }
     ],
     "GET /api/coding-project/api-features": [
@@ -67327,6 +66794,24 @@
         "callCount": 0
       }
     ],
+    "DIRECT_AGENTS": [
+      {
+        "type": "export",
+        "name": "DIRECT_AGENTS",
+        "file": "packages/server/src/lib/dispatch-catalog.mjs",
+        "kind": "variable",
+        "isDefault": false
+      }
+    ],
+    "DISPATCH_CATALOG": [
+      {
+        "type": "export",
+        "name": "DISPATCH_CATALOG",
+        "file": "packages/server/src/lib/dispatch-catalog.mjs",
+        "kind": "variable",
+        "isDefault": false
+      }
+    ],
     "attachDispatchVisibility": [
       {
         "type": "function",
@@ -72927,6 +72412,17 @@
         "callCount": 0
       }
     ],
+    "tabRoutes": [
+      {
+        "type": "function",
+        "name": "tabRoutes",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(files, filesByRel)",
+        "callCount": 0
+      }
+    ],
     "findRouterFiles": [
       {
         "type": "function",
@@ -73658,6 +73154,17 @@
         "callCount": 0
       }
     ],
+    "stripSkeletonLines": [
+      {
+        "type": "function",
+        "name": "stripSkeletonLines",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(s)",
+        "callCount": 10
+      }
+    ],
     "parseProjectMd": [
       {
         "type": "function",
@@ -73674,17 +73181,6 @@
         "file": "packages/server/src/lib/project-md.mjs",
         "kind": "function",
         "isDefault": false
-      }
-    ],
-    "stripSkeleton": [
-      {
-        "type": "function",
-        "name": "stripSkeleton",
-        "file": "packages/server/src/lib/project-md.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(s)",
-        "callCount": 10
       }
     ],
     "buildProjectMd": [
@@ -83780,11 +83276,11 @@
     ]
   },
   "stats": {
-    "total": 4762,
-    "functions": 2783,
+    "total": 4731,
+    "functions": 2765,
     "classes": 32,
-    "exports": 1350,
-    "routes": 380,
-    "components": 217
+    "exports": 1344,
+    "routes": 384,
+    "components": 206
   }
 }

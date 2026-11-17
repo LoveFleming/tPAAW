@@ -4177,11 +4177,6 @@
       "exportCount": 2
     },
     {
-      "file": "packages/ui/src/components/ReleaseRequests.tsx",
-      "functionCount": 19,
-      "exportCount": 3
-    },
-    {
       "file": "packages/server/src/lib/em-orchestrator.mjs",
       "functionCount": 19,
       "exportCount": 4
@@ -4235,6 +4230,11 @@
       "file": "packages/server/src/lib/release-unit/model.mjs",
       "functionCount": 15,
       "exportCount": 5
+    },
+    {
+      "file": "packages/ui/src/components/EMDashboard.tsx",
+      "functionCount": 14,
+      "exportCount": 1
     },
     {
       "file": "packages/ui/src/components/TaskBoard.tsx",
@@ -4302,11 +4302,6 @@
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/EMDashboard.tsx",
-      "functionCount": 12,
-      "exportCount": 1
-    },
-    {
       "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
       "functionCount": 12,
       "exportCount": 1
@@ -4362,6 +4357,11 @@
       "exportCount": 12
     },
     {
+      "file": "packages/server/src/routes/coding-crew-routes.mjs",
+      "functionCount": 11,
+      "exportCount": 1
+    },
+    {
       "file": "packages/server/src/lib/em-config.mjs",
       "functionCount": 11,
       "exportCount": 7
@@ -4385,11 +4385,6 @@
       "file": "packages/ui/src/components/ui/uiFeedback.ts",
       "functionCount": 10,
       "exportCount": 4
-    },
-    {
-      "file": "packages/server/src/routes/coding-crew-routes.mjs",
-      "functionCount": 10,
-      "exportCount": 1
     },
     {
       "file": "packages/server/src/routes/log-retention.mjs",
@@ -4512,12 +4507,7 @@
       "exportCount": 4
     },
     {
-      "file": "packages/ui/src/components/FeatureCockpit.tsx",
-      "functionCount": 7,
-      "exportCount": 2
-    },
-    {
-      "file": "packages/ui/src/components/FeatureMap.tsx",
+      "file": "packages/ui/src/components/ApiMapView.tsx",
       "functionCount": 7,
       "exportCount": 1
     },
@@ -4610,6 +4600,11 @@
       "file": "scripts/pack.mjs",
       "functionCount": 5,
       "exportCount": 0
+    },
+    {
+      "file": "packages/ui/src/components/DispatchWizard.tsx",
+      "functionCount": 5,
+      "exportCount": 1
     },
     {
       "file": "packages/ui/src/components/TestsPage.tsx",
@@ -4717,11 +4712,6 @@
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/HandoverPanel.tsx",
-      "functionCount": 4,
-      "exportCount": 1
-    },
-    {
       "file": "packages/ui/src/components/Icon.tsx",
       "functionCount": 4,
       "exportCount": 4
@@ -4812,11 +4802,6 @@
       "exportCount": 1
     },
     {
-      "file": "packages/ui/src/components/AgentBuilder.tsx",
-      "functionCount": 3,
-      "exportCount": 1
-    },
-    {
       "file": "packages/ui/src/components/AssistantSkillsModal.tsx",
       "functionCount": 3,
       "exportCount": 1
@@ -4838,6 +4823,11 @@
     },
     {
       "file": "packages/ui/src/components/DispatchReports.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/HandoverPanel.tsx",
       "functionCount": 3,
       "exportCount": 1
     },
@@ -4967,11 +4957,6 @@
       "exportCount": 2
     },
     {
-      "file": "packages/ui/src/components/DispatchWizard.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
       "file": "packages/ui/src/components/MermaidBlock.tsx",
       "functionCount": 2,
       "exportCount": 2
@@ -4983,11 +4968,6 @@
     },
     {
       "file": "packages/ui/src/components/RuCloneModal.tsx",
-      "functionCount": 2,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/RuQaSection.tsx",
       "functionCount": 2,
       "exportCount": 1
     },
@@ -5093,11 +5073,6 @@
     },
     {
       "file": "packages/ui/src/components/AuditLogPanel.tsx",
-      "functionCount": 1,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/ui/src/components/CrewAvatar.tsx",
       "functionCount": 1,
       "exportCount": 1
     },
@@ -5277,6 +5252,11 @@
       "exportCount": 1
     },
     {
+      "file": "packages/server/src/lib/dispatch-catalog.mjs",
+      "functionCount": 0,
+      "exportCount": 2
+    },
+    {
       "file": "packages/server/src/lib/overnight-runner.mjs",
       "functionCount": 0,
       "exportCount": 2
@@ -5365,21 +5345,35 @@
   "featureToTests": [
     {
       "featureId": "F20261107-001",
-      "featureName": "AI 開發工作台（Coding App 後端 API）",
+      "featureName": "Coding 專案分析與 AI 協作路由",
       "tests": [
-        "tests/unit/a2a-protocol.test.mjs",
-        "tests/unit/coding-auto-dispatch.test.mjs",
         "tests/unit/coding-evidence.test.mjs",
         "tests/unit/coding-handover.test.mjs",
         "tests/unit/coding-issues.test.mjs",
-        "tests/unit/coding-review-board.test.mjs",
         "tests/unit/coding-trouble.test.mjs",
         "tests/unit/cu-staleness.test.mjs"
       ]
     },
     {
+      "featureId": "F20261109-002",
+      "featureName": "AI 代理對話與日誌維運後台",
+      "tests": [
+        "tests/unit/a2a-protocol.test.mjs",
+        "tests/unit/agent-logs.test.mjs",
+        "tests/unit/ai-settings.test.mjs",
+        "tests/unit/audit-log-route.test.mjs",
+        "tests/unit/audit-log.test.mjs",
+        "tests/unit/coding-auto-dispatch.test.mjs",
+        "tests/unit/coding-review-board.test.mjs",
+        "tests/unit/helpdesk.test.mjs",
+        "tests/unit/llm-logs.test.mjs",
+        "tests/unit/skill-engagement.test.mjs",
+        "tests/unit/chat-uploads-hardening.test.mjs"
+      ]
+    },
+    {
       "featureId": "F20261107-002",
-      "featureName": "Coding 維運工具後端（Vibe 檔案/會話、自動派工計畫、App 與專案、API 測試器）",
+      "featureName": "Coding 工作區工具組（備份還原、API 測試台、應用／筆記／心智圖、自動派工計畫、Git 與檔案操作）",
       "tests": [
         "tests/unit/chat-uploads-hardening.test.mjs",
         "tests/unit/coding-security-extended.test.mjs",
@@ -5391,15 +5385,150 @@
       ]
     },
     {
+      "featureId": "F20261109-005",
+      "featureName": "AI Agent 執行核心（工具迴圈、沙箱審批與上下文治理）",
+      "tests": [
+        "tests/unit/a2a-protocol.test.mjs",
+        "tests/unit/audit-log.test.mjs",
+        "packages/server/test/vision-phase4.test.mjs",
+        "tests/unit/context-compaction.test.mjs",
+        "packages/server/test/vision-array-content.test.mjs",
+        "tests/unit/context-truncation.test.mjs",
+        "tests/unit/surrogate-safety.test.mjs",
+        "tests/unit/dependency-context.test.mjs",
+        "tests/unit/dispatch-verifier.test.mjs",
+        "tests/unit/exec-approvals.test.mjs",
+        "tests/unit/llm-utils.test.mjs",
+        "tests/unit/parse-model-reference.test.mjs",
+        "packages/server/test/disable-thinking.test.mjs",
+        "tests/unit/paaw-sandbox-mxc.test.mjs",
+        "tests/unit/script-guard.test.mjs",
+        "tests/unit/security-mode.test.mjs",
+        "tests/unit/shell-exec.test.mjs",
+        "packages/server/src/lib/test-runner.mjs",
+        "tests/unit/security-kernel-matrix.test.mjs",
+        "packages/server/test/vision-phase3.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-008",
+      "featureName": "AI 團隊調度與技能資產管理（EM 調度設定 / RU 技能實例）",
+      "tests": [
+        "tests/unit/changelog-review-scope.test.mjs",
+        "tests/unit/ru-skills.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-009",
+      "featureName": "PAAW 工作區介面（設定、知識庫、看板與 AI 協作頁面）",
+      "tests": [
+        "tests/unit/chatview.test.mjs",
+        "tests/unit/notes.test.mjs"
+      ]
+    },
+    {
       "featureId": "F20261107-004",
-      "featureName": "日誌資產治理與系統清理（保留政策 / Janitor / 審計與黑盒子）",
+      "featureName": "AI 上下文組裝與排程 Agent 執行",
       "tests": [
         "tests/unit/context-engine.test.mjs",
-        "tests/unit/server-entrypoint.test.mjs",
-        "tests/unit/audit-log-route.test.mjs",
-        "tests/unit/audit-log.test.mjs",
-        "tests/unit/llm-logs.test.mjs",
-        "tests/unit/skill-engagement.test.mjs"
+        "tests/unit/server-entrypoint.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-011",
+      "featureName": "Next.js 16 後端最佳實務範本集（路由、快取、Server Actions、Proxy）",
+      "tests": [
+        "tests/unit/nextjs-async-params-template.test.mjs",
+        "tests/unit/nextjs-async-params-page-template.test.mjs",
+        "tests/unit/nextjs-use-cache-template.test.mjs",
+        "tests/unit/nextjs-parallel-routes-template.test.mjs",
+        "tests/unit/route-handler-api-template.test.mjs",
+        "tests/unit/server-actions-form-compile.test.mjs",
+        "tests/unit/server-actions-form-template.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261016-070",
+      "featureName": "AI 對話上下文組裝與記憶精煉",
+      "tests": [
+        "tests/unit/shared-utils.test.ts"
+      ]
+    },
+    {
+      "featureId": "F-003",
+      "featureName": "資料庫連線與 Schema 初始化（SQLite 持久層核心）",
+      "tests": [
+        "tests/unit/db-connection.test.ts",
+        "tests/unit/db-migrate.test.ts",
+        "tests/unit/db-repositories.test.ts",
+        "tests/unit/db-paths.test.ts"
+      ]
+    },
+    {
+      "featureId": "F20261107-014",
+      "featureName": "資料存取層：技能執行紀錄、對話與資料模型儲存",
+      "tests": [
+        "tests/unit/db-repositories.test.ts"
+      ]
+    },
+    {
+      "featureId": "F20261016-071",
+      "featureName": "自動派工調度與派工報告",
+      "tests": [
+        "tests/unit/auto-dispatch-shared.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-017",
+      "featureName": "程式碼理解與功能地圖引擎（Code Understanding / API-First 功能盤點）",
+      "tests": [
+        "tests/unit/feature-skeleton-v3.test.mjs",
+        "tests/unit/api-features.test.mjs",
+        "tests/unit/tools-index.test.mjs",
+        "packages/server/src/lib/test-signals.mjs",
+        "tests/unit/ui-features.test.mjs",
+        "tests/unit/crosscut-concepts.test.mjs",
+        "tests/unit/utility-consumers.test.mjs",
+        "tests/unit/cu-staleness.test.mjs",
+        "tests/unit/em-foreman.test.mjs",
+        "packages/server/tests/unit/error-code-json-repair.test.mjs",
+        "tests/unit/feature-map-store.test.mjs",
+        "tests/unit/feature-merge.test.mjs",
+        "tests/unit/feature-phase-c.test.mjs",
+        "tests/unit/severity-auto-scan.test.mjs",
+        "packages/server/src/lib/test-intelligence.mjs",
+        "tests/unit/feature-risk-scan.test.mjs",
+        "tests/unit/subfeature-refine.test.mjs",
+        "tests/unit/changelog-review-scope.test.mjs",
+        "tests/unit/page-inventory.test.mjs",
+        "tests/unit/release-requests-delta.test.mjs",
+        "tests/unit/release-evidence-snapshot.test.mjs",
+        "tests/unit/release-evidence.test.mjs",
+        "tests/unit/review-boundary-crosscut.test.mjs",
+        "tests/unit/stable-stringify.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F-022",
+      "featureName": "工具呼叫安全核心（政策管線、審批、金鑰保管與稽核）",
+      "tests": [
+        "tests/unit/security-kernel-matrix.test.mjs",
+        "tests/unit/audit-log.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F20261107-021",
+      "featureName": "UI 應用外殼與共用基礎層",
+      "tests": [
+        "tests/unit/ui-utils.test.ts"
+      ]
+    },
+    {
+      "featureId": "F20261107-022",
+      "featureName": "AI 對話介面與 Crew 管理（共用 Chat UI 層）",
+      "tests": [
+        "tests/unit/chatview.test.mjs",
+        "tests/unit/usage-report-panel.test.mjs"
       ]
     },
     {
@@ -5440,101 +5569,10 @@
       ]
     },
     {
-      "featureId": "F20261107-008",
-      "featureName": "RU 專案營運設定（EM 編排設定與技能實例管理）",
-      "tests": [
-        "tests/unit/a2a-protocol.test.mjs",
-        "tests/unit/changelog-review-scope.test.mjs",
-        "tests/unit/ru-skills.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F20261107-009",
-      "featureName": "工作區功能頁面（筆記／專案／設定等 UI 頁面集合）",
-      "tests": [
-        "tests/unit/chatview.test.mjs",
-        "tests/unit/notes.test.mjs"
-      ]
-    },
-    {
       "featureId": "F20261016-010",
       "featureName": "Agent 執行日誌與 RU 成本統計",
       "tests": [
         "tests/unit/agent-logs.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F20261107-011",
-      "featureName": "Next.js 16 後端最佳實踐範本（技能教材）",
-      "tests": [
-        "tests/unit/nextjs-async-params-template.test.mjs",
-        "tests/unit/nextjs-async-params-page-template.test.mjs",
-        "tests/unit/nextjs-use-cache-template.test.mjs",
-        "tests/unit/nextjs-parallel-routes-template.test.mjs",
-        "tests/unit/route-handler-api-template.test.mjs",
-        "tests/unit/server-actions-form-compile.test.mjs",
-        "tests/unit/server-actions-form-template.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F20261016-070",
-      "featureName": "AI 對話上下文組裝與記憶精煉",
-      "tests": [
-        "tests/unit/shared-utils.test.ts"
-      ]
-    },
-    {
-      "featureId": "F-003",
-      "featureName": "SQLite 資料庫連線與 Schema 初始化",
-      "tests": [
-        "tests/unit/db-connection.test.ts",
-        "tests/unit/db-migrate.test.ts",
-        "tests/unit/db-repositories.test.ts",
-        "tests/unit/db-paths.test.ts"
-      ]
-    },
-    {
-      "featureId": "F20261107-014",
-      "featureName": "對話、技能執行與資料表的持久化存取層",
-      "tests": [
-        "tests/unit/db-repositories.test.ts"
-      ]
-    },
-    {
-      "featureId": "F20261016-071",
-      "featureName": "AI 派工執行安全與成本歸集",
-      "tests": [
-        "tests/unit/exec-approvals.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F20261107-017",
-      "featureName": "專案智慧分析與品質治理（Feature Map 骨架與證據審查）",
-      "tests": [
-        "tests/unit/auto-dispatch-shared.test.mjs",
-        "tests/unit/feature-skeleton-v3.test.mjs",
-        "tests/unit/crosscut-concepts.test.mjs",
-        "tests/unit/utility-consumers.test.mjs",
-        "tests/unit/cu-staleness.test.mjs",
-        "tests/unit/dispatch-verifier.test.mjs",
-        "tests/unit/em-foreman.test.mjs",
-        "packages/server/tests/unit/error-code-json-repair.test.mjs",
-        "tests/unit/feature-map-store.test.mjs",
-        "tests/unit/feature-merge.test.mjs",
-        "tests/unit/feature-phase-c.test.mjs",
-        "tests/unit/severity-auto-scan.test.mjs",
-        "packages/server/src/lib/test-intelligence.mjs",
-        "tests/unit/feature-risk-scan.test.mjs",
-        "tests/unit/subfeature-refine.test.mjs",
-        "tests/unit/changelog-review-scope.test.mjs",
-        "tests/unit/release-requests-delta.test.mjs",
-        "tests/unit/release-evidence-snapshot.test.mjs",
-        "tests/unit/release-evidence.test.mjs",
-        "tests/unit/review-boundary-crosscut.test.mjs",
-        "tests/unit/shell-exec.test.mjs",
-        "packages/server/src/lib/test-runner.mjs",
-        "tests/unit/stable-stringify.test.mjs",
-        "packages/server/src/lib/test-signals.mjs"
       ]
     },
     {
@@ -5545,29 +5583,6 @@
         "tests/unit/tools-index.test.mjs",
         "packages/server/src/lib/test-signals.mjs",
         "tests/unit/ui-features.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F-022",
-      "featureName": "工具呼叫安全核心（政策管線 · 審批 · 稽核 · 金鑰保險箱）",
-      "tests": [
-        "tests/unit/security-kernel-matrix.test.mjs",
-        "tests/unit/audit-log.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F20261107-021",
-      "featureName": "UI 外殼與共用基礎層（啟動器、分頁工作區、主題、i18n、工具函式）",
-      "tests": [
-        "tests/unit/ui-utils.test.ts"
-      ]
-    },
-    {
-      "featureId": "F20261107-022",
-      "featureName": "AI 工作團隊管理與對話工作台",
-      "tests": [
-        "tests/unit/chatview.test.mjs",
-        "tests/unit/usage-report-panel.test.mjs"
       ]
     },
     {
@@ -5889,30 +5904,30 @@
   "testReports": {
     "found": 2,
     "mergedCoverage": {
-      "totalLinePct": 45.32,
-      "linesCovered": 10823,
-      "linesTotal": 23881,
+      "totalLinePct": 45.19,
+      "linesCovered": 10802,
+      "linesTotal": 23900,
       "sources": [
         {
           "runner": "vitest/jest (istanbul 格式)",
-          "at": "2026-11-07T13:37:32.064Z",
-          "totalLinePct": 45.32,
+          "at": "2026-11-07T14:28:27.042Z",
+          "totalLinePct": 45.19,
           "file": null
         }
       ],
       "merged": false,
-      "at": "2026-11-07T13:37:32.064Z"
+      "at": "2026-11-07T14:28:27.042Z"
     },
     "reports": [
       {
         "runner": "vitest/jest (istanbul 格式)",
         "kind": "coverage",
-        "at": "2026-11-07T13:37:32.064Z",
+        "at": "2026-11-07T14:28:27.042Z",
         "total": null,
         "passed": null,
         "failed": null,
         "skipped": null,
-        "totalLinePct": 45.32,
+        "totalLinePct": 45.19,
         "status": null,
         "durationMs": null,
         "id": null,
@@ -5924,16 +5939,16 @@
       {
         "runner": "PAAW test-run",
         "kind": "run",
-        "at": "2026-11-07T13:37:32.153Z",
+        "at": "2026-11-07T14:28:27.127Z",
         "total": 1795,
         "passed": 1795,
         "failed": 0,
         "skipped": 0,
         "totalLinePct": null,
         "status": "pass",
-        "durationMs": 8793,
-        "id": "RUN-20261107-006",
-        "headSha": "1e9bb05",
+        "durationMs": 8284,
+        "id": "RUN-20261107-007",
+        "headSha": "cb140b5",
         "includeE2e": false,
         "commands": [
           "npx vitest run --reporter=json --outputFile=.paaw/test-runs/.vitest.json --coverage --coverage.reporter=json-summary --coverage.reporter=text --coverage.reportsDirectory=coverage --coverage.reportOnFailure=true"
@@ -5952,15 +5967,15 @@
       {
         "runner": "PAAW test-run",
         "kind": "run",
-        "at": "2026-11-07T13:37:32.153Z",
+        "at": "2026-11-07T14:28:27.127Z",
         "status": "pass",
         "total": 1795,
         "passed": 1795,
         "failed": 0,
         "skipped": 0,
-        "durationMs": 8793,
-        "id": "RUN-20261107-006",
-        "headSha": "1e9bb05",
+        "durationMs": 8284,
+        "id": "RUN-20261107-007",
+        "headSha": "cb140b5",
         "includeE2e": false,
         "byKind": {
           "unit": {
@@ -5979,7 +5994,7 @@
       {
         "runner": "vitest/jest (istanbul 格式)",
         "kind": "coverage",
-        "at": "2026-11-07T13:37:32.064Z",
+        "at": "2026-11-07T14:28:27.042Z",
         "fileCoverage": {
           "data/skills/physical-skill/nextjs-backend-best-practices/templates/async-params-page.tsx": 50,
           "packages/db/src/connection.ts": 60,
@@ -6047,7 +6062,7 @@
           "packages/server/src/lib/release-evidence-snapshot.mjs": 75.14,
           "packages/server/src/lib/release-evidence.mjs": 90.83,
           "packages/server/src/lib/release-requests.mjs": 50.47,
-          "packages/server/src/lib/review-boundary.mjs": 78.51,
+          "packages/server/src/lib/review-boundary.mjs": 61.15,
           "packages/server/src/lib/ru-resolver.mjs": 70.31,
           "packages/server/src/lib/ru-skills.mjs": 98.42,
           "packages/server/src/lib/running-agents.mjs": 100,
@@ -6111,7 +6126,7 @@
           "packages/server/src/routes/coding-review-board.mjs": 81.94,
           "packages/server/src/routes/coding-ru-skills.mjs": 93.44,
           "packages/server/src/routes/coding-trouble.mjs": 78.94,
-          "packages/server/src/routes/coding.mjs": 2.8,
+          "packages/server/src/routes/coding.mjs": 2.76,
           "packages/server/src/routes/context.mjs": 41.79,
           "packages/server/src/routes/helpdesk.mjs": 66.02,
           "packages/server/src/routes/llm-logs.mjs": 59.58,
@@ -6128,9 +6143,9 @@
           "packages/ui/src/utils/index.ts": 100,
           "packages/ui/src/utils/stableStringify.ts": 100
         },
-        "totalLinePct": 45.32,
-        "linesCovered": 10823,
-        "linesTotal": 23881
+        "totalLinePct": 45.19,
+        "linesCovered": 10802,
+        "linesTotal": 23900
       }
     ],
     "e2e": [],
@@ -6146,8 +6161,8 @@
       "e2e": 11
     },
     "totalMappings": 119,
-    "coverageGapFiles": 249,
-    "estimatedCoverageRate": "25.7%",
-    "featureTestCoverage": 61
+    "coverageGapFiles": 245,
+    "estimatedCoverageRate": "26.0%",
+    "featureTestCoverage": 63
   }
 }
