@@ -2166,5 +2166,11 @@
   "projectMd.hasContent": "Section has content",
   "projectMd.readOnly": "Read-only · AI writes",
   "projectMd.refreshTitle": "Reload (after Xiaowei writes)",
-  "projectMd.emptySection": "Empty section — discuss with Xiaowei; she'll write it in via spec_write"
+  "projectMd.emptySection": "Empty section — discuss with Xiaowei; she'll write it in via spec_write",
+  "projectMd.fillAll": "✨ AIで全項目記入",
+  "projectMd.fillAllTitle": "シャオウェイが対話（貼り付け内容含む）＋プロジェクト事実から8セクション全てを生成・書き込み（1-2分）",
+  "projectMd.fillAllRunning": "セクション生成中…",
+  "projectMd.fillAllDone": "{n} セクションを書き込みました",
+  "projectMd.sugg4Label": "貼り付けて一括記入",
+  "projectMd.sugg4Prompt": "このプロジェクトの仕様・要件を下に貼ります — 8セクションのスキーマに整理して、spec_write の sections で全8セクションを一括書き込みしてください："
 }

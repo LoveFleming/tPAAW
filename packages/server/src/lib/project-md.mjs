@@ -38,6 +38,99 @@ const LEGACY_AUTO_SIGN = "🤖 CU 自動生成初稿"; // 舊 deterministic draf
 /** 分節用純標題（tab sheet / split-join 對齊這個） */
 export const SPEC_SECTION_TITLES = SPEC_SECTIONS.map(s => s.split(" — ")[0]);
 
+/**
+ * 每節各自的格式 schema（2026-11-18 Fleming 定調：像 GHS spec 的 FR 條目 — 簡單、清楚、人跟 AI 都好懂；不要過度設計）
+ * 生成/寫入 prompt 與 spec_write tool 共用這份格式定義。
+ */
+export const SPEC_SECTION_SCHEMAS = [
+  {
+    n: 1, title: "Product Overview",
+    format: `以條列呈現，固定五塊（沒有的寫「（待討論）」）：
+- **定位**：一句話產品定位
+- **目標**：
+- **範圍內**：
+- **範圍外**：
+- **使用情境**：`,
+  },
+  {
+    n: 2, title: "Functional Requirements",
+    format: `每條需求一個單元，格式固定（GitHub GHS spec 同款）：
+
+#### FR-01 — 短標題
+
+**Requirement**
+
+一小段需求描述。
+
+**Acceptance Criteria**
+
+- 驗收條件 1
+- 驗收條件 2
+
+**Business Rule**
+
+- 業務規則（沒有可省略整塊）`,
+  },
+  {
+    n: 3, title: "Non-Functional Requirements",
+    format: `每條一個單元：
+
+#### NFR-01 — Performance / Availability / Security / Scalability（擇一當標題）
+
+**Requirement**
+
+需求描述。
+
+**Acceptance Criteria**
+
+- 驗收條件`,
+  },
+  {
+    n: 4, title: "API & Data Contract",
+    format: `先一張總表（Endpoint | Method | 用途），再逐一：
+
+#### API-01 — POST /path
+
+- 用途：
+- Request：（JSON 範例或 schema）
+- Response：（JSON 範例或 schema）
+- Error Codes：HTTP status + 意義（條列）`,
+  },
+  {
+    n: 5, title: "Architecture Design",
+    format: `四塊：
+- **Components**：表格（Component | 職責）
+- **Sequence**：mermaid sequenceDiagram（關鍵流程一張）
+- **Integrations**：表格（From | To | Protocol/Format）
+- **Data Flow**：條列或 mermaid flowchart`,
+  },
+  {
+    n: 6, title: "Technical Design",
+    format: `四塊：
+- **技術選型**：表格（項目 | 選擇）
+- **Modules**：表格（Module | 職責）
+- **核心邏輯**：說明或 mermaid
+- **關鍵決策**：表格（主題 | 決定 | 原因）`,
+  },
+  {
+    n: 7, title: "Testing Strategy",
+    format: `先一句測試目標，再一張測試案例表：
+
+| ID | 類型 | 情境 | 預期結果 |
+
+類型 = Unit / Integration / E2E / Failure / Load。`,
+  },
+  {
+    n: 8, title: "Operations & Observability",
+    format: `五塊：
+- **Metrics**：表格（Metric | 用途）
+- **Logging**：條列規則（含「不記什麼」）
+- **Tracing**：一句話策略（可「暫不」）
+- **Deployment**：部署方式條列
+- **Alerting**：表格（Alert | 觸發條件）`,
+  },
+];
+
 /** 把 spec markdown 切成 8 節內容（無標題的空字串）— tab sheet 用（2026-11-16 Fleming） */
 export function splitSpecSections(specMd) {
   const parts = new Array(8).fill("");
@@ -84,7 +177,39 @@ async function readSpecAiConversation(paaw) {
     } catch {}
   }
   const msgs = Array.isArray(conv?.messages) ? conv.messages : (Array.isArray(conv) ? conv : []);
-  return msgs.filter(m => (m.role === "user" || m.role === "assistant") && m.content).slice(-30);
+  return msgs.filter(m => (m.role === "user" || m.role === "assistant") && m.content).slice(-60);
+}
+
+const stripCodeFence = (c) => (c || "").replace(/^```(?:markdown)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+
+/** 共用：單節生成 prompt（帶各節 schema 格式 — 2026-11-18 Fleming） */
+function buildSectionPrompt(index, transcript, facts, extra = "") {
+  const schema = SPEC_SECTION_SCHEMAS[index];
+  const title = SPEC_SECTIONS[index];
+  return `你是林曉薇（Product Spec 協作助理）。根據下方「與人的討論紀錄（含人貼上的內容）」和「專案事實」，寫出 Product Spec 的其中一節。
+
+目標 section：## ${title}
+
+本節固定格式（照這個 schema 寫，不要自創結構）：
+${schema.format}
+
+嚴格規則：
+- 人貼的內容/決定最優先，原汁原味收錄（可整理排版，不得改意思）；其次專案事實；都沒有的寫「（待討論）」
+- 不得捏造事實；專案事實沒有的 API/feature 不要發明
+- ID 編號（FR-01 等）延續遞增，不要重號
+- 流程/架構/互動盡量附 mermaid 圖（mermaid 圍籬：flowchart / sequenceDiagram / stateDiagram-v2）
+- 只輸出這一節的 markdown 本體：不加 ## 標題（外層會加）、不包 \`\`\` 圍籬、無前言結語${extra}
+${transcript ? `
+與人的討論紀錄（最新在後，可能含人貼上的規格內容）：
+${transcript}` : "\n（尚無討論紀錄 — 依專案事實寫，沒有的寫待討論）"}
+
+專案事實（JSON）：
+${JSON.stringify(facts, null, 2)}`;
+}
+
+async function callAndStrip(callLLM, prompt) {
+  const r = await callLLM({ messages: [{ role: "user", content: prompt }], temperature: 0.3, maxTokens: 8192, thinking: { type: "disabled" } });
+  return stripCodeFence(r?.content);
 }
 
 /**
@@ -97,26 +222,9 @@ export async function generateSpecSection(root, index, opts = {}) {
   const paaw = createPaawProject(root);
   const [conversation, facts] = await Promise.all([readSpecAiConversation(paaw), collectFacts(root)]);
   const title = SPEC_SECTIONS[index];
-  const transcript = conversation.map(m => `${m.role === "user" ? "人" : "曉薇"}: ${m.content}`).join("\n\n").slice(-16000);
-  const prompt = `你是林曉薇（Product Spec 協作助理）。根據下方「與人的討論紀錄」和「專案事實」，寫出 Product Spec 的其中一節。
-
-目標 section：## ${title}
-
-嚴格規則：
-- 討論紀錄裡人的決定/結論最優先；其次專案事實；都没有的寫「（待討論）」
-- 不得起造事實；專案事實沒有的 API/feature 不要發明
-- 輸出 5-15 條 markdown 要點（### 小標可自訂），直接可用；流程/架構/互動盡量附 mermaid 圖（mermaid 圍籬：flowchart / sequenceDiagram / stateDiagram-v2）
-- 只輸出這一節的 markdown 本體：不加 ## 標題（外層會加）、不包 \`\`\` 圍籬、無前言結語
-${transcript ? `
-與人的討論紀錄（最新在後）：
-${transcript}` : "\n（尚無討論紀錄 — 依專案事實寫，沒有的寫待討論）"}
-
-專案事實（JSON）：
-${JSON.stringify(facts, null, 2)}`;
-  const r = await opts.callLLM({ messages: [{ role: "user", content: prompt }], temperature: 0.3, maxTokens: 8192, thinking: { type: "disabled" } });
-  let content = r?.content?.trim() || "";
+  const transcript = conversation.map(m => `${m.role === "user" ? "人" : "曉薇"}: ${m.content}`).join("\n\n").slice(-24000);
+  const content = await callAndStrip(opts.callLLM, buildSectionPrompt(index, transcript, facts));
   if (!content) return null;
-  content = content.replace(/^```(?:markdown)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
   // 寫入：只動這一節
   const existing = await paaw.readFile("PROJECT.md");
   const parsed = parseProjectMd(existing);
@@ -126,6 +234,37 @@ ${JSON.stringify(facts, null, 2)}`;
   let name = facts.name || "Project";
   await paaw.writeFile("PROJECT.md", buildProjectMd(name, null, null, specSection));
   return { written: true, index, content };
+}
+
+/**
+ * 一次填整份 spec（2026-11-18 Fleming：人把 project 內容貼給右邊曉薇 → 一鍵/AI 觸發填好全部 8 節）
+ * 依據：side chat 對話（含人貼上的內容，取較長窗口）+ 專案事實；逐節生成（各節帶各自 schema），全成功才寫入。
+ * @returns {{written:boolean, sections:number[], failed?:number[]}}
+ */
+export async function generateFullSpec(root, opts = {}) {
+  if (!opts.callLLM) return { written: false, reason: "no-llm" };
+  const paaw = createPaawProject(root);
+  const [conversation, facts] = await Promise.all([readSpecAiConversation(paaw), collectFacts(root)]);
+  const transcript = conversation.map(m => `${m.role === "user" ? "人" : "曉薇"}: ${m.content}`).join("\n\n").slice(-60000);
+  const parts = new Array(8).fill("");
+  const failed = [];
+  for (let i = 0; i < 8; i++) {
+    // 前一節結果帶入下一節 prompt，避免 ID 編號/内容重複（FR-01 起頭等）
+    const prev = i > 0 && parts[i - 1] ? `\n\n（前一節 ${SPEC_SECTION_TITLES[i - 1]} 已寫内容，供參考保持一致、ID 不重號）：\n${parts[i - 1].slice(0, 2000)}` : "";
+    try {
+      const c = await callAndStrip(opts.callLLM, buildSectionPrompt(i, transcript, facts, prev));
+      if (c) parts[i] = c; else failed.push(i + 1);
+    } catch { failed.push(i + 1); }
+  }
+  if (failed.length === 8) return { written: false, reason: "all-failed", failed };
+  // 失敠的節保留原内容（原本空就維持空）
+  const existing = await paaw.readFile("PROJECT.md");
+  const parsed = parseProjectMd(existing);
+  const oldParts = splitSpecSections(parsed.specSection || "");
+  for (let i = 0; i < 8; i++) if (!parts[i] && oldParts[i]) parts[i] = oldParts[i];
+  let name = facts.name || root.split(/[\\/]/).pop() || "Project";
+  await paaw.writeFile("PROJECT.md", buildProjectMd(name, null, null, joinSpecSections(parts)));
+  return { written: true, sections: parts.map((p, i) => (p ? i + 1 : 0)).filter(Boolean), failed: failed.length ? failed : undefined };
 }
 
 function sliceBetween(md, startMark, endMark) {
@@ -257,19 +396,19 @@ export async function generateSpecDraft(root, opts = {}) {
   const hasCode = (facts.features?.length || 0) > 0 || (facts.codeIntel?.functions || 0) > 0 || (facts.codeIntel?.symbols || 0) > 0;
   if (!hasCode) return { generated: false, reason: "no-code", specSection: "" };
 
-  const schemaNote = SPEC_SECTIONS.map(s => `## ${s}`).join("\n");
+  const schemas = SPEC_SECTION_SCHEMAS;
   let specSection = null;
   let source = "deterministic";
   if (opts.callLLM) {
     try {
+      const schemaNote = schemas.map(s => `## ${SPEC_SECTIONS[s.n - 1]}\n格式：\n${s.format}`).join("\n\n");
       const prompt = `你是 release unit 的 spec 工程師。根據下方「事實資料」寫 PRODUCT Spec 初稿（code→spec 反向生成）。
 
 嚴格規則：
 - 只用事實資料，不捏造；資料沒有的寫「（資料待補 — 待人確認）」
-- 固定八個二級標題照抄：
+- 固定八個二級標題照抄，每節照各自的格式 schema 寫：
 ${schemaNote}
-- 每節 3-8 條要點，简潔；API & Data Contract 從 features/API 事實寫
-- 只輸出 markdown 本體：不包 \`\`\` 圍籬、不加 # 一級標題、無前言結語
+- 不包 \`\`\` 圍籬、不加 # 一級標題、無前言結語
 
 事實資料（JSON）：
 ${JSON.stringify(facts, null, 2)}`;

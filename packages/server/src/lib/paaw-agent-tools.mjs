@@ -614,14 +614,15 @@ const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "spec_write",
-      description: "寫入 Product Spec 的單一 section（PROJECT.md 的 Product Spec 區）。Prod Spec 頁面是唯讀渲染 — 討論收斂後用這個工具寫入。只能動 spec，碰不到其他檔案。",
+      description: "寫入 Product Spec（PROJECT.md 的 Product Spec 區）。Prod Spec 頁面唯讀渲染 — 討論收斂後用這個工具寫入。用法一：section+markdown 寫單節；用法二：sections={1..8: markdown} 一次寫整份（人貼上完整規格內容時，照各節 schema 整理後全量寫入）。只能動 spec，碰不到其他檔案。",
       parameters: {
         type: "object",
         properties: {
-          section: { type: "number", description: "Section 編號 1-8：1 Overview / 2 功能需求 / 3 非功能需求 / 4 API Contract / 5 架構設計 / 6 技術設計 / 7 測試策略 / 8 維運觀測" },
-          markdown: { type: "string", description: "該節完整 markdown（整節覆寫；流程/架構/互動附 mermaid 圈籃）" },
+          section: { type: "number", description: "單節寫入：Section 編號 1-8：1 Overview / 2 功能需求 / 3 非功能需求 / 4 API Contract / 5 架構設計 / 6 技術設計 / 7 測試策略 / 8 維運觀測" },
+          markdown: { type: "string", description: "單節寫入：該節完整 markdown（整節覆寫；流程/架構/互動附 mermaid 圈籬）" },
+          sections: { type: "object", description: "整份寫入：key 為 1-8 節號（字串或數字），value 為該節完整 markdown。與 section/markdown 二擇一。沒資料的節可省略 key（保留原内容）" },
         },
-        required: ["section", "markdown"],
+        required: [],
       },
     },
   },

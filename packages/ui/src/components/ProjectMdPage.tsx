@@ -28,6 +28,7 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [showChat, setShowChat] = useState(true); // 林曉薇 side chat 開關（預設開）
+  const [filling, setFilling] = useState(false); // ✨ AI 填整份進行中（2026-11-18）
   const chatPane = useColResize(460, 320, 720); // 與 ReleaseManager/Handover 同款 splitter
 
   const load = useCallback(async () => {
@@ -55,6 +56,28 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
     setRefreshing(true);
     await load();
     setRefreshing(false);
+  };
+
+  // ✨ AI 填整份（2026-11-18 Fleming：人把 project 內容貼給曉薇後一鍵填 8 節）— 逐節生成，寫入後自動重載
+  const fillAll = async () => {
+    if (filling) return;
+    if (!window.confirm(t("projectMd.fillAllTitle") + "\n\n「OK」開始？")) return;
+    setFilling(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-project/project-md/spec-fill?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const d = await r.json();
+      await load();
+      if (d?.written) {
+        const n = (d.sections || []).length;
+        window.alert(t("projectMd.fillAllDone").replace("{n}", String(n)) + (d.failed?.length ? `（失敗：${d.failed.join(", ")}）` : ""));
+      } else {
+        window.alert(d?.error || "生成失敗 — 未寫入");
+      }
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "spec-fill 請求失敗");
+    } finally {
+      setFilling(false);
+    }
   };
 
   if (!rootPath) return null;
@@ -87,6 +110,13 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
           ))}
           <div className="flex-1" />
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">{t("projectMd.readOnly")}</span>
+          <button
+            onClick={fillAll}
+            disabled={filling}
+            className="text-xs px-2 py-1 rounded-lg border transition-colors disabled:opacity-40 whitespace-nowrap"
+            style={{ borderColor: tk.borderLight || "#e7e5e4", color: tk.accent || "#8b5e3c" }}
+            title={t("projectMd.fillAllTitle")}
+          >{filling ? `⏳ ${t("projectMd.fillAllRunning")}` : t("projectMd.fillAll")}</button>
           <button
             onClick={refresh}
             disabled={refreshing}
@@ -133,6 +163,7 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
               modelFeature="sideChat.architect"
               placeholder={t("projectMd.chatPlaceholder")}
               suggestions={[
+                { label: t("projectMd.sugg4Label"), prompt: t("projectMd.sugg4Prompt") },
                 { label: t("projectMd.sugg1Label"), prompt: `${t("projectMd.sugg1Prompt")}「${activeIdx + 1}. ${tabLabels[activeIdx]}」` },
                 { label: t("projectMd.sugg2Label"), prompt: t("projectMd.sugg2Prompt") },
                 { label: t("projectMd.sugg3Label"), prompt: `${t("projectMd.sugg3Prompt")}「${activeIdx + 1}. ${tabLabels[activeIdx]}」` },

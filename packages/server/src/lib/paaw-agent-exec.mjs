@@ -2656,22 +2656,37 @@ baseline ${rr.baseline?.short}(${rr.baseline?.source})→ target ${rr.target?.sh
             // ══════════════════════════════════════════
       // ── spec_write：林曉薇 spec 共寫工具（2026-11-16 Fleming）— 只能寫 PROJECT.md 的 Product Spec 單節 ──
       case "spec_write": {
-        const idx = Number(args.section);
-        if (!(idx >= 1 && idx <= 8)) return "Error: 'section' must be 1-8 (對應 8 個 spec sections).";
-        const md = String(args.markdown || "").trim();
-        if (!md) return "Error: 'markdown' is required (該節完整 markdown，可含 mermaid 圈籃)。";
         const { parseProjectMd, buildProjectMd, splitSpecSections, joinSpecSections } = await import("./project-md.mjs");
         const paaw = createPaawProject(cwd);
         if (!paaw.exists) await paaw.init();
         const existing = await paaw.readFile("PROJECT.md");
         const parsed = parseProjectMd(existing);
         const parts = splitSpecSections(parsed.specSection || "");
-        parts[idx - 1] = md;
+        let wroteDesc;
+        if (args.sections && typeof args.sections === "object" && !Array.isArray(args.sections)) {
+          // 整份寫入（2026-11-18）：sections key 1-8，省略的節保留原内容
+          let n = 0;
+          for (const [k, v] of Object.entries(args.sections)) {
+            const idx = Number(k);
+            const md = String(v || "").trim();
+            if (!(idx >= 1 && idx <= 8) || !md) continue;
+            parts[idx - 1] = md; n++;
+          }
+          if (!n) return "Error: 'sections' 至少要一個有效的 1-8 節號 + markdown。";
+          wroteDesc = `${n} sections full-write`;
+        } else {
+          const idx = Number(args.section);
+          if (!(idx >= 1 && idx <= 8)) return "Error: 'section' must be 1-8 (對應 8 個 spec sections)，或改用 'sections' 整份寫入。";
+          const md = String(args.markdown || "").trim();
+          if (!md) return "Error: 'markdown' is required (該節完整 markdown，可含 mermaid 圈籬)。";
+          parts[idx - 1] = md;
+          wroteDesc = `section ${idx} (${md.length} chars)`;
+        }
         let name = cwd.split(/[\\/]/).pop() || "Project";
         try { const pkg = JSON.parse(readSync(join(cwd, "package.json"), "utf-8")); if (pkg?.name) name = pkg.name; } catch {}
         await paaw.writeFile("PROJECT.md", buildProjectMd(name, null, null, joinSpecSections(parts)));
-        if (onEvent) onEvent({ type: "tool_end", name, result: `section ${idx} (${md.length} chars)` });
-        return `✅ Section ${idx} 已寫入 PROJECT.md（${md.length} chars）。UI 按 🔄 可看到最新内容。`;
+        if (onEvent) onEvent({ type: "tool_end", name, result: wroteDesc });
+        return `✅ Product Spec 已寫入 PROJECT.md（${wroteDesc}）。UI 按 🔄 可看到最新内容。`;
       }
 
       // ── Unified project_edit handler ──

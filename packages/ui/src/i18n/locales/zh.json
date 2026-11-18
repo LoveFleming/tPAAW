@@ -2166,5 +2166,11 @@
   "projectMd.hasContent": "此節已有內容",
   "projectMd.readOnly": "唯讀 · AI 寫入",
   "projectMd.refreshTitle": "重新載入（曉薇寫入後按這裡看最新）",
-  "projectMd.emptySection": "這一節還是空的 — 跟右邊林曉薇討論，收斂後她會用 spec_write 寫進來"
+  "projectMd.emptySection": "這一節還是空的 — 跟右邊林曉薇討論，收斂後她會用 spec_write 寫進來",
+  "projectMd.fillAll": "✨ AI 填整份",
+  "projectMd.fillAllTitle": "曉薇依對話紀錄（含你貼上的內容）+ 專案事實，逐節生成 8 節並寫入（1-2 分鐘）",
+  "projectMd.fillAllRunning": "曉薇逐節填寫中…",
+  "projectMd.fillAllDone": "已填好 {n} 節",
+  "projectMd.sugg4Label": "貼內容填整份",
+  "projectMd.sugg4Prompt": "我把這個 project 的規格/需求內容貼在下面 — 幫我照 8 節 schema 整理，然後用 spec_write 的 sections 一次寫入全部 8 節："
 }

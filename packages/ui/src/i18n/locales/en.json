@@ -2166,5 +2166,11 @@
   "projectMd.hasContent": "Section has content",
   "projectMd.readOnly": "Read-only · AI writes",
   "projectMd.refreshTitle": "Reload (after Xiaowei writes)",
-  "projectMd.emptySection": "Empty section — discuss with Xiaowei; she'll write it in via spec_write"
+  "projectMd.emptySection": "Empty section — discuss with Xiaowei; she'll write it in via spec_write",
+  "projectMd.fillAll": "✨ AI fill all",
+  "projectMd.fillAllTitle": "Hsiaowei generates all 8 sections from chat (incl. pasted content) + project facts (1-2 min)",
+  "projectMd.fillAllRunning": "Filling sections…",
+  "projectMd.fillAllDone": "{n} sections written",
+  "projectMd.sugg4Label": "Paste & fill all",
+  "projectMd.sugg4Prompt": "I'm pasting this project's spec/requirements below — organize it into the 8-section schema and write all 8 sections at once via spec_write sections:"
 }

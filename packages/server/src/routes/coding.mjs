@@ -580,6 +580,22 @@ export default async function projectRoute(req, res) {
       }
       return true;
     }
+    if (url.startsWith("/api/coding-project/project-md/spec-fill") && method === "POST") {
+      // 一次填整份 8 節（2026-11-18 Fleming：人貼 project 內容給曉薇 → 一鍵填好）— 逐節生成，全寫入 PROJECT.md
+      if (!paaw.exists) await paaw.init();
+      let modelOverride = null;
+      try { const b = JSON.parse(await readBody(req) || "{}"); modelOverride = b.model || null; } catch {}
+      try {
+        const { generateFullSpec } = await import("../lib/project-md.mjs");
+        const r = await generateFullSpec(root, { callLLM: (b) => callProjectLLM({ ...b, model: b.model || modelOverride || undefined }, { caller: "spec-fill-all", timeoutMs: 120_000, maxRetries: 2 }) });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(r));
+      } catch (e) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+      return true;
+    }
     if (url.startsWith("/api/coding-project/project-md/spec-section") && method === "POST") {
       // 林曉薇寫入單一 section（2026-11-16 Fleming — 討論對話 + 事實 → AI 觸發頁面更新）
       if (!paaw.exists) await paaw.init();
