@@ -29,7 +29,7 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [showChat, setShowChat] = useState(true); // 林曉薇 side chat 開關（預設開）
   const [filling, setFilling] = useState(false); // ✨ AI 填整份進行中（2026-11-18）
-  const chatPane = useColResize(460, 320, 720); // 與 ReleaseManager/Handover 同款 splitter
+  const chatPane = useColResize(520, 300, 760); // 2026-11-19 Fleming：預設寬與 architect/handover/release/ops 統一（520）
 
   const load = useCallback(async () => {
     if (!rootPath) return;
