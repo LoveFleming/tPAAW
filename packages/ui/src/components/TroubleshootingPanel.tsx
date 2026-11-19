@@ -293,9 +293,8 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
 
       {/* ── 右：Ops AI 助理 ── */}
       {/* 2026-10-09 Fleming：跟 QA browser 同款 — splitter 可拖寬 + 三按鈕（persistCrewId）+ model selector */}
-      {showChat && (<>
-      <ColResizer onDown={opsPane.startDrag} className="hidden md:block" />
-      <div className="shrink-0 hidden md:block" style={{ width: opsPane.width }}>
+      <ColResizer onDown={opsPane.startDrag} className={showChat ? "hidden md:block" : "hidden"} />
+      <div className="shrink-0 hidden md:block" style={{ width: opsPane.width, display: showChat ? undefined : "none" }}>
         <AgentSideChat
           ref={chatRef}
           agentId="ops"
@@ -314,7 +313,6 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
           ]}
         />
       </div>
-      </>)}
     </div>
   );
 }

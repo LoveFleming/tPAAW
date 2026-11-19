@@ -424,9 +424,8 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
 
       {/* 右：神 — Tester AI */}
       {/* 2026-10-09 Fleming：跟 QA browser 同款 — splitter 可拖寬 + 三按鈕（persistCrewId）+ model selector */}
-      {showChat && (<>
-      <ColResizer onDown={testerPane.startDrag} className="hidden xl:block" />
-      <div className="shrink-0 border-l hidden xl:flex flex-col" style={{ width: testerPane.width, borderColor: borderLight }}>
+      <ColResizer onDown={testerPane.startDrag} className={showChat ? "hidden xl:block" : "hidden"} />
+      <div className="shrink-0 border-l hidden xl:flex flex-col" style={{ width: testerPane.width, borderColor: borderLight, display: showChat ? undefined : "none" }}>
         <AgentSideChat
           ref={chatRef}
           agentId="tester"
@@ -445,7 +444,6 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
           ]}
         />
       </div>
-      </>)}
     </div>
   );
 }

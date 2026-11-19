@@ -147,10 +147,8 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
       </div>
 
       {/* ── 右：林曉薇 side chat（架構師 — 討論 + spec_write 寫入；ReleaseManager 同款 splitter）── */}
-      {showChat && rootPath && (
-        <>
-          <ColResizer onDown={chatPane.startDrag} className="hidden md:block" />
-          <div className="shrink-0 border-l hidden md:flex flex-col" style={{ width: chatPane.width, borderColor: tk.borderLight }}>
+      <ColResizer onDown={chatPane.startDrag} className={showChat ? "hidden md:block" : "hidden"} />
+      <div className="shrink-0 border-l hidden md:flex flex-col" style={{ width: chatPane.width, borderColor: tk.borderLight, display: showChat ? undefined : "none" }}>
             <AgentSideChat
               agentId="architect"
               agentName={t("projectMd.chatName")}
@@ -170,8 +168,6 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
               ]}
             />
           </div>
-        </>
-      )}
 
     </div>
   );

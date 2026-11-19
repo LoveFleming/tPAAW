@@ -374,9 +374,8 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
       </div>
 
       {/* ── 右：Handover AI 助理 ── */}
-      {showChat && (<>
-      <ColResizer onDown={hoPane.startDrag} className="hidden md:block" />
-      <div className="shrink-0 hidden md:block" style={{ width: hoPane.width }}>
+      <ColResizer onDown={hoPane.startDrag} className={showChat ? "hidden md:block" : "hidden"} />
+      <div className="shrink-0 hidden md:block" style={{ width: hoPane.width, display: showChat ? undefined : "none" }}>
         <AgentSideChat ref={chatRef}
           agentId="handover"
           agentName={t("ho.agentName")}
@@ -395,7 +394,6 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
           ]}
         />
       </div>
-      </>)}
     </div>
     </HandoverErrorBoundary>
   );

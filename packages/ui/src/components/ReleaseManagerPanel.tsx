@@ -601,9 +601,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
 
       {/* ── 右：RM AI 助理 ── */}
       {/* 2026-10-09 Fleming：跟 QA browser 同款 — splitter 可拖寬 + 三按鈕（persistCrewId）+ model selector */}
-      {showChat && (<>
-      <ColResizer onDown={rmPane.startDrag} className="hidden md:block" />
-      <div className="shrink-0 hidden md:block" style={{ width: rmPane.width }}>
+      <ColResizer onDown={rmPane.startDrag} className={showChat ? "hidden md:block" : "hidden"} />
+      <div className="shrink-0 hidden md:block" style={{ width: rmPane.width, display: showChat ? undefined : "none" }}>
         <AgentSideChat
           ref={chatRef}
           agentId="rm"
@@ -623,7 +622,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
           ]}
         />
       </div>
-      </>)}
     </div>
   );
 }

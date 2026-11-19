@@ -191,9 +191,8 @@ function CodeIntelPageInner({ rootPath, refreshKey, theme }: Props, ref: React.R
 
       {/* 右：Architect AI — 2026-10-10 Fleming：跟 Handover 一模一樣的 side chat
           （splitter + tool icons + 上傳文字/圖片 + model selector + 對話持久化）*/}
-      {showChat && (<>
-      <ColResizer onDown={pane.startDrag} className="hidden md:block" />
-      <div className="shrink-0 hidden md:block" style={{ width: pane.width }}>
+      <ColResizer onDown={pane.startDrag} className={showChat ? "hidden md:block" : "hidden"} />
+      <div className="shrink-0 hidden md:block" style={{ width: pane.width, display: showChat ? undefined : "none" }}>
         <AgentSideChat
           ref={chatRef}
           agentId="architect"
@@ -213,7 +212,6 @@ function CodeIntelPageInner({ rootPath, refreshKey, theme }: Props, ref: React.R
           ]}
         />
       </div>
-      </>)}
     </div>
   );
 }
