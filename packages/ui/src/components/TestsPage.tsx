@@ -65,7 +65,7 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
   const [expanded, setExpanded] = useState<string | null>(null); // testFile
   const chatRef = useRef<AgentSideChatHandle>(null);
   // 2026-10-09 Fleming：Tester side chat 左右 splitter + 對話持久化 + model selector（跟 QA browser 同款）
-  const testerPane = useColResize(340, 260, 640);
+  const testerPane = useColResize(520, 300, 760); // 2026-11-19 Fleming：預設寬與 architect/handover/release/ops 統一（520）
   React.useImperativeHandle(ref, () => ({
     send: (text: string) => { chatRef.current?.send(text); },
     addFiles: (files: File[]) => { chatRef.current?.addFiles(files); },
