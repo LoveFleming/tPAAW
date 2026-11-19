@@ -119,10 +119,12 @@ interface Props {
   onHistory: (item: ApiHistoryItemLike) => void;
   /** 2026-11-07 修：存入 collection 成功 → 通知 parent 刷新 collection 清單（原本存完不刷新，要 reload 才看得到） */
   onCollectionsSaved?: () => void;
+  /** 2026-11-19 Fleming：tab bar 尾端自訂按鈕（side chat 顯示/隱藏 💬）*/
+  toolbarExtra?: React.ReactNode;
 }
 
 const ApiRequestTabSheet = forwardRef<ApiRequestTabSheetHandle, Props>(function ApiRequestTabSheet({
-  rootPath, theme: tk, projectApis, projectApiExamples, onHistory, onCollectionsSaved,
+  rootPath, theme: tk, projectApis, projectApiExamples, onHistory, onCollectionsSaved, toolbarExtra,
 }, ref) {
   const { t: tt } = useI18n();
   const [tabs, setTabs] = useState<ApiTab[]>([emptyTab()]);
@@ -284,7 +286,7 @@ const ApiRequestTabSheet = forwardRef<ApiRequestTabSheetHandle, Props>(function 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
       {/* ── Request tab bar（Postman 式）── */}
-      <div className="shrink-0 flex items-end gap-0.5 px-1.5 pt-1.5 overflow-x-auto" style={{ borderBottom: `1px solid ${tk.borderLight}` }} data-testid="api-request-tabbar">
+      <div className="shrink-0 flex items-end gap-0.5 px-1.5 pt-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" style={{ borderBottom: `1px solid ${tk.borderLight}` }} data-testid="api-request-tabbar">
         {tabs.map(t => {
           const isActive = t.id === active.id;
           const color = METHOD_COLORS[t.method] || "#78716c";
@@ -309,6 +311,8 @@ const ApiRequestTabSheet = forwardRef<ApiRequestTabSheetHandle, Props>(function 
         <button onClick={() => { const t = emptyTab(); setTabs(prev => [...prev, t]); setActiveTabId(t.id); }}
           className="shrink-0 px-2 py-1.5 text-xs text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-t-lg"
           title={tt("apiTester.newTab")} data-testid="api-request-newtab">＋</button>
+        {/* 2026-11-19 Fleming：side chat 顯示/隱藏開關（跟 Prod Spec 同款）— 由 CodingIDE 傳入，控制右欄 Developer AI */}
+        {toolbarExtra && <div className="ml-auto self-center mb-1 shrink-0">{toolbarExtra}</div>}
       </div>
 
       {/* ── Top: Request Builder（per-tab）── */}

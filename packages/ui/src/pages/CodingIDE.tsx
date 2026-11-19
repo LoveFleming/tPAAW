@@ -1351,6 +1351,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
   const qaBrowserPane = useColResize(360, 260, 640);
   // 2026-10-23 Fleming：API Tester Developer AI side chat 左右 splitter（與 architect/handover/qa 同款）
   const apiDevPane = useColResize(520, 300, 760); // 2026-10-23 Fleming：預設寬與 architect/handover/release/ops 統一（520）
+  const [apiDevChatOpen, setApiDevChatOpen] = useState(true); // 2026-11-19 Fleming：Developer AI side chat 顯示/隱藏（CSS 隱藏不卸載 — 保留捲動/對話狀態）
   // 2026-10-31 Fleming：專案資訊 tab 林曉薇 side chat 左右 splitter（同款）
   const ruInfoPane = useColResize(520, 300, 760);
   const ruInfoChatRef = useRef<AgentSideChatHandle>(null);
@@ -3056,11 +3057,17 @@ const sendChat = useCallback(async () => {
                   projectApis={projectApis}
                   projectApiExamples={projectApiExamples}
                   onHistory={addApiHistoryItem}
+                  toolbarExtra={(
+                    <button onClick={() => setApiDevChatOpen(v => !v)}
+                      className="text-xs px-2 py-1 rounded-lg border transition-colors bg-white"
+                      style={{ borderColor: tk.borderLight, color: tk.accent }}
+                      title={tt("projectMd.chatToggle")}>💬</button>
+                  )}
                 />
                 {/* 右欄：Developer AI 助理 — 2026-10-23 Fleming：跟 architect/handover/qa-browser 同款
                     （splitter 可拖寬 + 三按鈕 + 上傳 + model selector + 對話持久化 + suggestions）*/}
-                <ColResizer onDown={apiDevPane.startDrag} className="hidden xl:block" />
-                <div className="shrink-0 border-l hidden xl:flex flex-col" style={{ width: apiDevPane.width, borderColor: tk.borderLight }}>
+                <ColResizer onDown={apiDevPane.startDrag} className={apiDevChatOpen ? "hidden xl:block" : "hidden"} />
+                <div className="shrink-0 border-l hidden xl:flex flex-col" style={{ width: apiDevPane.width, borderColor: tk.borderLight, display: apiDevChatOpen ? undefined : "none" }}>
                   <AgentSideChat
                     ref={apiDevChatRef}
                     agentId="developer"
