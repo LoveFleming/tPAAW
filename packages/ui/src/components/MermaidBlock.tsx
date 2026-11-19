@@ -58,6 +58,23 @@ function sweepStrayMermaidDivs() {
   document.querySelectorAll('body > [id^="dmmd-"]').forEach((el) => el.remove());
 }
 
+// 2026-11-19 Fleming：Prod Spec（spec-fill AI 產的 mermaid）常見地雷 —
+// edge label `-->|POST /internal 或 /external/{app_name}\nX-API-Key|` 這種未加引號的 label
+// 內含 { } / \n / 斜線等特殊字元 → parse error（Expecting 'SQE', 'DOUBLECIRC'…）。
+// 修法：把未加引號的 |label| 與 node[text] 改成加引號版本（" 內部跳成 #quot;、\n → <br/>），
+// 之後 { } / 斜線都是合法字元。只在原文 render 失敗時才用品修版重試（原文能用就零改動）。
+function mermaidQuoteFixup(code: string): string {
+  const esc = (s: string) => s.replace(/"/g, "#quot;").replace(/\\n/g, "<br/>");
+  return code.split("\n").map((line) => {
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith("%%") || /^(classDef|style|class|ac)\b/.test(trimmed)) return line;
+    let out = line.replace(/\|([^"|\n]+)\|/g, (_m, s: string) => `|"${esc(s)}"|`); // edge label
+    out = out.replace(/([\w-]+)\[([^\]"]*)\]/g, (m, id: string, s: string) =>
+      (s.startsWith("/") && s.endsWith("/")) ? m : `${id}["${esc(s)}"]`); // node text（保留 [/.../] 平行四邊形）
+    return out;
+  }).join("\n");
+}
+
 export const MermaidBlock = memo(function MermaidBlock({ code }: { code: string }) {
   const [svg, setSvg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -70,8 +87,15 @@ export const MermaidBlock = memo(function MermaidBlock({ code }: { code: string 
     setErr(null);
     sweepStrayMermaidDivs();
     loadMermaid().then(async (mermaid) => {
-      const { svg } = await mermaid.render(idRef.current, code);
-      if (alive) setSvg(svg);
+      // 2026-11-19：漸進 fallback — 原文先試；parse error 再用品修版（label 加引號）重試，都失敗才退原始碼
+      let out: string;
+      try {
+        out = (await mermaid.render(idRef.current, code)).svg;
+      } catch {
+        sweepStrayMermaidDivs();
+        out = (await mermaid.render(`${idRef.current}-fix`, mermaidQuoteFixup(code))).svg;
+      }
+      if (alive) setSvg(out);
     }).catch((e: any) => {
       if (alive) setErr(String(e?.message || e));
     }).finally(() => {
