@@ -578,7 +578,7 @@ export async function executeEMSession(opts = {}) {
 
   if (!effectiveWorkList || effectiveWorkList.length === 0) {
     sendSSE("info", { message: "✅ 目前沒有需要調度的工作，專案狀態良好。" });
-    const report = generateEMReport([], [], situationReport);
+    const report = generateEMReport([], [], situationReport, { rootDir });
     saveAutoDispatchReport(rootDir, report, "em");
     await _appendEMChatReport(rootDir, report);
     sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
@@ -590,7 +590,7 @@ export async function executeEMSession(opts = {}) {
     sendSSE("info", { message: "📋 保守模式：僅顯示計畫，不自動執行。" });
     sendSSE("plan", { workList: effectiveWorkList });
     sendSSE("done", { totalTasks: effectiveWorkList.length, succeeded: 0, failed: 0, skipped: true, reason: 'conservative' });
-    const report = generateEMReport(effectiveWorkList, [], situationReport, { skipped: true, format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog });
+    const report = generateEMReport(effectiveWorkList, [], situationReport, { rootDir, skipped: true, format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog });
     saveAutoDispatchReport(rootDir, report, "em");
     return { report, workList: effectiveWorkList, results: [] };
   }
@@ -640,6 +640,7 @@ export async function executeEMSession(opts = {}) {
     sendSSE("plan", { workList: wasFiltered ? effectiveWorkList : [] });
     sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, ...(wasFiltered ? { skipped: true, reason: 'filtered-by-autoexec' } : {}) });
     const report = generateEMReport(effectiveWorkList, [], situationReport, {
+      rootDir,
       format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog,
       ...((wasFiltered || needsInfoItems.length > 0) ? { skipped: [
         ...(needsInfoItems.map(n => ({ _skipped: "規格不足待釐清", agent: n.agent, task: `${n.task}${n.needsInfo.length ? `（缺：${n.needsInfo.join("、")}）` : ""}` }))),
@@ -1232,6 +1233,11 @@ function generateEMReport(workList, results, situationReport, opts = {}) {
   const format = opts.format || 'summary';
 
   let report = `# 🎖️ Engineering Manager 報告\n\n`;
+  // 2026-11-19 Fleming：報告要跟著 release unit 走 — header 標明 RU（rootDir basename），
+  // 多 RU 環境下看報告一眼知道是哪個專案的派工（10-17 那份落在 PAAW root 就分不出來）
+  if (rootDir) {
+    report += `**Release Unit：** ${rootDir.split(/[\\/]/).filter(Boolean).pop()}（${rootDir}）\n`;
+  }
   report += `**日期：** ${dateStr}\n`;
   report += `**時間：** ${now.toTimeString().slice(0, 8)}\n`;
   if (skipped.length > 0) {
@@ -1410,7 +1416,7 @@ export async function runAutoDispatch(opts = {}) {
   let { workList, situationReport } = await planEMSession({ ...opts, focusTaskId });
   if (!workList.length) {
     opts.sendSSE?.("info", { message: "✅ 沒有需要調度的 task。" });
-    const report = generateEMReport([], [], situationReport);
+    const report = generateEMReport([], [], situationReport, { rootDir: opts.rootDir });
     saveAutoDispatchReport(opts.rootDir, report, "em");
     opts.sendSSE?.("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
     return { report, workList: [], results: [] };

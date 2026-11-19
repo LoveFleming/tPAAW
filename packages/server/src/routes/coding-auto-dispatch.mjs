@@ -133,6 +133,10 @@ export default async function codingAutoDispatchRoute(req, res) {
 
   // ── POST /api/coding-auto-dispatch/start ──
   if (urlObj.pathname === "/api/coding-auto-dispatch/start" && method === "POST") {
+    // 2026-11-19 Fleming：派工報告要跟著 release unit 走 — 沒帶 ?path 時吃 body.cwd（跟 preview/status 同款 fallback），不要靜靜落到 PAAW root
+    let reqBody = {};
+    try { reqBody = JSON.parse(await readBody(req) || "{}"); } catch {}
+    if (!urlObj.searchParams.get("path") && reqBody.cwd) projRoot = resolve(reqBody.cwd);
     // 2026-08-30 單例 guard：同 project 不並行（防誤按兩次 start 重複派工）
     // server 重啟後 Set 清空 = 殭屍 plan 可被恢復續跑（resumePlan 已把 running 也納入重跑）
     if (_activeRuns.has(projRoot)) {
@@ -143,9 +147,6 @@ export default async function codingAutoDispatchRoute(req, res) {
     try {
     const nsDir = join(projRoot, AUTO_DISPATCH_DIR); // nosemgrep: path-join-resolve-traversal — local-first: 使用者自選專案根目錄（localhost 單人工具）
     if (!existsSync(nsDir)) mkdirSync(nsDir, { recursive: true }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
-
-    let reqBody = {};
-    try { reqBody = JSON.parse(await readBody(req) || "{}"); } catch {}
 
     // Load auto dispatch config for mode + model
     let nsConfig = null;
