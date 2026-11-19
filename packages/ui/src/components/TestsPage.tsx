@@ -58,6 +58,7 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
   const [loading, setLoading] = useState(false);
   const [lastAt, setLastAt] = useState<number | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [showChat, setShowChat] = useState(true); // 2026-11-19 Fleming：side chat 顯示/隱藏開關（跟 Prod Spec 同款）
   const autoRefreshRef = useRef(true);
   useEffect(() => { autoRefreshRef.current = autoRefresh; }, [autoRefresh]);
   const [kindFilter, setKindFilter] = useState<string>("__all__");
@@ -184,6 +185,10 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
             <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
             {t("tests.autoRefresh")}
           </label>
+          <button onClick={() => setShowChat(v => !v)}
+            className="px-2 py-1 rounded-lg text-xs font-medium border bg-white hover:bg-stone-50 shrink-0"
+            style={{ borderColor: borderLight, color: accentText }}
+            title={t("projectMd.chatToggle")}>💬</button>
           {lastAt && <span className="text-[11px] text-stone-400 ml-auto">{t("tests.updatedAt")} {new Date(lastAt).toLocaleTimeString("zh-TW", { hour12: false })}</span>}
         </div>
         {/* 統計卡（2026-10-21 Fleming：一眼看清 RU 測試寫得如何 — UT 執行 / E2E / 行覆蓋率 / 缺口 / features）*/}
@@ -419,6 +424,7 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
 
       {/* 右：神 — Tester AI */}
       {/* 2026-10-09 Fleming：跟 QA browser 同款 — splitter 可拖寬 + 三按鈕（persistCrewId）+ model selector */}
+      {showChat && (<>
       <ColResizer onDown={testerPane.startDrag} className="hidden xl:block" />
       <div className="shrink-0 border-l hidden xl:flex flex-col" style={{ width: testerPane.width, borderColor: borderLight }}>
         <AgentSideChat
@@ -439,6 +445,7 @@ function TestsPageInner({ rootPath, onOpenFile, refreshKey }: Props, ref: React.
           ]}
         />
       </div>
+      </>)}
     </div>
   );
 }

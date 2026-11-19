@@ -49,6 +49,7 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
   const [status, setStatus] = useState<OpsStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const chatRef = useRef<AgentSideChatHandle>(null);
+  const [showChat, setShowChat] = useState(true); // 2026-11-19 Fleming：side chat 顯示/隱藏開關（跟 Prod Spec 同款）
   // 2026-10-09 Fleming：Ops side chat 左右 splitter + 對話持久化 + model selector（跟 QA browser 同款）
   const opsPane = useColResize(520, 300, 760); // 2026-10-09：與 Handover/Release Manager 統一
 
@@ -147,6 +148,10 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
           <span className="text-lg">🔧</span>
           <h2 className="text-sm font-bold text-stone-800">{t("ops.title")}</h2>
           <span className="ml-auto" />
+          <button onClick={() => setShowChat(v => !v)}
+            className="text-xs px-2 py-1 rounded-lg border transition-colors shrink-0"
+            style={{ borderColor: tk.borderLight || "#e7e5e4", color: tk.accent || "#8b5e3c" }}
+            title={t("projectMd.chatToggle")}>💬</button>
         </div>
 
         {loading && <div className="p-8 text-center text-xs text-stone-400 animate-pulse">{t("common.loading")}</div>}
@@ -288,6 +293,7 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
 
       {/* ── 右：Ops AI 助理 ── */}
       {/* 2026-10-09 Fleming：跟 QA browser 同款 — splitter 可拖寬 + 三按鈕（persistCrewId）+ model selector */}
+      {showChat && (<>
       <ColResizer onDown={opsPane.startDrag} className="hidden md:block" />
       <div className="shrink-0 hidden md:block" style={{ width: opsPane.width }}>
         <AgentSideChat
@@ -308,6 +314,7 @@ export default function TroubleshootingPanel({ rootPath, theme: tk }: Props) {
           ]}
         />
       </div>
+      </>)}
     </div>
   );
 }

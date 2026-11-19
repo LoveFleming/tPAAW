@@ -49,6 +49,7 @@ function CodeIntelPageInner({ rootPath, refreshKey, theme }: Props, ref: React.R
   const pane = useColResize(520, 300, 760);
 
   const chatRef = useRef<AgentSideChatHandle>(null);
+  const [showChat, setShowChat] = useState(true); // 2026-11-19 Fleming：side chat 顯示/隱藏開關（跟 Prod Spec 同款）
   React.useImperativeHandle(ref, () => ({
     send: (text: string) => { chatRef.current?.send(text); },
     addFiles: (files: File[]) => { chatRef.current?.addFiles(files); },
@@ -109,6 +110,10 @@ function CodeIntelPageInner({ rootPath, refreshKey, theme }: Props, ref: React.R
             <button onClick={c4Organize} disabled={c4Busy} className="shrink-0 text-xs px-3 py-1.5 rounded-lg text-white disabled:opacity-50" style={{ backgroundColor: accent }}>
               {c4Busy ? "⏳" : "🏛"} {t("codeIntel.c4Organize")}
             </button>
+            <button onClick={() => setShowChat(v => !v)}
+              className="shrink-0 text-xs px-2 py-1 rounded-lg border transition-colors"
+              style={{ borderColor: borderLight || "#e7e5e4", color: accent || "#8b5e3c" }}
+              title={t("projectMd.chatToggle")}>💬</button>
           </div>
         </div>
 
@@ -186,6 +191,7 @@ function CodeIntelPageInner({ rootPath, refreshKey, theme }: Props, ref: React.R
 
       {/* 右：Architect AI — 2026-10-10 Fleming：跟 Handover 一模一樣的 side chat
           （splitter + tool icons + 上傳文字/圖片 + model selector + 對話持久化）*/}
+      {showChat && (<>
       <ColResizer onDown={pane.startDrag} className="hidden md:block" />
       <div className="shrink-0 hidden md:block" style={{ width: pane.width }}>
         <AgentSideChat
@@ -207,6 +213,7 @@ function CodeIntelPageInner({ rootPath, refreshKey, theme }: Props, ref: React.R
           ]}
         />
       </div>
+      </>)}
     </div>
   );
 }

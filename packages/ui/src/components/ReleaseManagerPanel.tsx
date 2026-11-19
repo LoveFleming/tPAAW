@@ -71,6 +71,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const [autoBaseline, setAutoBaseline] = useState<string>("");
   // 2026-11-06 Fleming：產 report 前選 commit 時間
   const [selCommit, setSelCommit] = useState<string>("");
+  const [showChat, setShowChat] = useState(true); // 2026-11-19 Fleming：side chat 顯示/隱藏開關（跟 Prod Spec 同款）
   const [testing, setTesting] = useState(false);
   // 2026-11-03 Fleming：API 現況一鍵清點（前後端 + 測試 + baseline 變更）+ AI 摘要
   const [apiStatus, setApiStatus] = useState<any | null>(null);
@@ -292,6 +293,11 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-lg">🚦</span>
             <h2 className="text-sm font-bold text-stone-800">{t("rm.title")}</h2>
+            <span className="flex-1" />
+            <button onClick={() => setShowChat(v => !v)}
+              className="text-xs px-2 py-1 rounded-lg border transition-colors shrink-0"
+              style={{ borderColor: tk.borderLight || "#e7e5e4", color: tk.accent || "#8b5e3c" }}
+              title={t("projectMd.chatToggle")}>💬</button>
             {readiness && (
               <select value={selCommit} onChange={(e) => { const v = e.target.value; setSelCommit(v); if (evApi) loadEvApi(v); }}
                 className="text-[11px] border rounded-lg px-1.5 py-1 bg-white min-w-0 max-w-[260px] shrink" style={{ borderColor: tk.borderLight }}
@@ -595,6 +601,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
 
       {/* ── 右：RM AI 助理 ── */}
       {/* 2026-10-09 Fleming：跟 QA browser 同款 — splitter 可拖寬 + 三按鈕（persistCrewId）+ model selector */}
+      {showChat && (<>
       <ColResizer onDown={rmPane.startDrag} className="hidden md:block" />
       <div className="shrink-0 hidden md:block" style={{ width: rmPane.width }}>
         <AgentSideChat
@@ -616,6 +623,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
           ]}
         />
       </div>
+      </>)}
     </div>
   );
 }

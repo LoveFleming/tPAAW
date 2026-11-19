@@ -126,6 +126,7 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
   const [remarkText, setRemarkText] = useState("");
   const [remarkSaving, setRemarkSaving] = useState(false);
   const chatRef = useRef<AgentSideChatHandle>(null);
+  const [showChat, setShowChat] = useState(true); // 2026-11-19 Fleming：side chat 顯示/隱藏開關（跟 Prod Spec 同款）
   const composingRef = useRef(false); // IME composition 三層保護（2026-07-04 紀律）
   const hoPane = useColResize(520, 300, 760);
 
@@ -243,6 +244,11 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
           <span className="text-lg">🤝</span>
           <h2 className="text-sm font-bold text-stone-800">{t("ho.title")}</h2>
           {bundle?.package?.name && <span className="text-[10px] font-mono text-stone-400">{bundle.package.name}</span>}
+          <span className="ml-auto" />
+          <button onClick={() => setShowChat(v => !v)}
+            className="text-xs px-2 py-1 rounded-lg border transition-colors shrink-0"
+            style={{ borderColor: tk.borderLight || "#e7e5e4", color: tk.accent || "#8b5e3c" }}
+            title={t("projectMd.chatToggle")}>💬</button>
         </div>
 
         {loading && <div className="p-8 text-center text-xs text-stone-400 animate-pulse">{t("common.loading")}</div>}
@@ -368,6 +374,7 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
       </div>
 
       {/* ── 右：Handover AI 助理 ── */}
+      {showChat && (<>
       <ColResizer onDown={hoPane.startDrag} className="hidden md:block" />
       <div className="shrink-0 hidden md:block" style={{ width: hoPane.width }}>
         <AgentSideChat ref={chatRef}
@@ -388,6 +395,7 @@ export default function HandoverPanel({ rootPath, theme: tk, onOpenEMDashboard, 
           ]}
         />
       </div>
+      </>)}
     </div>
     </HandoverErrorBoundary>
   );
