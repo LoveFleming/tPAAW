@@ -286,7 +286,7 @@ const ApiRequestTabSheet = forwardRef<ApiRequestTabSheetHandle, Props>(function 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
       {/* ── Request tab bar（Postman 式）── */}
-      <div className="shrink-0 flex items-end gap-0.5 px-1.5 pt-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" style={{ borderBottom: `1px solid ${tk.borderLight}` }} data-testid="api-request-tabbar">
+      <div className="shrink-0 flex items-end gap-0.5 px-1.5 pt-1.5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" style={{ borderBottom: `1px solid ${tk.borderLight}` }} data-testid="api-request-tabbar">
         {tabs.map(t => {
           const isActive = t.id === active.id;
           const color = METHOD_COLORS[t.method] || "#78716c";
