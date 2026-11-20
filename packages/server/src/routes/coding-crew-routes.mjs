@@ -1331,6 +1331,17 @@ if (url === "/api/coding-crew/review-board-run" && method === "POST") {
     //   N 天前最後一個 commit 的 sha..HEAD；專案比 N 天年輕 → 從 root commit 開始（全部審）
     let ref = rbBody.ref;
     if (!ref) {
+      // 2026-11-20 Fleming：無 commit / 非 git repo 給人話錯誤，不要吐 git raw error
+      const isGitRepo = await shellExec(`git rev-parse --is-inside-work-tree`, { cwd: rbRoot }).then(o => (o.stdout || "").trim() === "true").catch(() => false);
+      if (!isGitRepo) {
+        rbSend({ event: "error", error: "這個專案不是 git repo — review 委員會需要 git commit 歷史才能算審查範圍。先 git init + commit 再跑。" });
+        res.end(); return true;
+      }
+      const hasCommits = await shellExec(`git rev-parse --verify HEAD`, { cwd: rbRoot }).then(o => (o.stdout || "").trim().length > 0).catch(() => false);
+      if (!hasCommits) {
+        rbSend({ event: "error", error: "這個專案還沒有任何 git commit（空的 git repo）— review 委員會靠 commit 差異審查，没有 commit 就沒有可審的變更。先 commit 再跑，或先用 CU（Code Understanding）建立知識庫。" });
+        res.end(); return true;
+      }
       // 2026-11-20 Fleming：days="all"（UI「全部」）— 從 root commit 全部審
       const wantAll = rbBody.days === "all" || rbBody.days === 0 || rbBody.days === "0";
       const days = wantAll ? 0 : Math.max(1, Math.min(365, Number(rbBody.days) || 7));
