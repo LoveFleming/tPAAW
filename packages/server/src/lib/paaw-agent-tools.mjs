@@ -609,6 +609,36 @@ const PAAW_TOOLS = [
     },
   },
 
+  // ── DFO tools（Greta — Design for Operation，2026-11-20 Fleming）──
+  {
+    type: "function",
+    function: {
+      name: "dfo_read",
+      description: "讀 DFO（Design for Operation）維運文件 — 現行版全文（五節：overview 系統全景 / operations 日常操作 / troubleshooting 事故排查 / handover 交接上手 / rollback 回滾降級）。要改之前先讀。",
+      parameters: {
+        type: "object",
+        properties: {
+          section: { type: "string", description: "可選：只讀單節 id（overview/operations/troubleshooting/handover/rollback）；省略讀全文" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "dfo_write",
+      description: "寫入 DFO 單節（整節覆寫，自動進版 v+1 + 快照落 versions/）。`<!-- AI:SKIP-START/END -->` 人寫區塊會自動保留。寫完跟人說「已寫入，UI 按 🔄 看」。",
+      parameters: {
+        type: "object",
+        properties: {
+          section: { type: "string", enum: ["overview", "operations", "troubleshooting", "handover", "rollback"], description: "要寫的節 id" },
+          markdown: { type: "string", description: "該節完整 markdown（整節覆寫；架構/排查流程附 mermaid 圈籬）" },
+        },
+        required: ["section", "markdown"],
+      },
+    },
+  },
+
   // ── Unified project_edit tool (replaces 7 mutation tools) ──
   {
     type: "function",

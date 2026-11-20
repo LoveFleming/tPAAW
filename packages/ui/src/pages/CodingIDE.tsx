@@ -54,7 +54,8 @@ import DispatchReports from "../components/DispatchReports"; // 📄 派工報�
 import TaskBoard from "../components/TaskBoard";
 import ReleaseManagerPanel from "../components/ReleaseManagerPanel";
 import CodeReviewBoardPanel from "../components/CodeReviewBoardPanel";
-import HandoverPanel from "../components/HandoverPanel";
+import HandoverPanel from "../components/HandoverPanel"; // 保留：舊 handover bundle API 未拆
+import DfoPanel from "../components/DfoPanel"; // 2026-11-20：Handover page 改造為 DFO
 import TroubleshootingPanel from "../components/TroubleshootingPanel";
 import TabErrorBoundary from "../components/TabErrorBoundary";
 import ApiMapView from "../components/ApiMapView";
@@ -545,7 +546,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
       { id: "tool:tests", type: "tests", label: tt("tests.toolbar"), icon: "🧪", closable: true },
     ]},
     { id: "delivery", icon: "📦", tools: [
-      { id: "tool:handover", type: "handover", label: "Handover", icon: "🤝", closable: true },
+      { id: "tool:handover", type: "handover", label: "DFO 維運文件", icon: "📋", closable: true },
       { id: "tool:release", type: "release-manager", label: "Release Manager", icon: "🚦", closable: true },
       { id: "tool:review-board", type: "review-board", label: tt("crb.toolbar"), icon: "🏛️", closable: true },
       { id: "tool:troubleshooting", type: "troubleshooting", label: "Troubleshooting", icon: "🔧", closable: true },
@@ -3561,11 +3562,11 @@ const sendChat = useCallback(async () => {
             {mainTabs.some(t => t.type === "handover") && rootPath && (
               <div key="tool:handover" className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTab?.type === "handover" ? undefined : "none" }}>
-                <HandoverPanel
+                {/* 2026-11-20 Fleming：Handover page 改造成 DFO（Design for Operation）— Greta 擔任 */}
+                <DfoPanel
                   rootPath={rootPath}
                   active={activeMainTab?.type === "handover"}
                   theme={{ borderLight: tk.borderLight, accent: tk.accent, accentHover: tk.accentHover || tk.accent }}
-                  onOpenEMDashboard={() => openMainTab({ id: DASHBOARD_TAB_ID, type: "em-dashboard", label: "EM 大總管", icon: "🎖️", closable: false })}
                 />
               </div>
             )}

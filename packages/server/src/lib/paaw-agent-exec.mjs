@@ -85,6 +85,9 @@ const TOOL_GROUP_MAP = {
   // TS Guide 沉澱（ops/helpdesk agent — 2026-10-10）
   trouble_write: "trouble",
 
+  // DFO（Design for Operation）— 2026-11-20 Fleming：Greta 擔任 DFO owner
+  dfo_read: "dfo", dfo_write: "dfo",
+
   // Memory & logging
   action_log_add: "memory", action_log_list: "memory",
   agent_memory_save: "memory", agent_memory_load: "memory",
@@ -2654,6 +2657,30 @@ baseline ${rr.baseline?.short}(${rr.baseline?.source})→ target ${rr.target?.sh
       }
 
             // ══════════════════════════════════════════
+      // ── DFO tools（Greta — Design for Operation，2026-11-20 Fleming）──
+      case "dfo_read": {
+        const { readDfo } = await import("./dfo.mjs");
+        const d = readDfo(cwd);
+        if (!d) return "DFO 尚未建立 — 可用 dfo_write 從零寫，或請人在 DFO 頁按 🔄 AI 生成。";
+        if (args.section) {
+          const s = d.sections.find(x => x.id === args.section);
+          return s ? `【${d.version} · ${s.title}】\n\n${s.markdown}` : `Error: 不合法 section id：${args.section}（合法：overview/operations/troubleshooting/handover/rollback）`;
+        }
+        return JSON.stringify({ version: d.version, updatedAt: d.updatedAt, sections: d.sections.map(s => ({ id: s.id, title: s.title, markdown: s.markdown })) }, null, 1);
+      }
+      case "dfo_write": {
+        const { writeDfo } = await import("./dfo.mjs");
+        const id = args.section, md = String(args.markdown || "").trim();
+        const VALID = ["overview", "operations", "troubleshooting", "handover", "rollback"];
+        if (!VALID.includes(id)) return `Error: section 必須是 ${VALID.join("/")}。`;
+        if (!md) return "Error: markdown 不可為空（整節覆寫）。";
+        try {
+          const d = writeDfo(cwd, [{ id, markdown: md }], "greta:dfo_write");
+          if (onEvent) onEvent({ type: "tool_end", name: "dfo_write", result: `${d.version} ${id}` });
+          return `✅ DFO ${id} 已寫入（${d.version}，自動進版 + 快照）。UI 按 🔄 看最新。`;
+        } catch (e) { return `Error: DFO 寫入被擋（${e.message}）— 修正後重試。`; }
+      }
+
       // ── spec_write：林曉薇 spec 共寫工具（2026-11-16 Fleming）— 只能寫 PROJECT.md 的 Product Spec 單節 ──
       case "spec_write": {
         const { parseProjectMd, buildProjectMd, splitSpecSections, joinSpecSections } = await import("./project-md.mjs");
