@@ -1506,6 +1506,10 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                         {step.name}
                         {step.status === "running" && <span className="ml-1 inline-block animate-pulse">●</span>}
                       </span>
+                      {/* 2026-11-20：scan 拆層後是混合體 — 機械骨架（免 token）+ LLM 語意；留在智慧屬但標示 */}
+                      {step.id === "scan" && (
+                        <span className="text-[10px] px-1 py-0.5 border rounded-none border-amber-200 bg-amber-50 text-amber-600" title="機械欄位（專案名/型別/框架/入口）由程式決定免 token；LLM 只做語意（summary/modules/techDebt）">⚙️+🤖</span>
+                      )}
                       {!isMech(step.id) && (
                         <button
                           onClick={() => setCuSkillPickerStep(step.id)}
