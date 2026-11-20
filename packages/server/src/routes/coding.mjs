@@ -1061,6 +1061,15 @@ export default async function projectRoute(req, res) {
           // Load accumulated context from existing .paaw/ files (unless skipContext)
         let fullPrompt = promptTemplate;
         fullPrompt += `\n\n--- PROJECT CONTEXT ---\n${projectContext}`;
+        // 2026-11-20 scan step 拆層：機械欄位由程式決定（骨架注入 prompt + 存檔後覆寫），LLM 只做語意
+        let scanSkeleton = null;
+        if (step.id === "scan") {
+          try {
+            const { buildScanSkeleton } = await import("../lib/scan-skeleton.mjs");
+            scanSkeleton = buildScanSkeleton(root);
+            cuLog(step.id, `Skeleton: type=${scanSkeleton.projectType} lang=${scanSkeleton.language} fw=${scanSkeleton.framework || "?"} entries=${scanSkeleton.entryPoints.length} files=${scanSkeleton._meta.sourceFileCount}`);
+          } catch (e) { cuLog(step.id, `scan-skeleton 失敗（略過注入）: ${e.message}`); }
+        }
         // 2026-11-07：ui-map 前置 deterministic route 盤點（page-inventory 引擎）— LLM 不可發明 route，只能補語意
         if (step.id === "ui-map") {
           try {
@@ -1073,6 +1082,10 @@ export default async function projectRoute(req, res) {
               fullPrompt += `\n\n--- DETERMINISTIC PAGE ROUTES ---\n（程式 parse 到 0 條 router route — 本專案可能是 tab-based UI：以主要 view/tabs 當進入點，route 欄填主要檔案路徑）`;
             }
           } catch (e) { cuLog("ui-map", `page-inventory 失敗（略過注入）: ${e.message}`); }
+        }
+        if (step.id === "scan" && scanSkeleton) {
+          const k = scanSkeleton.keyDirectories;
+          fullPrompt += `\n\n--- DETERMINISTIC SKELETON（程式已解析，以下欄位以這裡為準 — 照抄進輸出 JSON，不可發明、不可改動）---\nprojectName: ${scanSkeleton.projectName ?? "(unknown)"}\nprojectType: ${scanSkeleton.projectType}\nlanguage: ${scanSkeleton.language ?? "(unknown)"}\nframework: ${scanSkeleton.framework ?? "(none detected)"}\nruntime: ${scanSkeleton.runtime ?? "(unknown)"}\nentryPoints: ${scanSkeleton.entryPoints.length ? scanSkeleton.entryPoints.join(", ") : "(none from package.json — AI 可由原始碼判讀補上)"}\nkeyDirectories.source: ${k.source ?? "null"}\nkeyDirectories.tests: ${k.tests ?? "null"}\nkeyDirectories.config: ${k.config ?? "null"}\nkeyDirectories.docs: ${k.docs ?? "null"}\nsource files: ${scanSkeleton._meta.sourceFileCount}（top dirs: ${scanSkeleton._meta.topDirs.join(", ") || "-"}）\n你的工作聚焦語意欄位：summary / modules（responsibility+dependsOn）/ techDebt / healthGaps。`;
         }
         if (!skipContext) {
           const loadCtx = async (file, label, maxLen = 3000) => {
@@ -1139,7 +1152,16 @@ export default async function projectRoute(req, res) {
           // Save output to .paaw/
           try {
             if (step.id === "scan") {
-              await paaw.writeFile("scan.json", _stripCodeFence(content));
+              let scanRaw = _stripCodeFence(content);
+              if (scanSkeleton) {
+                try {
+                  const parsed = JSON.parse(scanRaw);
+                  const { enforceScanSkeleton } = await import("../lib/scan-skeleton.mjs");
+                  scanRaw = JSON.stringify(enforceScanSkeleton(parsed, scanSkeleton), null, 2);
+                  cuLog(step.id, "Skeleton enforced on scan.json (機械欄位=程式版)");
+                } catch (e) { cuLog(step.id, `skeleton 覆寫失敗（存 LLM 原版）: ${e.message}`); }
+              }
+              await paaw.writeFile("scan.json", scanRaw);
             } else if (step.id === "architecture") {
               await diffWriteFile(paaw, "ARCHITECTURE.md", sanitized);
             } else if (step.id === "api-spec") {
@@ -1618,6 +1640,17 @@ export default async function projectRoute(req, res) {
           // Build full prompt with accumulated context
           let fullPrompt = promptTemplate;
           fullPrompt += `\n\n--- PROJECT CONTEXT ---\n${projectContext}`;
+          // 2026-11-20 scan step 拆層（bulk 路徑同 single-step）：機械欄位骨架注入 + 存檔後覆寫
+          let bulkScanSkeleton = null;
+          if (step.id === "scan") {
+            try {
+              const { buildScanSkeleton } = await import("../lib/scan-skeleton.mjs");
+              bulkScanSkeleton = buildScanSkeleton(root);
+              const k = bulkScanSkeleton.keyDirectories;
+              fullPrompt += `\n\n--- DETERMINISTIC SKELETON（程式已解析，以下欄位以這裡為準 — 照抄進輸出 JSON，不可發明、不可改動）---\nprojectName: ${bulkScanSkeleton.projectName ?? "(unknown)"}\nprojectType: ${bulkScanSkeleton.projectType}\nlanguage: ${bulkScanSkeleton.language ?? "(unknown)"}\nframework: ${bulkScanSkeleton.framework ?? "(none detected)"}\nruntime: ${bulkScanSkeleton.runtime ?? "(unknown)"}\nentryPoints: ${bulkScanSkeleton.entryPoints.length ? bulkScanSkeleton.entryPoints.join(", ") : "(none from package.json — AI 可由原始碼判讀補上)"}\nkeyDirectories.source: ${k.source ?? "null"}\nkeyDirectories.tests: ${k.tests ?? "null"}\nkeyDirectories.config: ${k.config ?? "null"}\nkeyDirectories.docs: ${k.docs ?? "null"}\nsource files: ${bulkScanSkeleton._meta.sourceFileCount}（top dirs: ${bulkScanSkeleton._meta.topDirs.join(", ") || "-"}）\n你的工作聚焦語意欄位：summary / modules（responsibility+dependsOn）/ techDebt / healthGaps。`;
+              cuLog(step.id, `[bulk] Skeleton: type=${bulkScanSkeleton.projectType} lang=${bulkScanSkeleton.language} fw=${bulkScanSkeleton.framework || "?"} files=${bulkScanSkeleton._meta.sourceFileCount}`);
+            } catch (e) { cuLog(step.id, `[bulk] scan-skeleton 失敗（略過注入）: ${e.message}`); }
+          }
           if (scanResult) fullPrompt += `\n\n--- SCAN RESULTS ---\n${scanResult}`;
           if (architectureResult && (step.id === "decisions" || step.id === "api-spec" || step.id === "overview" || step.id === "api-map" || step.id === "ui-map")) {
             const archLimit = (step.id === "api-map" || step.id === "ui-map") ? 8000 : 3000;
@@ -1685,8 +1718,17 @@ export default async function projectRoute(req, res) {
             const sanitized = _sanitizeMd(content);
             try {
               if (step.id === "scan") {
+                let scanRaw = _stripCodeFence(content);
+                if (bulkScanSkeleton) {
+                  try {
+                    const parsed = JSON.parse(scanRaw);
+                    const { enforceScanSkeleton } = await import("../lib/scan-skeleton.mjs");
+                    scanRaw = JSON.stringify(enforceScanSkeleton(parsed, bulkScanSkeleton), null, 2);
+                    cuLog(step.id, "[bulk] Skeleton enforced on scan.json (機械欄位=程式版)");
+                  } catch (e) { cuLog(step.id, `[bulk] skeleton 覆寫失敗（存 LLM 原版）: ${e.message}`); }
+                }
                 scanResult = content;
-                await paaw.writeFile("scan.json", _stripCodeFence(content));
+                await paaw.writeFile("scan.json", scanRaw);
               } else if (step.id === "architecture") {
                 architectureResult = content;
                 await diffWriteFile(paaw, "ARCHITECTURE.md", sanitized);

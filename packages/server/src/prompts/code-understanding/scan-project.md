@@ -83,6 +83,8 @@ Output a JSON object with this exact structure:
 
 ## Rules
 - Read ACTUAL source code, don't guess from file names
+- **DETERMINISTIC SKELETON（2026-11-20）**: 如果輸入含 `--- DETERMINISTIC SKELETON ---` 區塊，其中 projectName / projectType / language / framework / runtime / entryPoints / keyDirectories 這些欄位**照抄該區塊的值**（存檔前程式也會強制覆寫回程式版）— 你的精神花在語意欄位
+- 你的核心工作：`summary`（一句話：這專案做什麼、給誰用）、`modules`（responsibility + 真實 dependency graph — 誰 import 誰）、`techDebt`、`healthGaps`、`dataModels`、`errorCodes` 語意整理
 - `modules` must capture the real dependency graph — what imports what
 - `techDebt` is for things that make the code harder to maintain, not stylistic preferences
 - `healthGaps` tells the system what Knowledge Base artifacts are missing
