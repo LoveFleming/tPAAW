@@ -497,7 +497,7 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
           <div className="absolute inset-0 bg-black/40" />
           <div className="relative w-[640px] max-w-[90vw] max-h-[80vh] bg-[#1a1a2e] rounded-xl shadow-2xl border border-stone-700 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-stone-700">
-              <h3 className="text-sm font-bold text-stone-100 flex items-center gap-2">🧠 {tt("sideChat.prompt")}</h3>
+              <h3 className="text-sm font-bold text-stone-100 flex items-center gap-2">👁️ {tt("sideChat.prompt")}</h3>
               <div className="flex items-center gap-3">
                 {typeof promptData?.totalLength === "number" && (
                   <span className="text-xs text-stone-400">Total: {promptData.totalLength.toLocaleString()} chars</span>
@@ -588,8 +588,8 @@ export default React.forwardRef<AgentSideChatHandle, AgentSideChatProps>(functio
             <button
               onClick={viewPrompt}
               className="text-xs px-2 py-1 rounded-lg border border-stone-200 text-stone-500 hover:text-stone-700 hover:bg-stone-50 transition-colors"
-              title={tt("sideChat.prompt")}
-            >🧠</button>
+                title={tt("sideChat.prompt")}
+            >👁️</button>
             <button
               onClick={startNewChat}
               disabled={messages.length === 0}

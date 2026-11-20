@@ -3162,7 +3162,7 @@ const sendChat = useCallback(async () => {
                         style={{ borderColor: tk.accentBorder, color: tk.accent }}
                         title="查看注入的 Context & Prompts"
                       >
-                        🧠
+                        👁️
                       </button>
                       {/* New conversation button — 2026-09-12 Fleming：跟林雨晴一樣用 💬 chat 圖示；統一 accent 色外框 */}
                       <button

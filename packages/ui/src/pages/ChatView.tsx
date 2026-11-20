@@ -737,7 +737,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
               style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accent }}
               title="查看注入的 Context & Prompts"
             >
-              🧠
+              👁️
             </button>
             <button onClick={createNewChat} className="text-xs px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accent }} title="開新對話">💬</button>
             {/* App Launcher */}
