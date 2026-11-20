@@ -44,6 +44,18 @@ export async function rescanMechanicalLayer(projectRoot, paawRoot) {
       results["code-intelligence"] = { ok: false, error: e.message };
     }
 
+    // 1.5 Scan Skeleton（2026-11-20 拆層：scan 機械骨架也進重掃範圍 — 免 LLM）
+    try {
+      const { buildScanSkeleton, serializeSkeleton } = await import("./scan-skeleton.mjs");
+      const sk = buildScanSkeleton(root);
+      await paaw.writeFile("scan-skeleton.json", serializeSkeleton(sk));
+      const summary = `${sk._meta.sourceFileCount} 檔 · ${sk.projectType}${sk.framework ? " · " + sk.framework : ""}`;
+      results["scan-skeleton"] = { ok: true, summary };
+      await paaw.setCuStepStatus("scan-skeleton", "done", { summary });
+    } catch (e) {
+      results["scan-skeleton"] = { ok: false, error: e.message };
+    }
+
     // 2. Test Intelligence
     try {
       const { summary } = await buildTestIntelligence(root, paawRoot);

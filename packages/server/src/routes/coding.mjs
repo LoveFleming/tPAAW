@@ -74,6 +74,7 @@ import { countSourceFiles, walkSourceFiles, changedSourceFilesSince } from "../l
 // step 產出檔比 code 最新 mtime 舊 → 過期（快照是舊地圖）
 // 與 UI CU_STEPS 的 file 對應（保持同步）— Slim CU：只保留 4 個 steps + 人寫檔案
 const CU_STEP_FILES = {
+  "scan-skeleton": "scan-skeleton.json", // 2026-11-20 拆層：機械骨架 step（免 LLM）
   scan: "scan.json",
   "feature-map": "features/FEATURES.json", // 2026-11-05 復活：feature map 產出（staleness 增量判斷用）
   "api-map": "api-map.json",
@@ -804,7 +805,8 @@ export default async function projectRoute(req, res) {
       const cuModelOverride = body.model || null;
 
       const ALL_STEPS = [
-        { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
+        { id: "scan-skeleton", name: "⚙️ 專案骨架（程式解析，免 token）", promptFile: null },
+        { id: "scan", name: "🔍 掃描專案結構（語意盤點）", promptFile: "scan-project.md" },
         { id: "feature-map", name: "🗺️ API Map 前置處理（API-first 基礎：決定論骨架＋AI 長肉）", promptFile: null },
         { id: "api-map", name: "🌐 產出 API Map（API-first）", promptFile: "gen-api-map.md" },
         { id: "ui-map", name: "🖥️ 產出 UI Map（前端 route-first）", promptFile: "gen-ui-map.md" },
@@ -864,6 +866,26 @@ export default async function projectRoute(req, res) {
         };
 
         sendEvent("step_start", { step: step.id, name: step.name });
+
+        // 2026-11-20 拆層：scan-skeleton = 純機械 step（免 LLM，產 scan-skeleton.json）— single-step 路徑
+        if (step.id === "scan-skeleton") {
+          try {
+            const { buildScanSkeleton, serializeSkeleton } = await import("../lib/scan-skeleton.mjs");
+            const sk = buildScanSkeleton(root);
+            await paaw.writeFile("scan-skeleton.json", serializeSkeleton(sk));
+            const summary = `${sk._meta.sourceFileCount} 檔 · ${sk.projectType}${sk.framework ? " · " + sk.framework : ""}`;
+            cuLog(step.id, `Skeleton done: ${summary}`);
+            sendEvent("step_done", { step: step.id, name: step.name, summary });
+            try { await paaw.setCuStepStatus(step.id, "done", { summary }); } catch {}
+          } catch (err) {
+            cuLog(step.id, `Skeleton failed: ${err.message}`);
+            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+            try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+          }
+          sendEvent("done", { message: "Scan skeleton complete" });
+          if (!res.writableEnded) res.end();
+          return true;
+        }
 
         // Special handling: security-scan runs Semgrep (no LLM needed)
         if (step.id === "security-scan") {
@@ -1066,8 +1088,9 @@ export default async function projectRoute(req, res) {
         if (step.id === "scan") {
           try {
             const { buildScanSkeleton } = await import("../lib/scan-skeleton.mjs");
-            scanSkeleton = buildScanSkeleton(root);
-            cuLog(step.id, `Skeleton: type=${scanSkeleton.projectType} lang=${scanSkeleton.language} fw=${scanSkeleton.framework || "?"} entries=${scanSkeleton.entryPoints.length} files=${scanSkeleton._meta.sourceFileCount}`);
+            // 優先用 scan-skeleton step 的檔案版（單一事實來源）；没跑過 skeleton step 則即時建
+            scanSkeleton = (await paaw.readFile("scan-skeleton.json").then(r => { try { return JSON.parse(r); } catch { return null; } }).catch(() => null)) || buildScanSkeleton(root);
+            cuLog(step.id, `Skeleton: type=${scanSkeleton.projectType} lang=${scanSkeleton.language} fw=${scanSkeleton.framework || "?"} entries=${(scanSkeleton.entryPoints || []).length} files=${scanSkeleton._meta?.sourceFileCount ?? "?"}`);
           } catch (e) { cuLog(step.id, `scan-skeleton 失敗（略過注入）: ${e.message}`); }
         }
         // 2026-11-07：ui-map 前置 deterministic route 盤點（page-inventory 引擎）— LLM 不可發明 route，只能補語意
@@ -1354,7 +1377,8 @@ export default async function projectRoute(req, res) {
     if (url.startsWith("/api/coding-project/ai-initial") && method === "POST") {
       const forceRerun = q.force === "1" || q.force === "true";
       const steps = [
-        { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
+        { id: "scan-skeleton", name: "⚙️ 專案骨架（程式解析，免 token）", promptFile: null },
+        { id: "scan", name: "🔍 掃描專案結構（語意盤點）", promptFile: "scan-project.md" },
         { id: "feature-map", name: "🗺️ API Map 前置處理（API-first 基礎：決定論骨架＋AI 長肉）", promptFile: null },
         { id: "api-map", name: "🌐 產出 API Map（API-first）", promptFile: "gen-api-map.md" },
         { id: "ui-map", name: "🖥️ 產出 UI Map（前端 route-first）", promptFile: "gen-ui-map.md" },
@@ -1509,6 +1533,24 @@ export default async function projectRoute(req, res) {
             continue;
           }
 
+          // 2026-11-20 拆層（bulk 路徑）：scan-skeleton = 純機械 step（免 LLM）
+          if (step.id === "scan-skeleton") {
+            try {
+              const { buildScanSkeleton, serializeSkeleton } = await import("../lib/scan-skeleton.mjs");
+              const sk = buildScanSkeleton(root);
+              await paaw.writeFile("scan-skeleton.json", serializeSkeleton(sk));
+              const summary = `${sk._meta.sourceFileCount} 檔 · ${sk.projectType}${sk.framework ? " · " + sk.framework : ""}`;
+              cuLog(step.id, `[bulk] Skeleton done: ${summary}`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary }); } catch {}
+            } catch (err) {
+              cuLog(step.id, `[bulk] Skeleton failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
+            }
+            continue;
+          }
+
           // Special handling: feature-map v2 — 決定論骨架 + per-feature agent loop 長肉（2026-11-05 復活：
           // Slim CU 拔掉 feature-map step 後 organizeFeatureMapV2 變死碼，新專案生不出 FEATURES.json
           // → coding.db features 0 → RU model 0 → Evidence Matrix 永遠空。接回 pipeline）
@@ -1645,7 +1687,7 @@ export default async function projectRoute(req, res) {
           if (step.id === "scan") {
             try {
               const { buildScanSkeleton } = await import("../lib/scan-skeleton.mjs");
-              bulkScanSkeleton = buildScanSkeleton(root);
+              bulkScanSkeleton = (await paaw.readFile("scan-skeleton.json").then(r => { try { return JSON.parse(r); } catch { return null; } }).catch(() => null)) || buildScanSkeleton(root);
               const k = bulkScanSkeleton.keyDirectories;
               fullPrompt += `\n\n--- DETERMINISTIC SKELETON（程式已解析，以下欄位以這裡為準 — 照抄進輸出 JSON，不可發明、不可改動）---\nprojectName: ${bulkScanSkeleton.projectName ?? "(unknown)"}\nprojectType: ${bulkScanSkeleton.projectType}\nlanguage: ${bulkScanSkeleton.language ?? "(unknown)"}\nframework: ${bulkScanSkeleton.framework ?? "(none detected)"}\nruntime: ${bulkScanSkeleton.runtime ?? "(unknown)"}\nentryPoints: ${bulkScanSkeleton.entryPoints.length ? bulkScanSkeleton.entryPoints.join(", ") : "(none from package.json — AI 可由原始碼判讀補上)"}\nkeyDirectories.source: ${k.source ?? "null"}\nkeyDirectories.tests: ${k.tests ?? "null"}\nkeyDirectories.config: ${k.config ?? "null"}\nkeyDirectories.docs: ${k.docs ?? "null"}\nsource files: ${bulkScanSkeleton._meta.sourceFileCount}（top dirs: ${bulkScanSkeleton._meta.topDirs.join(", ") || "-"}）\n你的工作聚焦語意欄位：summary / modules（responsibility+dependsOn）/ techDebt / healthGaps。`;
               cuLog(step.id, `[bulk] Skeleton: type=${bulkScanSkeleton.projectType} lang=${bulkScanSkeleton.language} fw=${bulkScanSkeleton.framework || "?"} files=${bulkScanSkeleton._meta.sourceFileCount}`);

@@ -348,7 +348,8 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
 
   // ── CU step definitions (must match server) ──
   const CU_STEPS = [
-    { id: "scan", name: "🔍 掃描專案結構", file: "scan.json" },
+    { id: "scan-skeleton", name: "⚙️ 專案骨架（程式解析）", file: "scan-skeleton.json" },
+    { id: "scan", name: "🔍 掃描專案結構（語意盤點）", file: "scan.json" },
     { id: "feature-map", name: "🗺️ API Map 前置處理（API-first）", file: "features/FEATURES.json" },
     { id: "api-map", name: "🌐 API Map", file: "api-map.json" }, // API-first（2026-11-01）：marker 檔 api-map.json
     { id: "ui-map", name: "🖥️ UI Map", file: "api-map.json" }, // 2026-11-08：server ui-map 步驟補上（marker 同 api-map，看 cu-status 為準）
@@ -362,7 +363,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
   const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number; error?: string; progress?: string }>>([]);
   // 2026-10-31 Fleming：從沒跑過 CU → 按鈕只顯示「開始掃描」一顆
   // ⚠️ 機械層（code/test-intelligence）開專案就自動跑成 done — 不算「跑過」，否則 learning-space 這種新 import 還是彈兩顆按鈕
-  const CU_MECHANICAL_IDS = new Set(["code-intelligence", "test-intelligence"]);
+  const CU_MECHANICAL_IDS = new Set(["code-intelligence", "test-intelligence", "scan-skeleton"]);
   const cuHasAnyRun = persistedSteps.some(s => (s.status === "done" || s.status === "error") && !CU_MECHANICAL_IDS.has(s.id));
   // ── CU step skill 綁定（PAAW skill 綁到 cu.<stepId>）──
   const [cuSkillBindings, setCuSkillBindings] = useState<Record<string, string[]>>({});
@@ -1492,7 +1493,7 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
           {/* Steps — 兩欄：左機械（deterministic）/ 右智慧（LLM）*/}
           <div className="flex-1 flex gap-3 px-5 py-3 min-h-0">
             {(() => {
-              const isMech = (id: string) => id === "code-intelligence" || id === "test-intelligence";
+              const isMech = (id: string) => id === "code-intelligence" || id === "test-intelligence" || id === "scan-skeleton";
               const mech = steps.filter(s => isMech(s.id));
               const smart = steps.filter(s => !isMech(s.id));
               const StepTile = (step: any) => (
@@ -1506,10 +1507,6 @@ export default function EMDashboard({ rootPath, theme: tk, onStartCodeUnderstand
                         {step.name}
                         {step.status === "running" && <span className="ml-1 inline-block animate-pulse">●</span>}
                       </span>
-                      {/* 2026-11-20：scan 拆層後是混合體 — 機械骨架（免 token）+ LLM 語意；留在智慧屬但標示 */}
-                      {step.id === "scan" && (
-                        <span className="text-[10px] px-1 py-0.5 border rounded-none border-amber-200 bg-amber-50 text-amber-600" title="機械欄位（專案名/型別/框架/入口）由程式決定免 token；LLM 只做語意（summary/modules/techDebt）">⚙️+🤖</span>
-                      )}
                       {!isMech(step.id) && (
                         <button
                           onClick={() => setCuSkillPickerStep(step.id)}

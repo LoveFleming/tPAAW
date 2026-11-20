@@ -116,6 +116,18 @@ export function buildScanSkeleton(root) {
   return skeleton;
 }
 
+/** 把骨架寫入 .paaw/scan-skeleton.json（機械層 step + 重掃用） */
+export function serializeSkeleton(skeleton) {
+  return JSON.stringify(skeleton, null, 2);
+}
+
+/** 讀回已存的骨架（scan LLM step 用 — 單一事實來源：檔案版優先，不存在回 null） */
+export function loadScanSkeleton(paawReadJson) {
+  try {
+    const raw = paawReadJson("scan-skeleton.json");
+    return raw && typeof raw === "object" ? raw : null;
+  } catch { return null; }
+}
 /** 把骨架的機械欄位強制覆寫回 scan.json（LLM 只保留語意欄位） */
 export function enforceScanSkeleton(scanJson, skeleton) {
   if (!scanJson || typeof scanJson !== "object") return scanJson;
