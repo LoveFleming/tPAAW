@@ -1331,16 +1331,20 @@ if (url === "/api/coding-crew/review-board-run" && method === "POST") {
     //   N 天前最後一個 commit 的 sha..HEAD；專案比 N 天年輕 → 從 root commit 開始（全部審）
     let ref = rbBody.ref;
     if (!ref) {
-      const days = Math.max(1, Math.min(365, Number(rbBody.days) || 7));
-      const since = new Date(Date.now() - days * 86400_000).toISOString();
+      // 2026-11-20 Fleming：days="all"（UI「全部」）— 從 root commit 全部審
+      const wantAll = rbBody.days === "all" || rbBody.days === 0 || rbBody.days === "0";
+      const days = wantAll ? 0 : Math.max(1, Math.min(365, Number(rbBody.days) || 7));
       const rootSha = (await shellExec(`git rev-list --max-parents=0 HEAD`, { cwd: rbRoot })).stdout?.trim().split("\n").pop() || "";
       const headSha = (await shellExec(`git rev-list -1 HEAD`, { cwd: rbRoot })).stdout?.trim() || "";
       let beforeSha = "";
-      try { beforeSha = (await shellExec(`git rev-list -1 --before="${since}" HEAD`, { cwd: rbRoot })).stdout?.trim() || ""; } catch {}
+      if (!wantAll) {
+        const since = new Date(Date.now() - days * 86400_000).toISOString();
+        try { beforeSha = (await shellExec(`git rev-list -1 --before="${since}" HEAD`, { cwd: rbRoot })).stdout?.trim() || ""; } catch {}
+      }
       // 專案比 N 天年輕（beforeSha == HEAD 或查不到）→ 從 root commit 開始全部審
-      const baseSha = beforeSha && beforeSha !== headSha ? beforeSha : rootSha;
+      const baseSha = wantAll ? rootSha : (beforeSha && beforeSha !== headSha ? beforeSha : rootSha);
       ref = baseSha ? `${baseSha}..HEAD` : "HEAD~1..HEAD";
-      rbSend({ event: "progress", message: `審查範圍：最近 ${days} 天 → ${ref}` });
+      rbSend({ event: "progress", message: `審查範圍：${wantAll ? "全部歷史" : `最近 ${days} 天`} → ${ref}` });
     }
     const r = await runMultiModelReview({
       projectDir: rbRoot,
