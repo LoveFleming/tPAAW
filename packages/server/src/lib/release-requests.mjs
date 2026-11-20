@@ -12,7 +12,7 @@
  *   - released：結案（不可逆）— 快照 REL 到 .paaw/releases/ + 批次放行範圍內 pending tasks
  *
  * checklist（2026-09-17 定四項，後續演進）：
- *   tests / gates / qa-records / security / review-board（2026-10-08）/ risk / ops / handover
+ *   tests / gates / qa-records / security / review-board（2026-10-08）/ risk / dfo（2026-11-20，ops+handover 合併）
  * 程式保證事實（deterministic），人下 verdict — No answer without evidence。
  *
  * review-board（2026-10-08 Fleming）：code review 委員會 report 是第五類證據 —
@@ -47,8 +47,9 @@ const CHECKLIST_DEFS = [
   { id: "security", label: "Security scan（semgrep，scope 內）" },
   { id: "review-board", label: "Review 委員會（report 覆蓋放行範圍）" },
   { id: "risk", label: "風險評估（readiness heuristic）" },
-  { id: "ops", label: "維運就緒（部署/回滾文檔）— 簽核" },
-  { id: "handover", label: "交接（handover state 新鮮）— 簽核" },
+  // 2026-11-20 Fleming：DFO（Design for Operation）上線 — ops + handover 兩項合併成一項 dfo
+  // （維運/回滾/交接都在 DFO 五節裡，owner = Greta/coding.ops；release-gated：本單期間要有更新紀錄）
+  { id: "dfo", label: "DFO 維運文件已更新至本版（維運/回滾/交接）— 簽核" },
 ];
 
 const PHASES_BEFORE_COMMIT = ["spec", "implement", "review", "test", "qa", "docs"];
@@ -149,7 +150,7 @@ function normalizeChecklist(rr) {
     auto: { status: "unknown", detail: "此單建立時尚無此檢查項 — 重新整理（open/checklist/close 會重跑 auto）", checkedAt: null },
     // 已結案的舊單補 waived（誠實記錄：結案時此檢查項尚不存在）；進行中補 pending 等人審
     verdict: closedAlready ? "waived" : "pending",
-    note: closedAlready ? "單已結案時此檢查項尚不存在（2026-09-18 checklist 擴充七項）" : null,
+    note: closedAlready ? "單已結案時此檢查項尚不存在（checklist 定義演進 — 見 CHECKLIST_DEFS）" : null,
     by: "system-migration", at: new Date().toISOString(),
   });
   for (const c of rr.checklist) { const def = CHECKLIST_DEFS.find(d => d.id === c.id); if (def) c.label = def.label; }
@@ -603,52 +604,32 @@ export async function autoCheckAll(projectPath, scope, opts = {}) {
     }
   } catch { out["review-board"] = { status: "unknown", detail: "review-board 證據讀取失敗", checkedAt: at }; }
 
-  // ops — 維運文檔證據（部署/回滾步驟）+ 依賴變更提醒；verdict = 維運簽核
+  // dfo — DFO 維運文件（Handover+Troubleshooting 合併，owner = Greta/coding.ops）
+  // 2026-11-20 Fleming：ops + handover 兩項合併。release-gated：
+  //   pass  = DFO 存在、updatedAt 在本單建立之後、且不落後程式 commits
+  //   warn  = 沒更新過/過期（人可 waive，或出貨頁按 🔄 AI 更新後重驗）
   try {
-    const docs = [];
-    for (const f of ["DEPLOY.md", "README.md", "docs/DEPLOY.md", "docs/deploy.md"]) {
-      const p = join(projectPath, f);
-      if (!existsSync(p)) continue;
-      const txt = readFileSync(p, "utf-8");
-      const hasRollback = /rollback|回滾|還原步驟|revert/i.test(txt);
-      const hasDeploy = /deploy|部署|安裝步驟|build/i.test(txt);
-      if (hasDeploy || hasRollback) docs.push(`${f}${hasRollback ? "（含回滾）" : ""}`);
-    }
+    const dfo = await import("./dfo.mjs").then(m => m.readDfo(projectPath)).catch(() => null);
     const depChanged = (scope.files || []).some(f => /(^|\/)(package(-lock)?\.json|pnpm-lock\.yaml|yarn\.lock|requirements[^/]*\.txt|go\.(mod|sum))$/i.test(String(f?.file ?? f)));
-    out.ops = docs.length
-      ? { status: "pass", detail: `維運文檔：${docs.join("、")}${depChanged ? "；⚠ 本次含依賴變更 — 注意鎖檔與安裝步驟" : ""}`, checkedAt: at }
-      : { status: "warn", detail: `未找到部署/回滾文檔（DEPLOY.md / README）${depChanged ? "；⚠ 本次含依賴變更 — 建議補文檔後再放行" : " — 小改動可 waive"}`, checkedAt: at };
-  } catch { out.ops = { status: "unknown", detail: "ops 檢查失敗", checkedAt: at }; }
-
-  // handover — .paaw/handover-state.json 存在 + 新鮮度；verdict = 接手方簽核
-  try {
-    const hp = join(projectPath, ".paaw", "handover-state.json");
-    if (!existsSync(hp)) {
-      out.handover = { status: "warn", detail: "尚無 handover state — 先產生交接包（handover/bundle）", checkedAt: at };
+    if (!dfo) {
+      out.dfo = { status: "warn", detail: `尚無 DFO — 出貨頁「DFO 維運文件」按 🔄 AI 生成（Greta 全量產出：維運/回滾/交接）${depChanged ? "；⚠ 本次含依賴變更" : ""}`, checkedAt: at };
     } else {
-      const hs = JSON.parse(readFileSync(hp, "utf-8"));
-      const genAt = hs.generatedAt || (() => { try { return new Date(statSync(hp).mtime).toISOString(); } catch { return null; } })();
-      let staleCommits = 0, ruOnlyH = 0;
-      const sinceH = gitWhen(genAt);
-      if (sinceH) {
-        const totalH = parseInt(await gitOne(projectPath, `rev-list --count HEAD --since="${sinceH}"`) || "0", 10) || 0;
-        if (totalH > 0) {
-          const lgH = await gitOne(projectPath, `log --since="${sinceH}" --name-only --pretty=format:%H`) || "";
-          staleCommits = countCodeCommitsSince(lgH); // 只算程式 commits（2026-09-19）
-          ruOnlyH = totalH - staleCommits;
-        }
+      // 新鮮度：DFO 更新後的程式 commits（同 tests/handover 哲學，只算程式碼）
+      let staleCommits = 0;
+      const sinceD = gitWhen(dfo.updatedAt);
+      if (sinceD) {
+        const lgD = await gitOne(projectPath, `log --since="${sinceD}" --name-only --pretty=format:%H`) || "";
+        staleCommits = countCodeCommitsSince(lgD);
       }
-      // changes 可能是陣列或 {recentCommits:[...]} 結構（release-unit/handover-state 版本差異）
-      const ch = hs.changes;
-      const nChanges = Array.isArray(ch) ? ch.length : (ch?.recentCommits?.length ?? 0);
-      const nIssues = (hs.issues || []).length;
-      out.handover = {
-        status: staleCommits > 0 ? "warn" : "pass",
-        detail: `handover state ${genAt || "n/a"}（changes ${nChanges} / open issues ${nIssues}）${staleCommits > 0 ? `；⚠ 落後 ${staleCommits} 個程式 commits — 交接包過期，建議 refresh` : (ruOnlyH > 0 ? `；（${ruOnlyH} 個 commits 皆 RU 資料，仍新鮮）` : "；新鮮")}`,
-        checkedAt: at,
-      };
+      const withinRr = opts.rrCreatedAt ? dfo.updatedAt >= opts.rrCreatedAt : null;
+      const status = staleCommits > 0 || withinRr === false ? "warn" : "pass";
+      const parts = [`DFO ${dfo.version} · ${dfo.updatedAt}（${(dfo.sections || []).length} 節）`];
+      if (withinRr === false) parts.push("上次更新在本單建立前 — 放行前請 🔄 AI 更新（出貨頁 DFO）");
+      if (staleCommits > 0) parts.push(`落後 ${staleCommits} 個程式 commits`);
+      if (depChanged) parts.push("⚠ 本次含依賴變更 — 注意 DFO 回滾節的安裝步驟");
+      out.dfo = { status, detail: parts.join("；"), checkedAt: at };
     }
-  } catch { out.handover = { status: "unknown", detail: "handover state 讀取失敗", checkedAt: at }; }
+  } catch { out.dfo = { status: "unknown", detail: "DFO 讀取失敗", checkedAt: at }; }
 
   // risk — readiness 同款 heuristic，對 scope 計算
   const { level, reasons } = scopeRisk(scope, out, opts);
@@ -690,12 +671,13 @@ export async function createReleaseRequest(projectPath, { title, baseline = "aut
   }
   const target = await describeCommit(projectPath, headSha);
   const scope = await computeScope(projectPath, base.sha);
-  const auto = await autoCheckAll(projectPath, scope, { firstRelease: base.source === "first-commit", baselineSha: base.sha, targetSha: headSha });
+  const createdAt = new Date().toISOString();
+  const auto = await autoCheckAll(projectPath, scope, { firstRelease: base.source === "first-commit", baselineSha: base.sha, targetSha: headSha, rrCreatedAt: createdAt });
 
   const rr = {
     id: newRRId(),
     title: title || `Release ${new Date().toISOString().slice(0, 10)} — ${scope.commits.count} commits`,
-    createdAt: new Date().toISOString(),
+    createdAt,
     createdBy,
     status: "draft",
     baseline: base,
@@ -726,7 +708,7 @@ export async function updateReleaseRequest(projectPath, id, { title, baseline } 
     const base = await resolveBaseline(projectPath, baseline);
     rr.baseline = base;
     rr.scope = await computeScope(projectPath, base.sha);
-    const auto = await autoCheckAll(projectPath, rr.scope, { firstRelease: base.source === "first-commit", baselineSha: base.sha, targetSha: rr.target?.sha });
+    const auto = await autoCheckAll(projectPath, rr.scope, { firstRelease: base.source === "first-commit", baselineSha: base.sha, targetSha: rr.target?.sha, rrCreatedAt: rr.createdAt });
     for (const item of rr.checklist) item.auto = auto[item.id] || item.auto;
     hist(rr, "human", "baseline-changed", `${base.short}（${base.source}）`);
   }
@@ -747,7 +729,7 @@ export async function openReleaseRequest(projectPath, id) {
     rr.target = head;
     const scope = await computeScope(projectPath, rr.baseline.sha, head.sha);
     rr.scope = scope;
-    const auto = await autoCheckAll(projectPath, scope, { firstRelease: rr.baseline?.source === "first-commit", baselineSha: rr.baseline.sha, targetSha: head.sha });
+    const auto = await autoCheckAll(projectPath, scope, { firstRelease: rr.baseline?.source === "first-commit", baselineSha: rr.baseline.sha, targetSha: head.sha, rrCreatedAt: rr.createdAt });
     rr.checklist = freshChecklist(auto); // target 變了 → 證據全部重算，verdict 重置
     rr.suggested = undefined; // 舊證據的 AI 建議一併作廢（若有）
   }
@@ -808,7 +790,7 @@ export async function refreshReleaseRequest(projectPath, id) {
       hist(rr, "system", "target-advanced", `target ${prevShort} → ${rr.target.short}（lineage 自動前進），scope 重算，AI 建議作廢`);
     }
   }
-  const auto = await autoCheckAll(projectPath, rr.scope, { firstRelease: rr.baseline?.source === "first-commit", baselineSha: rr.baseline.sha, targetSha: rr.target.sha });
+  const auto = await autoCheckAll(projectPath, rr.scope, { firstRelease: rr.baseline?.source === "first-commit", baselineSha: rr.baseline.sha, targetSha: rr.target.sha, rrCreatedAt: rr.createdAt });
   for (const item of rr.checklist) item.auto = auto[item.id] || item.auto;
   await saveRR(projectPath, rr);
   return rr;
@@ -990,7 +972,7 @@ export async function createAutoRrForTaskApproval(projectPath, { taskId, taskTit
   const rr = {
     id: newRRId(),
     title: `Auto — ${taskTitle || taskId}`,
-    createdAt: new Date().toISOString(),
+    createdAt,
     createdBy: "auto(per-task-approve)",
     status: "released",
     baseline: base,

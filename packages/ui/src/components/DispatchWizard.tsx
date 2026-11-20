@@ -143,7 +143,7 @@ export default function DispatchWizard({ rootPath, theme: tk, onClose, onLaunch 
         const logs: string[] = [];
         const r = await fetch(`${API_BASE}${ep.url}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cwd: rootPath, days: values.days === "全部" ? "all" : (Number(values.days) || 7) }),
+          body: JSON.stringify({ cwd: rootPath, days: values.days === "全部" ? "all" : values.days === "上次 release 起" ? "baseline" : (Number(values.days) || 7) }),
         });
         await readSSE(r, (d) => {
           if (d.error) { setResult(`❌ ${d.error}`); return true; }

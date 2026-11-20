@@ -49,7 +49,7 @@ export const DISPATCH_CATALOG = [
     preconditions: "reviewer 名單由 EM 設定 reviewConfig.reviewModels 決定（沒開 multiAgentReview 就單席）",
     entrypoint: { kind: "review-run", url: "/api/coding-crew/review-board-run" },
     params: [
-      { id: "days", label: "最近變更範圍", type: "select", options: ["7", "30", "90", "全部"], default: "7" }, // 2026-11-20 Fleming：加「全部」— 從 root commit 全審
+      { id: "days", label: "最近變更範圍", type: "select", options: ["上次 release 起", "7", "30", "90", "全部"], default: "7" }, // 2026-11-20：加「全部」；v2 再加「上次 release 起」（baseline..HEAD，R7）
     ],
   },
   {

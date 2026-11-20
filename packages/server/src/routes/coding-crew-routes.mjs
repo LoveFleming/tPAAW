@@ -1342,20 +1342,35 @@ if (url === "/api/coding-crew/review-board-run" && method === "POST") {
         rbSend({ event: "error", error: "這個專案還沒有任何 git commit（空的 git repo）— review 委員會靠 commit 差異審查，没有 commit 就沒有可審的變更。先 commit 再跑，或先用 CU（Code Understanding）建立知識庫。" });
         res.end(); return true;
       }
-      // 2026-11-20 Fleming：days="all"（UI「全部」）— 從 root commit 全部審
+      // 2026-11-20 Fleming：days="all"（UI「全部」）— 從 root commit 全部審；
+      // days="baseline"（UI「上次 release 起」）— 從上次 release target sha 起審（R7）
       const wantAll = rbBody.days === "all" || rbBody.days === 0 || rbBody.days === "0";
+      const wantBaseline = rbBody.days === "baseline";
       const days = wantAll ? 0 : Math.max(1, Math.min(365, Number(rbBody.days) || 7));
       const rootSha = (await shellExec(`git rev-list --max-parents=0 HEAD`, { cwd: rbRoot })).stdout?.trim().split("\n").pop() || "";
       const headSha = (await shellExec(`git rev-list -1 HEAD`, { cwd: rbRoot })).stdout?.trim() || "";
       let beforeSha = "";
-      if (!wantAll) {
+      if (wantBaseline) {
+        // baseline = 上次結案 RR 掼的 target sha（resolveBaseline auto）；無 release 紀錄 → 全部審
+        try {
+          const { resolveBaseline } = await import("../lib/release-requests.mjs");
+          const base = await resolveBaseline(rbRoot, "auto");
+          if (base?.sha) { beforeSha = base.sha; rbSend({ event: "progress", message: `baseline：${base.short || base.sha.slice(0, 8)}（${base.source}）` }); }
+          else rbSend({ event: "progress", message: "無 release 紀錄 → 全部歷史審" });
+        } catch { rbSend({ event: "progress", message: "baseline 解析失敗 → 回全部歷史審" }); }
+      } else if (!wantAll) {
         const since = new Date(Date.now() - days * 86400_000).toISOString();
         try { beforeSha = (await shellExec(`git rev-list -1 --before="${since}" HEAD`, { cwd: rbRoot })).stdout?.trim() || ""; } catch {}
       }
       // 專案比 N 天年輕（beforeSha == HEAD 或查不到）→ 從 root commit 開始全部審
-      const baseSha = wantAll ? rootSha : (beforeSha && beforeSha !== headSha ? beforeSha : rootSha);
+      const baseSha = wantAll ? rootSha : (beforeSha && (wantBaseline || beforeSha !== headSha) ? beforeSha : rootSha);
+      // baseline 起審但沒有新 commits（baseline == HEAD）→ 空範圍，告知不硬跑
+      if (wantBaseline && baseSha && baseSha === headSha) {
+        rbSend({ event: "done", result: "上次 release 後沒有新 commits — 無可審變更（要全審改選「全部」）", decision: "no-changes" });
+        res.end(); return true;
+      }
       ref = baseSha ? `${baseSha}..HEAD` : "HEAD~1..HEAD";
-      rbSend({ event: "progress", message: `審查範圍：${wantAll ? "全部歷史" : `最近 ${days} 天`} → ${ref}` });
+      rbSend({ event: "progress", message: `審查範圍：${wantAll ? "全部歷史" : wantBaseline ? "上次 release 起（baseline）" : `最近 ${days} 天`} → ${ref}` });
     }
     const r = await runMultiModelReview({
       projectDir: rbRoot,
