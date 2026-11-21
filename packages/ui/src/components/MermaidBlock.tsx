@@ -16,6 +16,9 @@
 import React, { memo, useEffect, useRef, useState } from "react";
 
 let mermaidPromise: Promise<any> | null = null;
+
+// 2026-11-21 Fleming：圖内字型要跟外面正文一致（原本 monospace 跟 system-ui 正文不搭）
+const APP_FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Noto Color Emoji", sans-serif';
 let uidCounter = 0;
 
 function loadMermaid(): Promise<any> {
@@ -28,7 +31,7 @@ function loadMermaid(): Promise<any> {
         securityLevel: "strict",
         // 2026-11-15：parse error 時先清掉 body 暫存 div 再 throw（否則殘留錯誤文字 → 整頁外層多捲軸，Fleming 回報「coding app 被汙染」）
         suppressErrorRendering: true,
-        fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+        fontFamily: APP_FONT,
         // 2026-10-23 Fleming：圖内文字與 chat 本文同大小（.md-content = text-sm 14px），不突兀
         themeVariables: { fontSize: "13px" },
         // 2026-10-23 Fleming：關掉 useMaxWidth —— mermaid 預設把整張圖縮到容器寬，
@@ -128,7 +131,7 @@ export const MermaidBlock = memo(function MermaidBlock({ code }: { code: string 
         <div className="mermaid-svg-wrap [&_svg]:block [&_svg]:mx-auto">
           {/* CSS 錘子：mermaid v12 的 htmlLabel（foreignObject 裡的 span）不吃 themeVariables.fontSize，
               且 SVG text 的 font-size 是 presentation attribute（CSS 優先序最低層）→ !important 一定赢 */}
-          <style>{`.mermaid-svg-wrap span, .mermaid-svg-wrap p, .mermaid-svg-wrap div, .mermaid-svg-wrap text { font-size: 13px !important; }`}</style>
+          <style>{`.mermaid-svg-wrap span, .mermaid-svg-wrap p, .mermaid-svg-wrap div, .mermaid-svg-wrap text, .mermaid-svg-wrap tspan { font-size: 13px !important; font-family: ${APP_FONT} !important; }`}</style>
           <div dangerouslySetInnerHTML={{ __html: svg }} />
         </div>
       )}
