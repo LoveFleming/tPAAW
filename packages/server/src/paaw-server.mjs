@@ -389,6 +389,14 @@ server.listen(PORT, async () => {
   console.log(`[PAAW] Listening on http://127.0.0.1:${PORT}`);
   console.log(`[PAAW] ${ROUTE_MODULES.length} route modules + scheduler loaded`);
 
+  // ── CU 定時全 RU 巡檢（2026-11-21 Fleming）：不依賴使用者開專案，時間到自動偵測 stale 並背景增量重跑 ──
+  try {
+    const { startCuBackgroundWatcher } = await import('./lib/cu-background-watcher.mjs');
+    startCuBackgroundWatcher();
+  } catch (err) {
+    console.error('[PAAW] CU background watcher failed to start:', err.message);
+  }
+
   // ── Check for interrupted execution plans ──
   try {
     const { markInterruptedPlans } = await import('./lib/execution-plan.mjs');

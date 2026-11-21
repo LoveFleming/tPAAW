@@ -1,0 +1,89 @@
+/**
+ * cu-background-watcher.mjs — CU 定時全 RU 巡檢（2026-11-21 Fleming）
+ *
+ * 問題：CU 自動增量重跑原本掛在「前端查 cu-status API」上 — 使用者不開專案就沒人查，
+ * CU 凍在 baseline，AI 沒最新內容可參考。
+ *
+ * 解法：背景定時循環（預設 4h，env CU_WATCH_INTERVAL_MS 可調）對所有已 import 的專案
+ * 自呼一次 `GET /api/coding-project/cu-status?path=<root>` — 該 route 本身就含
+ * 機械層自動重掃 + 智慧層自動增量重跑邏輯（busy set / 10min cooldown / bulk 訂閱板防併發），
+ * 這裡零邏輯重複，只是把觸發條件從「UI 開專案」換成「時間到」。
+ *
+ * 安全設計：
+ * - 只巡檢「已跑過 CU」的專案（.paaw/cu-status.json 存在）— 從沒跑過 CU 的不會被自動初始化
+ * - timer unref() — 不阻擋 process 正常退出
+ * - 逐專案 sequential + 失敗續跑 — 一個壞不掉整輪
+ * - 無 stale 時只花 git diff 的成本（內容導向 staleness），零 token
+ */
+
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
+import { DATA_HOME, REPO_ROOT } from "../data-home.mjs";
+import { PORT } from "../routes/shared.mjs";
+
+const DEFAULT_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 小時
+const INITIAL_DELAY_MS = 60 * 1000; // server 起來 1 分鐘後先跑第一輪（避開啟動尖峰）
+const PER_PROJECT_GAP_MS = 5_000; // 專案間隔 5 秒，避免瞬間連發
+const WATCH_TAG = "[cu-watch]";
+
+let _running = false;
+
+/** 收集所有要巡檢的 project root（recent-projects.json + workspaces.json + PAAW_ROOT） */
+function _collectProjectRoots() {
+  const paths = new Set([REPO_ROOT]);
+  const readList = (p, pick) => {
+    try {
+      const arr = JSON.parse(readFileSync(p, "utf-8"));
+      if (Array.isArray(arr)) for (const item of arr) {
+        const v = pick(item);
+        if (typeof v === "string" && v) paths.add(v);
+      }
+    } catch {}
+  };
+  readList(join(DATA_HOME, "config", "recent-projects.json"), (r) => r?.path);
+  readList(join(DATA_HOME, "workspaces.json"), (r) => r?.path ?? r?.directories?.[0] ?? null);
+  // workspaces.json 的 directories 是字串陣列不是物件陣列，分開處理
+  try {
+    const ws = JSON.parse(readFileSync(join(DATA_HOME, "workspaces.json"), "utf-8"));
+    if (Array.isArray(ws?.directories)) for (const d of ws.directories) if (typeof d === "string" && d) paths.add(d);
+  } catch {}
+  // 只保留「已跑過 CU」的（沒有 cu-status.json = 從沒做過 CU，不自動初始化）
+  return [...paths].filter((p) => existsSync(join(p, ".paaw", "cu-status.json")));
+}
+
+/** 巡檢一輪：對每個 RU 自呼 cu-status — stale 的會被 route 內既有邏輯自動重掃/重跑 */
+async function _runSweep() {
+  if (_running) return;
+  _running = true;
+  try {
+    const roots = _collectProjectRoots();
+    if (roots.length === 0) return;
+    console.log(`${WATCH_TAG} 🕐 巡檢 ${roots.length} 個 RU（stale 才會花 token，無變更零成本）`);
+    for (const root of roots) {
+      try {
+        const r = await fetch(
+          `http://127.0.0.1:${PORT}/api/coding-project/cu-status?path=${encodeURIComponent(root)}`,
+          { headers: { Accept: "application/json" } },
+        );
+        // 讀掉 body 讔回應完整送達（route 的背景重掃不 await，這裡只要觸發成功）
+        await r.arrayBuffer();
+      } catch (e) {
+        console.warn(`${WATCH_TAG} cu-status 自呼失敗 (${root}):`, e.message);
+      }
+      await new Promise((ok) => setTimeout(ok, PER_PROJECT_GAP_MS));
+    }
+  } finally {
+    _running = false;
+  }
+}
+
+/** 啟動背景巡檢循環（paaw-server listen 後呼叫一次） */
+export function startCuBackgroundWatcher() {
+  const intervalMs = parseInt(process.env.CU_WATCH_INTERVAL_MS || "", 10) || DEFAULT_INTERVAL_MS;
+  const timer = setInterval(() => { _runSweep().catch(() => {}); }, intervalMs);
+  timer.unref();
+  // 第一輪延遲跑（不阻塞啟動）
+  const boot = setTimeout(() => { _runSweep().catch(() => {}); }, INITIAL_DELAY_MS);
+  boot.unref();
+  console.log(`${WATCH_TAG} 🧹 CU 定時巡檢已啟動（interval=${Math.round(intervalMs / 60000)}min，可由 CU_WATCH_INTERVAL_MS 調整）`);
+}
