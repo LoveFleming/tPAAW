@@ -11,6 +11,7 @@
 
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { createPaawProject } from "./paaw-project.mjs";
 import { loadFeatures as registryLoadFeatures } from "./feature-registry.mjs";
 
@@ -201,7 +202,9 @@ export function snapshotSpec(root, label, by) {
   const version = String(label || prevLabel || "initial").replace(/[^\w.\-]/g, "_");
   try {
     mkdirSync(specVersionsDir(root), { recursive: true });
-    const snap = { version, updatedAt: new Date().toISOString(), updatedBy: by || "ai", sections: parts };
+    let codeCommit = null;
+    try { codeCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, timeout: 5000 }).toString().trim(); } catch {}
+    const snap = { version, updatedAt: new Date().toISOString(), updatedBy: by || "ai", ...(codeCommit ? { codeCommit } : {}), sections: parts };
     writeFileSync(join(specVersionsDir(root), `${version}.json`), JSON.stringify(snap, null, 2), "utf-8");
     return snap;
   } catch { return null; }
@@ -244,6 +247,7 @@ ${schema.format}
 - AI 更新必須參考現有內容（若有）：以現有內容為基礎增補與修正 — 保留仍正確的段落與 ID 編號，只補缺漏、修正與證據衝突處，不要整份重寫
 - 第 2 節：FR 從 apiDetail 的 bizLogic/processFlow 提煉，每支 API/feature 至少一條 FR，驗收條件從 validation 寫
 - 第 4 節：apiDetail 每支 API 都要出現（總表 + 逐一 API-XX）；Request/Response 依 validation/dataTouch/bizLogic 整理成 schema/範例；Error Codes 用 errorCodeDetail 全列（code/message/HTTP status/檔案；code=null 列 message+kind）
+- 除了 code 證據，也要參考 facts.docEvidence：TASKS（做過什麼、為什麼）、ADR / 技術決策（已定調的架構與取捨）、CHANGELOG / KNOWN ISSUES（近期變動與坑）、人的備註（最優先）。優先序：人的備註 > ADR > code 現況；三者衝突時以人/ADR 為準並在必要處註明現況差異
 - 不得捏造事實；專案事實沒有的 API/feature/error code 不要發明
 - ID 編號（FR-01 等）延續遞增，不要重號
 - 流程/架構/互動盡量附 mermaid 圖（mermaid 圍籬：flowchart / sequenceDiagram / stateDiagram-v2）
@@ -444,7 +448,15 @@ async function collectFacts(root) {
   const frameworks = knownFw.filter(([k]) => deps[k]).map(([, n]) => n);
   const scripts = pkg?.scripts ? Object.entries(pkg.scripts).filter(([k]) => ["dev", "dev:ui", "dev:server", "build", "start", "start:prod", "test", "typecheck", "lint"].includes(k)) : [];
 
+  // 2026-11-21 Fleming：文件寫作要參考 task / ADR / changelog / 人的備註
+  let docEvidence = [];
+  try {
+    const { collectDocEvidence } = await import("./doc-evidence.mjs");
+    docEvidence = collectDocEvidence(root);
+  } catch {}
+
   return {
+    docEvidence,
     name: pkg?.name || root.split(/[\\/]/).pop() || "Project",
     description: pkg?.description || null,
     frameworks,

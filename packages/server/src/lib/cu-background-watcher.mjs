@@ -14,6 +14,9 @@
  * - timer unref() — 不阻擋 process 正常退出
  * - 逐專案 sequential + 失敗續跑 — 一個壞不掉整輪
  * - 無 stale 時只花 git diff 的成本（內容導向 staleness），零 token
+ *
+ * 2026-11-21 同日加：同一輪順便做「文件自動保鮮」（doc-autorefresh）—
+ * code 有動且 DFO/spec 落後才叫 LLM，人不用介入文件也不會過時。
  */
 
 import { readFileSync, existsSync } from "fs";
@@ -59,6 +62,8 @@ async function _runSweep() {
     const roots = _collectProjectRoots();
     if (roots.length === 0) return;
     console.log(`${WATCH_TAG} 🕐 巡檢 ${roots.length} 個 RU（stale 才會花 token，無變更零成本）`);
+    const maxDocUpdates = parseInt(process.env.DOC_AUTO_MAX_PER_SWEEP || "", 10) || 2;
+    let docUpdates = 0;
     for (const root of roots) {
       try {
         const r = await fetch(
@@ -69,6 +74,20 @@ async function _runSweep() {
         await r.arrayBuffer();
       } catch (e) {
         console.warn(`${WATCH_TAG} cu-status 自呼失敗 (${root}):`, e.message);
+      }
+      // 文件自動保鮮（DFO 跟著 code 走；spec 預設 7 天一次）
+      // 2026-11-21：每輪最多處理 DOC_AUTO_MAX_PER_SWEEP 個 RU（預設 2）— 避免重啟後一次對 10 個 RU 連發 LLM
+      if (docUpdates < maxDocUpdates) {
+        try {
+          const { autoRefreshDocs } = await import("./doc-autorefresh.mjs");
+          const r = await autoRefreshDocs(root);
+          if (/^(updated|created)/.test(r.dfo) || /^updated/.test(r.spec)) {
+            docUpdates++;
+            console.log(`${WATCH_TAG} 📄 ${root}: dfo=${r.dfo} spec=${r.spec}（本輪第 ${docUpdates}/${maxDocUpdates} 個）`);
+          }
+        } catch (e) {
+          console.warn(`${WATCH_TAG} 文件保鮮失敗 (${root}):`, e.message);
+        }
       }
       await new Promise((ok) => setTimeout(ok, PER_PROJECT_GAP_MS));
     }

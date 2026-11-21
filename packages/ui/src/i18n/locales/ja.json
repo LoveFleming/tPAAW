@@ -2196,5 +2196,7 @@
   "rm.ri.featCol": "機能",
   "rm.ri.impactCol": "説明",
   "projectMd.versionTitle": "バージョン（既定は最新）",
-  "projectMd.versionCurrent": "現行版"
+  "projectMd.versionCurrent": "現行版",
+  "projectMd.sugg5Label": "背景・トレードオフを補足",
+  "projectMd.sugg5Prompt": "要件の背景／設計上のトレードオフ／制約を追記します（下に貼ります）— code・tasks・ADR と突き合わせて整理し、必要なら spec_write で書き込み、アーキテクチャ決定は ADR に追記してください："
 }

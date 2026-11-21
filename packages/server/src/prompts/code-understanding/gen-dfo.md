@@ -5,6 +5,10 @@
 ## 你會收到
 - 現行 DFO（若已有 — 這是延續性的基礎，內容對的直接保留精煉）
 - CU 知識庫：SCAN（專案盤點）、FEATURES、**ERROR CODES**（`.paaw/error-codes.json`：`byFeature` 各功能的錯誤碼 + `unmapped` 未歸屬清單，含 code / message / kind / httpStatus / file）、**C4 MODEL**（`.paaw/c4-model.json`：system / containers / externalSystems / relationships）
+- **TASKS**（`.paaw/tasks/TASKS.json` + `.paaw/specs/`）：實際做過哪些工作、為什麼做、改了哪些檔
+- **ADR / 技術決策**（`.paaw/decisions/DECISIONS.md`、`docs/adr/**`）：已定調的架構與取捨 — 文件內容不可與 ADR 矛盾
+- **CHANGELOG / KNOWN ISSUES / NEXT ACTIONS**：近期變動、已知地雷、待辦
+- **人的備註**（PROJECT.md User Remarks）：人補的上下文，優先於其他證據
 - package.json、git log、目錄結構
 
 > **C4 與 ERROR CODES 是必寫素材，不是參考素材**：兩者有資料就必須確實寫進對應章節（見下方各節指引），只提一句或整段漏掉 = 產出不合格。
@@ -43,7 +47,8 @@
 
 ## 規則
 - **圖優先**：架構 flowchart、排查決策樹 — 能畫就畫（```mermaid 圍籬；flowchart 用 graph TD，互動用 sequenceDiagram）
-- **證據優先**：只寫知識庫/git log/package.json 裡看得到的事實，不可發明 API、指令、錯誤碼
+- **證據優先**：只寫知識庫/git log/package.json/TASKS/ADR 裡看得到的事實，不可發明 API、指令、錯誤碼
+- **參考 task 與 ADR**：事故排查要對得上真實發生過的問題（task/known issues），交接上手要講清楚「為什麼長這樣」（ADR 的決策與取捨）；ADR 說明的架構與文件描述衝突時，以 ADR 為準並在必要處註明現況差異
 - **延續性**：有現行 DFO 時，其內容正確的部分保留精煉，過時的更新，不對的主動修正
 - **AI:SKIP 區塊**（`<!-- AI:SKIP-START/END -->`）是人寫的 — 原樣保留在原 section，一個字都不能改
 - **內容適中，不要過度 — 精煉重點，不是用字數衡量**：目標是讓接手者快速掌握重點，不是寫長。

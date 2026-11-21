@@ -171,6 +171,12 @@ async function _cuContext(projectPath, changedFiles = []) {
     if (ruInfo?.ai_architecture) lines.push(`## 架構\n${String(ruInfo.ai_architecture).slice(0, 800)}`);
     if (feats.length) lines.push(`## Feature Map（${feats.length} 個 feature）\n` + feats.slice(0, 25).map((f) => `- ${f.id} ${f.name}：${String(f.description || "").slice(0, 120)}${hit(f.codeFiles) ? " ← 本版變更命中" : ""}`).join("\n"));
     if (apis.length) lines.push(`## API Map（前 ${Math.min(apis.length, 25)}）\n` + apis.slice(0, 25).map((a) => `- ${a.id} [${a.category || ""}] ${a.name}（entry: ${a.entry || "—"}）：${String(a.description || a.bizLogic || "").slice(0, 120)}`).join("\n"));
+    // 2026-11-21 Fleming：也參考 task / ADR / changelog / 人的備註
+    try {
+      const { docEvidenceBlock } = await import("./doc-evidence.mjs");
+      const ev = docEvidenceBlock(projectPath);
+      if (ev.trim()) lines.push(`## 專案脈絡（TASKS / ADR / CHANGELOG / 人的備註）\n${ev}`);
+    } catch {}
     result.txt = lines.join("\n\n") || "（無 CU 資料 — 尚未跑過 Code Understanding）";
   } catch (e) { result.txt = `（CU 蒐集失敗：${e.message}）`; }
   return result;
@@ -196,6 +202,8 @@ features 即使在 0 commits 的 initial release 也【不可】空陣列：必�
 【核心理念 — 2026-11-21 Fleming】
 不要只改寫 git comment。git comment 只是線索；你要拿 Code Understanding（專案概述/Feature Map/API Map）
 對程式碼的理解，去講這次變更的實質功能意義：改了什麼能力、影響哪些 feature/API、對使用者/接手開發者的意義。
+還要參考專案脈絡裡的 TASKS（實際做了哪些工作、為什麼）、ADR/技術決策（已定調的架構取捨）、CHANGELOG/KNOWN ISSUES（近期變動與坑）：
+這些能解釋「為什麼改」，避免只從 code 猜。人的備註優先於一切。
 第二次 release 起，重點是「從上次 release 到現在了哪些內容、影響的 feature 是什麼」。
 
 【輸出格式 — 嚴格遵守，每次一致】

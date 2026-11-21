@@ -106,6 +106,12 @@ export default async function dfoRoutes(req, res) {
         const feats = await paaw.readFile("features/FEATURES.json");
         if (feats && feats.trim()) ctxParts.push(`--- FEATURES ---\n${feats}`);
       } catch {}
+      // 2026-11-21 Fleming：除了 code 也要參考 task / ADR / changelog / 人的備註 — 文件才會寫得正確
+      try {
+        const { docEvidenceBlock } = await import("../lib/doc-evidence.mjs");
+        const ev = docEvidenceBlock(genRoot);
+        if (ev.trim()) ctxParts.push(`--- 專案脈絡：TASKS / ADR / CHANGELOG / KNOWN ISSUES / 人的備註 ---\n${ev}`);
+      } catch {}
       try {
         const pkg = readFileSync(join(genRoot, "package.json"), "utf-8");
         ctxParts.push(`--- package.json ---\n${pkg}`);

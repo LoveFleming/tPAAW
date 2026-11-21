@@ -2196,5 +2196,7 @@
   "rm.ri.featCol": "功能",
   "rm.ri.impactCol": "說明",
   "projectMd.versionTitle": "版本（預設最新）",
-  "projectMd.versionCurrent": "現行版"
+  "projectMd.versionCurrent": "現行版",
+  "projectMd.sugg5Label": "補背景／取捨",
+  "projectMd.sugg5Prompt": "我要補需求背景／設計取捨／限制（內容我接著貼）— 請對照 code、tasks、ADR 後收斂，必要時用 spec_write 寫入，架構決策追加成 ADR："
 }

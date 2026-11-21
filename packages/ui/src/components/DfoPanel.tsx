@@ -195,9 +195,9 @@ export default function DfoPanel({ rootPath, active, theme: tk }: { rootPath: st
             persistCrewId="coding.dfo-side"
             modelFeature="sideChat.ops"
             suggestions={[
-              { label: "更新事故排查", prompt: "參考最新的 error codes 和程式碼，把 DFO 的事故排查節更新一遍" },
-              { label: "加回滾步驟", prompt: "幫我在 DFO 的回滾與降級節，補上完整的退版操作步驟" },
-              { label: "看系統全景", prompt: "用 dfo_read 讀目前的 DFO，跟我確認系統全景那節的架構圖是否最新" },
+              { label: "更新事故排查", prompt: "參考最新的 error codes、程式碼、tasks 與 ADR，把 DFO 的事故排查節更新一遍" },
+              { label: "補充實務經驗", prompt: "我要補充一段實務經驗或踩過的坑（內容我接著貼），請對照 code / task / ADR 後用 dfo_write 寫進最合適的章節" },
+              { label: "檢查是否過時", prompt: "對照程式碼、tasks、ADR 與 DFO 現況，指出哪些章節已過時並直接更新" },
             ]}
           />
         </div>

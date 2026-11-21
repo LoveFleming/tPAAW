@@ -203,6 +203,7 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
               placeholder={t("projectMd.chatPlaceholder")}
               suggestions={[
                 { label: t("projectMd.sugg4Label"), prompt: t("projectMd.sugg4Prompt") },
+                { label: t("projectMd.sugg5Label"), prompt: t("projectMd.sugg5Prompt") },
                 { label: t("projectMd.sugg1Label"), prompt: `${t("projectMd.sugg1Prompt")}「${activeIdx + 1}. ${tabLabels[activeIdx]}」` },
                 { label: t("projectMd.sugg2Label"), prompt: t("projectMd.sugg2Prompt") },
                 { label: t("projectMd.sugg3Label"), prompt: `${t("projectMd.sugg3Prompt")}「${activeIdx + 1}. ${tabLabels[activeIdx]}」` },

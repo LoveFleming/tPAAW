@@ -8,6 +8,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync, renameSync } from "fs";
 import { join } from "path";
 import { createHash } from "crypto";
+import { execFileSync } from "child_process";
 
 export const DFO_SECTIONS = [
   { id: "overview", title: "系統全景" },
@@ -113,14 +114,20 @@ export function writeDfo(root, partialSections, updatedBy, label) {
   // 2026-11-21 Fleming：一個代號只留一版 — 同代號寫入直接覆寫該版快照，不再產生 ~2/~3 中途版
   const prevLabel = prev?.version ? String(prev.version) : null;
   const prevBase = prevLabel ? prevLabel.replace(/~\d+$/, "") : null;
-  const baseLabel = String(prev ? (label || prevBase) : (label || "initial"));
+  // 舊式 v1/v2/v3 代號（沒有 RR 概念時代）→ 自動收斂成 "initial"
+  const legacyPrev = prevBase && /^v\d+$/.test(prevBase);
+  const baseLabel = String(label || (prev && !legacyPrev ? prevBase : "initial"));
   const versionStr = baseLabel.replace(/[^\w.\-]/g, "_");
   const versionNum = versionStr; // 快照檔名 = 代號
+  // 2026-11-21 Fleming：記錄寫入當下的 code commit — 文件自動保鮮靠它判斷 code 是否已變
+  let codeCommit = null;
+  try { codeCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, timeout: 5000 }).toString().trim(); } catch {}
   const dfo = {
     schemaVersion: DFO_SCHEMA_VERSION,
     version: versionStr,
     updatedAt: new Date().toISOString(),
     updatedBy: updatedBy || "greta",
+    ...(codeCommit ? { codeCommit } : {}),
     sections,
   };
   validateDfo(dfo);
@@ -129,10 +136,11 @@ export function writeDfo(root, partialSections, updatedBy, label) {
   const snapPath = join(dfoVersionsDir(root), `${versionNum}.json`);
   // 同代號 → 覆寫（RR 未關前可持續更新；關了會被 dfoFrozenReason 擋在前面）
   writeFileSync(snapPath, JSON.stringify(dfo, null, 2), "utf-8");
-  // 舊式 ~N 中途快照（同代號殘留）→ 收進 _archive，下拉不再出現
+  // 舊式 ~N 中途快照 / 舊式 vN 代號 → 收進 _archive，下拉不再出現
   try {
     for (const f of readdirSync(dfoVersionsDir(root))) {
-      if (f.startsWith(`${versionNum}~`) && f.endsWith(".json")) {
+      const isLegacyV = versionNum === "initial" && /^v\d+(\.json|~\d+\.json)$/.test(f);
+      if ((f.startsWith(`${versionNum}~`) || isLegacyV) && f.endsWith(".json")) {
         const arch = join(dfoVersionsDir(root), "_archive");
         mkdirSync(arch, { recursive: true });
         renameSync(join(dfoVersionsDir(root), f), join(arch, f));
