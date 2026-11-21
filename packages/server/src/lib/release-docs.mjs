@@ -65,7 +65,7 @@ export async function triggerDoc(projectPath, rrId, kind) {
         if (!r.ok || d?.error) throw new Error(d?.error || `dfo generate HTTP ${r.status}`);
         setDoc(projectPath, rrId, kind, { status: "done", error: null, detail: `DFO v${d.version ?? "?"}` });
       } else if (kind === "releaseInfo") {
-        const { startReleaseInfoBuild, getBuildStatus } = await import("./release-info-builder.mjs");
+        const { startReleaseInfoBuild, getBuildStatus, listInfoVersions } = await import("./release-info-builder.mjs");
         await startReleaseInfoBuild(projectPath, rrId, { by: "auto:docs" });
         // 背景 job：輪詢到結束（最多 15 分鐘）再落狀態
         const t0 = Date.now();
@@ -75,7 +75,7 @@ export async function triggerDoc(projectPath, rrId, kind) {
           st = getBuildStatus(projectPath, rrId);
         }
         if (st?.error) throw new Error(st.error);
-        setDoc(projectPath, rrId, kind, { status: "done", error: null, detail: st?.aiFallback ? "AI 摘要失敗（系統列表）" : `info v${st?.lastVersion ?? "?"}`, aiFallback: !!st?.aiFallback });
+        setDoc(projectPath, rrId, kind, { status: "done", error: null, detail: st?.aiFallback ? "AI 摘要失敗（系統列表）" : `info v${Math.max(0, ...listInfoVersions(projectPath, rrId)) || "?"}`, aiFallback: !!st?.aiFallback });
       } else {
         throw new Error(`unknown doc kind: ${kind}`);
       }

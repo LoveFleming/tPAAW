@@ -2192,5 +2192,7 @@
   "rm.closeBtn": "Set RR to Close",
   "rm.reopenBtn": "Reopen",
   "rm.docs.idle": "—",
-  "rm.docs.hint": "按「🚀 製作 Release Info」會依序更新：Prod Spec → DFO → Release Info（含 Evidence Matrix，與 info 同版號凍結）。不按不會自動做；有問題列在下方，可單獨重做。"
+  "rm.docs.hint": "按「🚀 製作 Release Info」會依序更新：Prod Spec → DFO → Release Info（含 Evidence Matrix，與 info 同版號凍結）。不按不會自動做；有問題列在下方，可單獨重做。",
+  "rm.ri.featCol": "功能",
+  "rm.ri.impactCol": "說明"
 }

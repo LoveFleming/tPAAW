@@ -2192,5 +2192,7 @@
   "rm.closeBtn": "Set RR to Close",
   "rm.reopenBtn": "Reopen",
   "rm.docs.idle": "—",
-  "rm.docs.hint": "「🚀 リリース情報を作成」を押すと、Prod Spec → DFO → Release Info（Evidence Matrix 含む・同じ版番号で凍結）の順に更新します。自動では実行されません。問題は下に表示され、個別にやり直せます。"
+  "rm.docs.hint": "「🚀 リリース情報を作成」を押すと、Prod Spec → DFO → Release Info（Evidence Matrix 含む・同じ版番号で凍結）の順に更新します。自動では実行されません。問題は下に表示され、個別にやり直せます。",
+  "rm.ri.featCol": "機能",
+  "rm.ri.impactCol": "説明"
 }

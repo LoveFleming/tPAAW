@@ -184,11 +184,12 @@ function _fallbackChanges(gitLog) {
   });
 }
 
-async function _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle, previousTag, unitLog = "", cuTxt = "" }) {
+async function _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle, previousTag, unitLog = "", cuTxt = "", baseGroups = [] }) {
   const initial = !previousTag; // 無前版 tag = 首次 release（含 import 別人的 release unit 起手）
   const modeTxt = initial
     ? `這是首次 release（Initial Release${gitLog || unitLog ? "，匯入他人的 release unit 起手" : "，程式剛匯入、尚無後續變更"}）。
-summary 必須以「首次匯入 Initial Release」角度寫：這個 release unit 是什麼、核心功能/主要內容、測試狀態，目的是讓接手開發者從 release/DFO 角度快速理解全貌、準備第一次 release。用語用「首次匯入」，不要寫「本版無程式碼變更」。${gitLog ? "changes 把整段歷史歸納成主要能力/變更項目。" : "changes 必須是空陣列 []（本版無新增差異）；summary 依「完整歷史」摘要整個 release unit 的內容。"}`
+summary 必須以「首次匯入 Initial Release」角度寫：這個 release unit 是什麼、核心功能/主要內容、測試狀態，目的是讓接手開發者從 release/DFO 角度快速理解全貌、準備第一次 release。用語用「首次匯入」，不要寫「本版無程式碼變更」。${gitLog ? "changes 把整段歷史歸納成主要能力/變更項目。" : "changes 必須是空陣列 []（本版無新增差異）；summary 依「完整歷史」摘要整個 release unit 的內容。"}
+features 即使在 0 commits 的 initial release 也【不可】空陣列：必須逐一輸出「程式歸納的功能群組」全部項目。`
     : `這是接續前版（${previousTag}）的一般 release，summary 摘要本版變更重點。`;
   const prompt = `你是 Release Manager。根據以下 deterministic 證據產生 Release Info 的 summary / changes / features。
 
@@ -206,12 +207,21 @@ summary 必須以「首次匯入 Initial Release」角度寫：這個 release un
 - type 只能是這五個之一：feature | improvement | fix | breaking | chore
 - title：短標題（兰 80 字）；description：具體說明（兰 300 字）
 - 只描述證據支援的事實，不可編造
-- features：把這個 release「摘要成主要功能」（3-10 個，給人看的功能盤點，不是貼 Feature Map 原文）
-  - id：填對應最有代表性的 API entry（如 /v1/chat/completions）；initial release 沒有單一代表時可填功能 slug（如 chat-proxy）
-  - name：人話功能名（如「Chat Completions 代理」「供應商路由」），從 API Map 的 name/description 歸納
-  - impact：一句話說明這個功能的角色/狀態（initial = 全貌盤點；一般 release = 本版對它的影響）
-  - initial release：features = 整個 release unit 的功能盤點（主要能力域），不可空陣列
-  - 一般 release：features = 本版變更影響到的功能；真的無 = 空陣列 []
+- features：把這個 release「摘要成主要功能」（給人看的功能盤點，不是貼 Feature Map 原文）
+  - 數量與分組已由程式依 API Map 決定（下方「程式歸納的功能群組」共 ${baseGroups.length} 組）：
+    你【必須】輸出恰好 ${baseGroups.length} 項、id 與順序完全照抄，不可增加、不可刪除、不可合併、不可自行決定幾個。
+    你的工作是「解讀」每一組：給人話功能名、寫一句話說明（不是決定數量）。
+  - id：直接照抄該組的 id
+  - name：人話功能名，從該組 API 的 name/description 歸納。
+    嚴格要求：name 不可與 id 相同、不可直接照抄分類名、不可只寫兩個字的分類。
+    對照範例：id「對話補全」→ name「Chat Completions 代理」；id「向量化」→「Embeddings 向量端點」；id「批次任務」→「批次任務管理」；id「管理介面」→「管理 API 與日誌查詢」。
+  - impact：一句話說明這個功能「對使用者/接手者的意義或狀態」（initial = 全貌盤點；一般 release = 本版對它的影響）。
+    不可只寫「N 支 API：…」這種數量描述 — 要講功能本身。
+  - initial release：分組 = 整個 release unit 的全部能力域
+  - 一般 release：分組 = 本版變更影響到的功能；真的無分組 = 空陣列 []
+
+# 程式歸納的功能群組（共 ${baseGroups.length} 組 — features 必須恰好 ${baseGroups.length} 項、id 照抄）
+${baseGroups.length ? baseGroups.map(g => `- ${g.id}｜${(g.apis || [g.name || g.id]).join("、")}${g.hint ? `｜${g.hint}` : ""}`).join("\n") : "（無）"}
 
 # 情境
 ${modeTxt}
@@ -267,7 +277,7 @@ function _validateAiPart(parsed, { hasCommits = true } = {}) {
     if (!id || !name) throw new Error("feature.id/name 缺失");
     features.push({ id: id.slice(0, 80), name: name.slice(0, 120), impact: impact.slice(0, 300) });
   }
-  return { summary: summary.slice(0, 600), changes, features: features.slice(0, 20) };
+  return { summary: summary.slice(0, 600), changes, features: features.slice(0, 50) };
 }
 
 /**
@@ -287,12 +297,54 @@ async function _deterministicFeatures(projectPath, cu) {
       if (!byCat.has(c)) byCat.set(c, []);
       byCat.get(c).push(a);
     }
-    return [...byCat.entries()].slice(0, 12).map(([c, list]) => ({
-      id: list[0]?.entry || c,
+    return [...byCat.entries()].map(([c, list]) => ({
+      id: c,
       name: c,
       impact: `${list.length} 支 API：${list.slice(0, 3).map(a => a.name || a.entry).join("、")}${list.length > 3 ? " 等" : ""}`,
+      apis: list.map(a => `${a.entry || a.name}${a.name && a.entry ? `（${a.name}）` : ""}`),
     }));
   } catch { return []; }
+}
+
+/** AI 主回覆沒給 features 時，單獨再問一次（只問命名，不讓它決定數量） */
+async function _aiFeaturesOnly(baseGroups) {
+  if (!baseGroups?.length) return [];
+  const list = baseGroups.map(g => `- ${g.id}｜${(g.apis || [g.name || g.id]).join("、")}`).join("\n");
+  const prompt = `你在寫 Release Info 的 features。以下功能群組由程式依 API Map 歸納，數量固定 ${baseGroups.length} 組。
+只輸出 JSON 陣列（不要 code fence、不要說明）：每個元素 {"id":"<照抄>","name":"<人話功能名>","impact":"<一句話說明功能意義>"}。
+規則：
+1. id 必須與下面完全一致、順序一致、數量恰好 ${baseGroups.length} 項。
+2. name 必須是功能導向的人話名稱，不可等於 id、不可只寫分類名。例：對話補全 → Chat Completions 代理；向量化 → Embeddings 向量端點。
+3. impact 講功能本身對使用者的意義，不可只寫「N 支 API」。
+
+${list}`;
+  const r = await callProjectLLM({ messages: [{ role: "user", content: prompt }] }, { caller: "release-info-features", timeoutMs: 120_000, maxRetries: 1 });
+  const raw = _stripFence(r?.content);
+  const m = /\[[\s\S]*\]/.exec(raw);
+  if (!m) return [];
+  const arr = JSON.parse(m[0]);
+  if (!Array.isArray(arr)) return [];
+  return arr.filter(f => f && typeof f.id === "string" && typeof f.name === "string").map(f => ({
+    id: f.id.trim().slice(0, 80), name: f.name.trim().slice(0, 120), impact: String(f.impact || "").trim().slice(0, 300),
+  }));
+}
+
+/** 只讓 AI 解讀（命名/影響），數量與順序由程式決定：以 base 為準，AI 依 id 或順序補 name/impact */
+function _mergeFeatures(base, ai) {
+  if (!base?.length) return (ai || []).slice(0, 50);
+  const used = new Set();
+  const pick = (g, i) => {
+    const byId = (ai || []).find(f => f?.id === g.id && !used.has(f));
+    const byIdx = !byId ? (ai || [])[i] : null;
+    const f = byId || byIdx;
+    if (f) used.add(f);
+    return {
+      id: g.id,
+      name: (f?.name && String(f.name).trim()) || g.name || g.id,
+      impact: (f?.impact && String(f.impact).trim()) || g.impact || "",
+    };
+  };
+  return base.map(pick);
 }
 
 export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", includeE2e = true } = {}) {
@@ -380,7 +432,8 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
         catch (first) {
           st.aiRetry = first.message;
           writeStatus(projectPath, rrId, st);
-          ai = await _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle: freshRR?.title || rr.title, previousTag: det.previous_tag, unitLog, cuTxt: cu.txt });
+          const baseGroups = await _deterministicFeatures(projectPath, cu);
+      ai = await _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle: freshRR?.title || rr.title, previousTag: det.previous_tag, unitLog, cuTxt: cu.txt, baseGroups });
         }
       }
       catch (e) {
@@ -395,14 +448,22 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
         };
       }
 
+      let aiFeatures = ai.features || [];
+      const _baseGroups = await _deterministicFeatures(projectPath, cu);
+      if (_baseGroups.length && aiFeatures.length !== _baseGroups.length) {
+        try {
+          const extra = await _aiFeaturesOnly(_baseGroups);
+          if (extra.length === _baseGroups.length) aiFeatures = extra;
+        } catch { /* 保留 deterministic 命名 */ }
+      }
       const info = {
         schema: SCHEMA_VERSION,
         version: det.version,
         release_date: new Date().toISOString().slice(0, 10),
         summary: ai.summary,
         changes: ai.changes,
-        // 2026-11-21 Fleming：features 不能空 — AI 沒給（initial release 常見）就用 feature map deterministic 補上
-        features: (ai.features || []).length ? ai.features : await _deterministicFeatures(projectPath, cu),
+        // 2026-11-21 Fleming：數量由程式決定（API Map 分組），AI 只負責解讀命名 — 不讓 AI 決定幾個
+        features: _mergeFeatures(_baseGroups, aiFeatures),
         git: det.git,
       };
 
