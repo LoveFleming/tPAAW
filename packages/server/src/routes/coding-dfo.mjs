@@ -95,28 +95,28 @@ export default async function dfoRoutes(req, res) {
       } else {
         ctxParts.push("--- 現行 DFO：無（首次生成，全新寫）---");
       }
-      // 2026-11-21 Fleming：C4 + error codes 必須寫進 DFO → 給足內容（原本 error codes 只切 3000 字，byFeature 細節根本沒進 prompt）
-      for (const [file, label, max] of [["scan.json", "SCAN（專案盤點）", 4000], ["error-codes.json", "ERROR CODES（byFeature + unmapped 全清單）", 12000], ["c4-model.json", "C4 MODEL（system/containers/externalSystems/relationships）", 6000]]) {
+      // 2026-11-21 Fleming：全文餵入，不切字數 —「有什麼讀什麼」才不會遺漏
+      for (const [file, label] of [["scan.json", "SCAN（專案盤點）"], ["error-codes.json", "ERROR CODES（byFeature + unmapped 全清單）"], ["c4-model.json", "C4 MODEL（system/containers/externalSystems/relationships）"]]) {
         try {
           const c = await paaw.readFile(file);
-          if (c && c.trim()) ctxParts.push(`--- ${label} ---\n${c.slice(0, max)}`);
+          if (c && c.trim()) ctxParts.push(`--- ${label} ---\n${c}`);
         } catch {}
       }
       try {
         const feats = await paaw.readFile("features/FEATURES.json");
-        if (feats && feats.trim()) ctxParts.push(`--- FEATURES ---\n${feats.slice(0, 4000)}`);
+        if (feats && feats.trim()) ctxParts.push(`--- FEATURES ---\n${feats}`);
       } catch {}
       try {
         const pkg = readFileSync(join(genRoot, "package.json"), "utf-8");
-        ctxParts.push(`--- package.json ---\n${pkg.slice(0, 2000)}`);
+        ctxParts.push(`--- package.json ---\n${pkg}`);
       } catch {}
       try {
-        const { stdout } = await execAsync("git log --oneline -30", { cwd: genRoot, timeout: 15000 });
+        const { stdout } = await execAsync("git log --oneline -100", { cwd: genRoot, timeout: 15000 });
         ctxParts.push(`--- git log（最近 30 commit）---\n${stdout}`);
       } catch {}
       try {
         const tree = await scanProjectFiles(genRoot);
-        ctxParts.push(`--- 檔案樹（節錄）---\n${String(tree).slice(0, 3000)}`);
+        ctxParts.push(`--- 檔案樹（完整）---\n${String(tree)}`);
       } catch {}
 
       const prompt = `${loadDfoPrompt(genRoot)}\n\n${ctxParts.join("\n\n")}`;
