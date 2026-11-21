@@ -1403,6 +1403,7 @@
   "rm.ri.firstBtn": "第一次 Release",
   "rm.ri.firstBtnTip": "建立第一張 Release Request — AI 會實跑 unit+e2e 測試、凍結證據快照、寫好 release information",
   "rm.ri.newBtn": "New Release Request",
+  "rm.ri.noInfo": "尚無 Release Info — 建單後 AI 自動產生（Schema v1.0）",
   "rm.ri.noTest": "尚無實跑測試紀錄",
   "rm.ri.shipped": "已上線",
   "rm.ri.title": "最新 Release 資訊",

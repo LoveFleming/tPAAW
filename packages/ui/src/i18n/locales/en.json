@@ -1403,6 +1403,7 @@
   "rm.ri.firstBtn": "First Release",
   "rm.ri.firstBtnTip": "Create the first Release Request — AI runs unit+e2e tests, freezes an evidence snapshot, and writes the release information",
   "rm.ri.newBtn": "New Release Request",
+  "rm.ri.noInfo": "No Release Info yet — AI generates it after the request is created (Schema v1.0)",
   "rm.ri.noTest": "No test run yet",
   "rm.ri.shipped": "Shipped",
   "rm.ri.title": "Latest Release Info",

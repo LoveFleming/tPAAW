@@ -1403,6 +1403,7 @@
   "rm.ri.firstBtn": "初回リリース",
   "rm.ri.firstBtnTip": "最初の Release Request を作成 — AI が unit+e2e テストを実行し、エビデンススナップショットを凍結、リリース情報を作成します",
   "rm.ri.newBtn": "New Release Request",
+  "rm.ri.noInfo": "Release Info はまだありません — リクエスト作成後に AI が自動生成します（Schema v1.0）",
   "rm.ri.noTest": "テスト実行記録なし",
   "rm.ri.shipped": "リリース済み",
   "rm.ri.title": "最新リリース情報",

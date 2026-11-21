@@ -453,11 +453,50 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                 {relInfo.latestRR.buildStatus?.error && (
                   <div className="text-[11px] text-red-500">⚠ {relInfo.latestRR.buildStatus.error}</div>
                 )}
-                {/* AI 寫的 release information */}
-                {relInfo.latestRR.latestInfoContent && (
-                  <div className="rounded-lg border bg-stone-50/50 p-3 text-[11px] leading-relaxed whitespace-pre-wrap font-mono max-h-72 overflow-auto" style={{ borderColor: tk.borderLight }}>
-                    {relInfo.latestRR.latestInfoContent}
-                  </div>
+                {/* Release Info（Schema v1.0）render：version + summary + changes（type 徽章）+ git 溯源 */}
+                {relInfo.latestRR.releaseInfo ? (() => {
+                  const ri = relInfo.latestRR.releaseInfo;
+                  const TYPE_STYLE: Record<string, string> = {
+                    feature: "bg-green-100 text-green-700",
+                    improvement: "bg-sky-100 text-sky-700",
+                    fix: "bg-amber-100 text-amber-700",
+                    breaking: "bg-red-100 text-red-600",
+                    chore: "bg-stone-100 text-stone-500",
+                  };
+                  return (
+                    <div className="rounded-lg border bg-white" style={{ borderColor: tk.borderLight }}>
+                      <div className="px-3 py-2 flex items-center gap-2 flex-wrap border-b bg-stone-50/60" style={{ borderColor: tk.borderLight }}>
+                        <span className="font-mono font-bold text-stone-800">v{ri.version}</span>
+                        <span className="text-[10px] text-stone-400 font-mono">{ri.release_date}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-bold">schema {ri.schema}</span>
+                        <span className="flex-1" />
+                        <span className="text-[10px] font-mono text-stone-400" title={`${ri.git?.previous_tag || "—"} → ${ri.git?.tag || "(untagged)"}`}>
+                          {ri.git?.previous_tag ? `${ri.git.previous_tag} → ` : ""}{ri.git?.tag || ri.git?.commit || "—"}
+                        </span>
+                      </div>
+                      <div className="px-3 py-2 text-[11px] text-stone-700 leading-relaxed">{ri.summary}</div>
+                      {(ri.changes || []).length > 0 && (
+                        <div className="px-3 pb-2 space-y-1 max-h-56 overflow-auto">
+                          {ri.changes.map((c: any, i: number) => (
+                            <div key={i} className="flex gap-2 items-start text-[11px]">
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0 ${TYPE_STYLE[c.type] || TYPE_STYLE.chore}`}>{c.type}</span>
+                              <div className="min-w-0">
+                                <span className="font-bold text-stone-700">{c.title}</span>
+                                {c.description && <span className="text-stone-400"> — {c.description}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="px-3 py-1.5 border-t flex gap-3 text-[10px] font-mono text-stone-400" style={{ borderColor: tk.borderLight }}>
+                        <span>commit {ri.git?.commit || "—"}</span>
+                        <span>prev_tag {ri.git?.previous_tag || "null"}</span>
+                        <span>tag {ri.git?.tag || "null"}</span>
+                      </div>
+                    </div>
+                  );
+                })() : !relInfo.latestRR.buildStatus?.running && (
+                  <div className="text-[11px] text-stone-400">{t("rm.ri.noInfo")}</div>
                 )}
               </div>
             )}

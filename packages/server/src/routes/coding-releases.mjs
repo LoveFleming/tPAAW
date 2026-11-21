@@ -380,6 +380,31 @@ export default async function releaseRoutes(req, res, next) {
     return res.json(getBuildStatus(projectPath, rrId));
   }
 
+  // GET /release-info/list — 所有 release 的 Release Info 清單（API 可讀每次 release 資訊）
+  if (url === "/api/coding-releases/release-info/list" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    try {
+      const { listAllReleaseInfo } = await import("../lib/release-info-builder.mjs");
+      return res.json({ schema: "1.0", releases: await listAllReleaseInfo(projectPath) });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  // GET /release-info/item?rr=RR-xxx[&v=N] — 讀取單張 Release Info（Schema v1.0）
+  if (url === "/api/coding-releases/release-info/item" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    const rrId = q.get("rr");
+    if (!rrId || !sanitizeId(rrId)) return res.status(400).json({ error: "rr required" });
+    const { listInfoVersions, readInfoVersion } = await import("../lib/release-info-builder.mjs");
+    const versions = listInfoVersions(projectPath, rrId);
+    if (!versions.length) return res.status(404).json({ error: `no release info for ${rrId}` });
+    const v = parseInt(q.get("v") || "", 10) || Math.max(...versions);
+    const info = readInfoVersion(projectPath, rrId, v);
+    if (!info) return res.status(404).json({ error: `info-v${v} not found` });
+    return res.json({ ok: true, version_of_info: v, available_versions: versions, release_info: info });
+  }
+
   // GET /release-info/latest — 進場卡：最新 RR + 最新版 info + 最新 shipped release
   if (url === "/api/coding-releases/release-info/latest" && method === "GET") {
     if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });

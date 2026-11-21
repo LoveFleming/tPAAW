@@ -828,7 +828,15 @@ export async function closeReleaseRequest(projectPath, id, { note } = {}) {
   const relId = `REL-${stamp}-rr${rr.id.split("-").pop()}`;
   const relDir = join(projectPath, ".paaw", "releases");
   if (!existsSync(relDir)) await mkdir(relDir, { recursive: true });
+  // 2026-11-21：Release Info（Schema v1.0）凍結進 REL 記錄 — 每次上線的 release 資訊跟著 release 走
+  let releaseInfo = null;
+  try {
+    const { listInfoVersions, readInfoVersion } = await import("./release-info-builder.mjs");
+    const vs = listInfoVersions(projectPath, rr.id);
+    if (vs.length) releaseInfo = readInfoVersion(projectPath, rr.id, Math.max(...vs));
+  } catch { /* 沒產過 info 不擋結案 */ }
   await writeFile(join(relDir, `${relId}.json`), JSON.stringify({
+    releaseInfo,
     id: relId,
     releasedAt: new Date().toISOString(),
     rrId: rr.id,

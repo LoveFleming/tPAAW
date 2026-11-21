@@ -1,17 +1,33 @@
 /**
- * release-info-builder.mjs — Release Information 自動產生器（2026-11-21 Fleming）
+ * release-info-builder.mjs — Release Info 自動產生器（PAAW Release Info Schema v1.0）
  *
- * 情境：匯入人家寫好的 release unit → CU → Release Manager 第一次 release。
- * 建 Release Request 後 AI 自動開工，把這一版的 release information 做好：
+ * 情境：匯入別人寫好的 release unit → CU → Release Manager 第一次 release。
+ * 建 Release Request 後 AI 自動開工，把這一版的 Release Info 做好：
  *
  *   1. 實體證據：真實執行 unit + e2e 測試（startTestRun，RUN-*.json 落檔）
  *   2. 證據快照：Evidence Snapshot 凍結（generateEvidenceSnapshot）
- *   3. AI 撰寫：release information markdown — 有版本概念（info-v1.md, v2… 不覆蓋）
+ *   3. Release Info（Schema v1.0）：AI 只產 summary + changes；
+ *      version / release_date / git 全部由系統決定（deterministic，AI 不猜測）
+ *
+ * Schema v1.0（2026-11-21 Fleming 定案 — 5 頂層欄位，不加 workflow/approval/deployment/metrics）：
+ * {
+ *   "version": "1.2.0",            // 系統決定：HEAD tag || previous tag patch+1 || release 序號制
+ *   "release_date": "2026-11-21",  // 系統記錄實際產生日期（ISO 8601）
+ *   "summary": "...",              // AI 產生的版本摘要
+ *   "changes": [                   // AI 從 git diff 分類產生
+ *     { "type": "feature|improvement|fix|breaking|chore", "title": "...", "description": "..." }
+ *   ],
+ *   "git": {                       // 系統由 Git 取得，不由 AI 猜測
+ *     "commit": "a1b2c3d",         // HEAD SHA
+ *     "previous_tag": "v1.1.0",    // 前一版 tag（無 tag 專案 = null）
+ *     "tag": "v1.2.0"              // 本次 tag（HEAD 沒 tag = null）
+ *   }
+ * }
  *
  * 儲存位置：.paaw/release-info/{RR-ID}/
- *   - status.json  — build 進度（UI 輪詢用）
- *   - info-v{N}.md — AI 產出的 release information（版本遞增）
- *   - bundle-v{N}.json — 該版對應的證據（test run id / evidence snapshot id / scope 摘要）
+ *   - status.json        — build 進度（UI 輪詢用）
+ *   - info-v{N}.json     — Release Info Schema v1.0（版本遞增不覆蓋：AI 修訂 = v2）
+ *   - bundle-v{N}.json   — 該版對應證據（test run id / evidence snapshot id / scope 摘要）
  *
  * 原則：No answer without evidence — AI 只拿到程式產生的 deterministic 數據做摘要。
  */
@@ -24,6 +40,7 @@ import { getReleaseRequest, listReleaseRequests } from "./release-requests.mjs";
 import { callProjectLLM } from "../routes/coding-helpers.mjs";
 import { shellExec } from "./shell-exec.mjs";
 
+const SCHEMA_VERSION = "1.0";
 const _building = new Set(); // `${projectPath}::${rrId}` 防重入
 
 function infoDir(projectPath, rrId) {
@@ -43,7 +60,7 @@ function writeStatus(projectPath, rrId, st) {
 export function listInfoVersions(projectPath, rrId) {
   try {
     return readdirSync(infoDir(projectPath, rrId))
-      .map(f => /^info-v(\d+)\.md$/.exec(f))
+      .map(f => /^info-v(\d+)\.json$/.exec(f))
       .filter(Boolean)
       .map(m => parseInt(m[1], 10))
       .sort((a, b) => a - b);
@@ -51,7 +68,7 @@ export function listInfoVersions(projectPath, rrId) {
 }
 
 export function readInfoVersion(projectPath, rrId, v) {
-  try { return readFileSync(join(infoDir(projectPath, rrId), `info-v${v}.md`), "utf-8"); } catch { return null; }
+  try { return JSON.parse(readFileSync(join(infoDir(projectPath, rrId), `info-v${v}.json`), "utf-8")); } catch { return null; }
 }
 
 const sleep = (ms) => new Promise(ok => setTimeout(ok, ms));
@@ -59,24 +76,97 @@ const sleep = (ms) => new Promise(ok => setTimeout(ok, ms));
 /** 等背景 test run 跑完（startTestRun 是 fire-and-forget） */
 async function _waitForTestRun(projectPath, timeoutMs = 15 * 60_000) {
   const started = Date.now();
-  // 等它出現（啟動非同步）
   for (let i = 0; i < 20 && !getRunState(projectPath); i++) await sleep(500);
   while (getRunState(projectPath)) {
-    if (Date.now() - started > timeoutMs) return null; // 超時不放死 — 拿最後結果（可能是舊的）
+    if (Date.now() - started > timeoutMs) return null;
     await sleep(3000);
   }
   return readLastTestRun(projectPath);
 }
 
-function _fmtTestRun(run) {
-  if (!run) return "（沒有 test run 紀錄 — 專案可能沒有可偵測的測試）";
-  const s = run.summary || {};
-  const kinds = Object.entries(run.byKind || {}).map(([k, v]) => `${k}: ${v.passed}P/${v.failed}F/${v.skipped}S`).join(", ") || "—";
-  return [
-    `- Test Run: ${run.id}（${run.status}，${Math.round((run.durationMs || 0) / 1000)}s，HEAD ${String(run.headSha || "").slice(0, 8)}）`,
-    `- 總計: ${s.passed ?? "?"} passed / ${s.failed ?? "?"} failed / ${s.skipped ?? "?"} skipped`,
-    `- 分類: ${kinds}`,
-  ].join("\n");
+// ── Deterministic：git 欄位 + version（系統決定，AI 不碰）──
+
+async function _gitOne(projectPath, cmd) {
+  try { return (await shellExec(cmd, { cwd: projectPath, timeout: 8000 })).stdout.trim() || null; } catch { return null; }
+}
+
+function _bumpPatch(tag) {
+  const m = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(String(tag || ""));
+  if (!m) return null;
+  return `${m[1]}.${m[2]}.${Number(m[3]) + 1}`;
+}
+
+/** git 三欄 + version — 全部由 git/history 推導（不用 shell operator — 公司 Windows cmd.exe 相容）*/
+async function _deterministicGitBlock(projectPath) {
+  const commit = await _gitOne(projectPath, "git rev-parse HEAD");
+  const headTag = await _gitOne(projectPath, "git tag --points-at HEAD");
+  // 全部 tag 依時間新→舊，拿回來在 JS 算 previous_tag（跨平台）
+  const tagList = ((await _gitOne(projectPath, "git tag --sort=-creatordate")) || "").split("\n").map(s => s.trim()).filter(Boolean);
+  const tag = headTag ? headTag.split("\n")[0].trim() : null;
+  const previousTag = tag
+    ? (tagList.find(t => t !== tag) || null) // HEAD 有 tag → 前一個不同的 tag
+    : (tagList[0] || null);                    // 沒 tag → 最近的 tag
+  // version：HEAD tag 優先 → previous tag patch+1 → 無 tag 專案用 release 序號制（N+1.0.0，N = 已 release 次數）
+  let version = tag || _bumpPatch(previousTag);
+  if (!version) {
+    let shipped = 0;
+    try { shipped = readdirSync(join(projectPath, ".paaw", "releases")).filter(f => /^REL-.*\.json$/.test(f)).length; } catch {}
+    version = `${shipped + 1}.0.0`;
+  }
+  return {
+    git: {
+      commit: commit ? commit.slice(0, 8) : null,
+      previous_tag: previousTag || null,
+      tag: tag || null,
+    },
+    version: String(version).replace(/^v/, ""),
+  };
+}
+
+// ── AI：只產 summary + changes ──
+
+function _stripFence(s) {
+  let out = String(s || "").trim();
+  if (out.startsWith("```")) out = out.replace(/^```[a-z]*\n?/, "").replace(/\n?```$/, "");
+  return out.trim();
+}
+
+/** AI 失敗/解析失敗時的 deterministic fallback：changes 直接由 git log subjects 組成（type=chore） */
+function _fallbackChanges(gitLog) {
+  return gitLog.split("\n").filter(Boolean).slice(0, 30).map(line => {
+    const m = /^([0-9a-f]+) (.+)$/.exec(line);
+    return { type: "chore", title: (m ? m[2] : line).slice(0, 80), description: m ? `commit ${m[1]}` : "" };
+  });
+}
+
+async function _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle }) {
+  const prompt = `你是 Release Manager。根據以下 deterministic 證據（git log 為主），產生 Release Info 的 summary 與 changes。
+規則：
+- 只描述證據支援的事實，不可編造
+- summary：一兩句話的版本摘要（繁體中文）
+- changes：把 git log 的 commits 歸納成變更項目（相近 commits 合併為一項）
+- type 只能是：feature（新增功能）/ improvement（功能改善）/ fix（Bug 修正）/ breaking（不相容變更）/ chore（技術調整、套件更新）
+- 只輸出 JSON，不要 code fence、不要其他文字：
+{"summary": "…", "changes": [{"type": "feature", "title": "…", "description": "…"}]}
+
+# Release：${rrTitle}
+# 變更範圍
+${scopeTxt}
+# Git Log
+${gitLog}
+# 測試實跑（輔助判斷 fix/improvement）
+${testRunTxt}`;
+  const r = await callProjectLLM({ messages: [{ role: "user", content: prompt }] }, { caller: "release-info", timeoutMs: 180_000, maxRetries: 2 });
+  const raw = _stripFence(r?.content);
+  const m = /\{[\s\S]*\}/.exec(raw);
+  if (!m) throw new Error("AI 回應不是 JSON");
+  const parsed = JSON.parse(m[0]);
+  const VALID = new Set(["feature", "improvement", "fix", "breaking", "chore"]);
+  const changes = (Array.isArray(parsed.changes) ? parsed.changes : [])
+    .filter(c => c && c.title)
+    .map(c => ({ type: VALID.has(c.type) ? c.type : "chore", title: String(c.title).slice(0, 120), description: String(c.description || "").slice(0, 500) }));
+  if (!parsed.summary || changes.length === 0) throw new Error("AI JSON 缺 summary/changes");
+  return { summary: String(parsed.summary).slice(0, 600), changes };
 }
 
 /**
@@ -108,7 +198,6 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
       const preRun = readLastTestRun(projectPath);
       await startTestRun(projectPath, { includeE2e });
       const run = await _waitForTestRun(projectPath);
-      // 跑完但結果時間戳比啟動早 = 沒有可跑測試（noRunner）→ 誠實記錄
       const testRun = (run && run !== preRun) ? run : (run || null);
       st.testRun = testRun ? { id: testRun.id, status: testRun.status, summary: testRun.summary, at: testRun.finishedAt } : null;
       st.step = "evidence";
@@ -121,9 +210,7 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
       st.step = "ai-write";
       writeStatus(projectPath, rrId, st);
 
-      // ── 3. AI 撰寫 release information（版本遞增）──
-      const gitLog = await shellExec(`git log --oneline ${rr.baseline?.sha || ""}..HEAD`, { cwd: projectPath, timeout: 10000 })
-        .then(r => r.stdout.trim()).catch(() => "(git log 不可用)");
+      // ── 3. Release Info（Schema v1.0）──
       const freshRR = await getReleaseRequest(projectPath, rrId);
       const scope = freshRR?.scope || rr.scope || {};
       const scopeTxt = [
@@ -132,43 +219,36 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
         `features: ${(scope.features || scope.changedFeatures || []).map(f => f.id || f.name).slice(0, 20).join(", ") || "—"}`,
         `tasks: ${(scope.taskIds || []).length}`,
       ].join("\n");
+      const gitLog = await shellExec(`git log --oneline ${rr.baseline?.sha || ""}..HEAD`, { cwd: projectPath, timeout: 10000 })
+        .then(r => r.stdout.trim()).catch(() => "");
+      const s = testRun?.summary || {};
+      const testRunTxt = testRun ? `${testRun.id} ${testRun.status}：${s.passed ?? "?"}P/${s.failed ?? "?"}F/${s.skipped ?? "?"}S` : "（無 test run 紀錄）";
 
-      const prompt = `你是 Release Manager。根據以下「程式產生的 deterministic 證據」寫一份 release information（繁體中文）。
-只描述證據支援的事實，不可以編造 — 沒有的就誠實寫「無資料」。
+      // deterministic 欄位（系統決定）：git + version + release_date
+      const det = await _deterministicGitBlock(projectPath);
+      // AI 欄位：summary + changes（失敗 fallback 由 git log 組成）
+      let ai;
+      try { ai = await _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle: freshRR?.title || rr.title }); }
+      catch (e) {
+        st.aiFallback = true;
+        st.aiFallbackReason = e.message;
+        ai = { summary: `本版含 ${scope.commits?.count ?? gitLog.split("\n").filter(Boolean).length} 個 commits（AI 摘要失敗，由系統列出 commit 清單）`, changes: _fallbackChanges(gitLog) };
+      }
 
-# Release Request
-- ${freshRR?.title || rr.title}（${rrId}）
-- baseline: ${rr.baseline?.short || "?"}（${rr.baseline?.source || "?"}）→ target: ${freshRR?.target?.short || rr.target?.short || "HEAD"}
-
-# 變更範圍
-${scopeTxt}
-
-# Git Log（baseline..HEAD）
-${gitLog}
-
-# 測試實跑結果（unit + e2e）
-${_fmtTestRun(testRun)}
-
-# Evidence Snapshot
-${snap ? `${snap.id} — 詳見 .paaw/release/evidence/` : "（快照生成失敗）"}
-
-# 輸出格式（markdown，直接輸出本文，不要 code fence）
-## Release Information — ${rrId}
-### 這一版包含什麼
-### 測試證據（實跑數字）
-### 風險與注意事項
-### 上線前檢查`;
-
-      const r = await callProjectLLM({ messages: [{ role: "user", content: prompt }] }, { caller: "release-info", timeoutMs: 180_000, maxRetries: 2 });
-      let md = String(r?.content || "").trim();
-      if (!md) throw new Error("AI 回應為空");
-      if (md.startsWith("```")) md = md.replace(/^```[a-z]*\n?/, "").replace(/\n?```$/, "");
+      const info = {
+        schema: SCHEMA_VERSION,
+        version: det.version,
+        release_date: new Date().toISOString().slice(0, 10),
+        summary: ai.summary,
+        changes: ai.changes,
+        git: det.git,
+      };
 
       const versions = listInfoVersions(projectPath, rrId);
       const v = (versions.length ? Math.max(...versions) : 0) + 1;
       const dir = infoDir(projectPath, rrId);
       mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, `info-v${v}.md`), md, "utf-8");
+      writeFileSync(join(dir, `info-v${v}.json`), JSON.stringify(info, null, 2), "utf-8");
       writeFileSync(join(dir, `bundle-v${v}.json`), JSON.stringify({
         version: v,
         generatedAt: new Date().toISOString(),
@@ -176,8 +256,10 @@ ${snap ? `${snap.id} — 詳見 .paaw/release/evidence/` : "（快照生成失�
         evidenceSnapshot: st.evidenceSnapshot,
         baseline: rr.baseline,
         target: freshRR?.target || rr.target,
+        aiFallback: !!st.aiFallback,
       }, null, 2), "utf-8");
       st.lastVersion = v;
+      st.lastReleaseInfo = { version: info.version, changes: info.changes.length };
       st.running = false;
       st.step = "done";
       st.finishedAt = new Date().toISOString();
@@ -196,6 +278,31 @@ ${snap ? `${snap.id} — 詳見 .paaw/release/evidence/` : "（快照生成失�
   return { started: true, status: st };
 }
 
+/** 所有 Release Info 清單（API 用）：每張 RR 一列 + 最新版 schema 摘要 */
+export async function listAllReleaseInfo(projectPath) {
+  const rrs = await listReleaseRequests(projectPath);
+  const out = [];
+  for (const rr of rrs) {
+    const versions = listInfoVersions(projectPath, rr.id);
+    if (!versions.length) continue;
+    const latest = readInfoVersion(projectPath, rr.id, Math.max(...versions));
+    if (!latest) continue;
+    out.push({
+      rrId: rr.id,
+      rrStatus: rr.status,
+      releaseId: rr.releaseId || null,
+      infoVersions: versions,
+      schema: latest.schema,
+      version: latest.version,
+      release_date: latest.release_date,
+      summary: latest.summary,
+      changesCount: (latest.changes || []).length,
+      git: latest.git,
+    });
+  }
+  return out;
+}
+
 /** UI 進場卡：最新 RR + 最新版 info + 最新 shipped release */
 export async function getLatestReleaseInfo(projectPath) {
   const rrs = await listReleaseRequests(projectPath); // 依 createdAt 降序
@@ -205,12 +312,13 @@ export async function getLatestReleaseInfo(projectPath) {
   if (!latestRR) return out;
   const versions = listInfoVersions(projectPath, latestRR.id);
   const status = readStatus(projectPath, latestRR.id);
+  const latestV = versions.length ? Math.max(...versions) : null;
   out.latestRR = {
     id: latestRR.id, title: latestRR.title, status: latestRR.status,
     baseline: latestRR.baseline, target: latestRR.target,
     infoVersions: versions,
-    latestInfoVersion: versions.length ? Math.max(...versions) : null,
-    latestInfoContent: versions.length ? readInfoVersion(projectPath, latestRR.id, Math.max(...versions)) : null,
+    latestInfoVersion: latestV,
+    releaseInfo: latestV ? readInfoVersion(projectPath, latestRR.id, latestV) : null,
     buildStatus: status,
   };
   return out;
