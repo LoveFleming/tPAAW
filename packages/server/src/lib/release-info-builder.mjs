@@ -139,7 +139,12 @@ function _fallbackChanges(gitLog) {
   });
 }
 
-async function _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle }) {
+async function _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle, previousTag, unitLog = "" }) {
+  const initial = !previousTag; // 無前版 tag = 首次 release（含 import 別人的 release unit 起手）
+  const modeTxt = initial
+    ? `這是首次 release（Initial Release${gitLog || unitLog ? "，匯入他人的 release unit 起手" : "，程式剛匯入、尚無後續變更"}）。
+summary 必須以「首次匯入 Initial Release」角度寫：這個 release unit 是什麼、核心功能/主要內容、測試狀態，目的是讓接手開發者從 release/DFO 角度快速理解全貌、準備第一次 release。用語用「首次匯入」，不要寫「本版無程式碼變更」。${gitLog ? "changes 把整段歷史歸納成主要能力/變更項目。" : "changes 必須是空陣列 []（本版無新增差異）；summary 依「完整歷史」摘要整個 release unit 的內容。"}`
+    : `這是接續前版（${previousTag}）的一般 release，summary 摘要本版變更重點。`;
   const prompt = `你是 Release Manager。根據以下 deterministic 證據（git log 為主），產生 Release Info 的 summary 與 changes。
 
 【輸出格式 — 嚴格遵守，每次一致】
@@ -147,17 +152,21 @@ async function _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle }) {
 {"summary": "<一兩句話摘要>", "changes": [{"type": "<type>", "title": "<標題>", "description": "<說明>"}]}
 - summary：字串，一兩句話的版本摘要（繁體中文）
 - changes：陣列，把 git log 的 commits 歸納成變更項目（相近 commits 合併一項）
-- 若 git log 為空（首次 release 無差異）：changes 必須是空陣列 []，summary 說明本版無程式碼變更
 - 每個 change 必須恰好三個 key：type / title / description，不可多不可少
 - type 只能是這五個之一：feature | improvement | fix | breaking | chore
 - title：短標題（兰 80 字）；description：具體說明（兰 300 字）
 - 只描述證據支援的事實，不可編造
+
+# 情境
+${modeTxt}
 
 # Release：${rrTitle}
 # 變更範圍
 ${scopeTxt}
 # Git Log
 ${gitLog}
+# 完整歷史（僅供 initial 摘要 release unit 全貌，不列入 changes）
+${unitLog || "—"}
 # 測試實跑（輔助判斷 fix/improvement）
 ${testRunTxt}`;
   const r = await callProjectLLM({ messages: [{ role: "user", content: prompt }] }, { caller: "release-info", timeoutMs: 180_000, maxRetries: 2 });
@@ -244,6 +253,10 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
       ].join("\n");
       const gitLog = await shellExec(`git log --oneline ${rr.baseline?.sha || ""}..HEAD`, { cwd: projectPath, timeout: 10000 })
         .then(r => r.stdout.trim()).catch(() => "");
+      // 2026-11-21：import 別人 RU 的 initial release — baseline=HEAD 導致 gitLog 空，但完整歷史仍要餵給 AI 摘要 release unit 全貌（接手開發用）
+      const unitLog = !gitLog
+        ? await shellExec("git log --oneline -n 50", { cwd: projectPath, timeout: 10000 }).then(r => r.stdout.trim()).catch(() => "")
+        : "";
       const s = testRun?.summary || {};
       const testRunTxt = testRun ? `${testRun.id} ${testRun.status}：${s.passed ?? "?"}P/${s.failed ?? "?"}F/${s.skipped ?? "?"}S` : "（無 test run 紀錄）";
 
@@ -252,17 +265,22 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
       // AI 欄位：summary + changes（驗 schema 不合規重試一次 → 仍失敗 fallback 由 git log 組成）
       let ai;
       try {
-        try { ai = await _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle: freshRR?.title || rr.title }); }
+        try { ai = await _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle: freshRR?.title || rr.title, previousTag: det.previous_tag, unitLog }); }
         catch (first) {
           st.aiRetry = first.message;
           writeStatus(projectPath, rrId, st);
-          ai = await _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle: freshRR?.title || rr.title });
+          ai = await _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle: freshRR?.title || rr.title, previousTag: det.previous_tag, unitLog });
         }
       }
       catch (e) {
         st.aiFallback = true;
         st.aiFallbackReason = e.message;
-        ai = { summary: `本版含 ${scope.commits?.count ?? gitLog.split("\n").filter(Boolean).length} 個 commits（AI 摘要失敗，由系統列出 commit 清單）`, changes: _fallbackChanges(gitLog) };
+        ai = {
+          summary: !gitLog
+            ? `首次匯入 initial release（AI 摘要失敗，自動 fallback：本版匯入基準 ${det.commit?.slice(0, 8) || "HEAD"}，無後續變更）`
+            : `本版含 ${scope.commits?.count ?? gitLog.split("\n").filter(Boolean).length} 個 commits（AI 摘要失敗，由系統列出 commit 清單）`,
+          changes: _fallbackChanges(gitLog),
+        };
       }
 
       const info = {
