@@ -57,7 +57,6 @@ import TaskBoard from "../components/TaskBoard";
 import ReleaseManagerPanel from "../components/ReleaseManagerPanel";
 import CodeReviewBoardPanel from "../components/CodeReviewBoardPanel";
 import HandoverPanel from "../components/HandoverPanel";
-import TroubleshootingPanel from "../components/TroubleshootingPanel";
 import TabErrorBoundary from "../components/TabErrorBoundary";
 import ApiMapView from "../components/ApiMapView";
 import ApiMapSidebar from "../components/ApiMapSidebar";
@@ -146,7 +145,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "review-board" | "handover" | "troubleshooting" | "code-intel" | "tests" | "qa-records" | "dispatch-reports" | "project" | "ru-info";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "sessions" | "decisions" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "security" | "crew-manager" | "subtask-detail" | "release-manager" | "review-board" | "handover" | "code-intel" | "tests" | "qa-records" | "dispatch-reports" | "project" | "ru-info";
 
 interface MainTab {
   id: string;

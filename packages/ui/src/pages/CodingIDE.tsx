@@ -56,7 +56,6 @@ import ReleaseManagerPanel from "../components/ReleaseManagerPanel";
 import CodeReviewBoardPanel from "../components/CodeReviewBoardPanel";
 import HandoverPanel from "../components/HandoverPanel"; // 保留：舊 handover bundle API 未拆
 import DfoPanel from "../components/DfoPanel"; // 2026-11-20：Handover page 改造為 DFO
-import TroubleshootingPanel from "../components/TroubleshootingPanel";
 import TabErrorBoundary from "../components/TabErrorBoundary";
 import ApiMapView from "../components/ApiMapView";
 import ApiMapSidebar from "../components/ApiMapSidebar";
@@ -549,7 +548,6 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
       { id: "tool:handover", type: "handover", label: "DFO 維運文件", icon: "📋", closable: true },
       { id: "tool:release", type: "release-manager", label: "Release Manager", icon: "🚦", closable: true },
       { id: "tool:review-board", type: "review-board", label: tt("crb.toolbar"), icon: "🏛️", closable: true },
-      { id: "tool:troubleshooting", type: "troubleshooting", label: "Troubleshooting", icon: "🔧", closable: true },
     ]},
   ];
   // ── Agent System Context Viewer ──
@@ -952,7 +950,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
         console.log(`[CodingIDE] Parsed ${savedTabs?.length || 0} saved tabs, active=${savedActive}`);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
-          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "browser", "terminal", "ai-crew", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "release-manager", "review-board", "handover", "troubleshooting", "code-intel", "tests", "project"]);
+          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "browser", "terminal", "ai-crew", "sessions", "decisions", "em-dashboard", "prompts", "issues", "tasks", "features", "security", "crew-manager", "release-manager", "review-board", "handover", "code-intel", "tests", "project"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", ")); // nosemgrep: unsafe-formatstring — 模板無 % 指示符，內部 log
           // Restore tabs (dashboard is already present)
@@ -3566,15 +3564,6 @@ const sendChat = useCallback(async () => {
                 <DfoPanel
                   rootPath={rootPath}
                   active={activeMainTab?.type === "handover"}
-                  theme={{ borderLight: tk.borderLight, accent: tk.accent, accentHover: tk.accentHover || tk.accent }}
-                />
-              </div>
-            )}
-            {mainTabs.some(t => t.type === "troubleshooting") && rootPath && (
-              <div key="tool:troubleshooting" className="flex-1 flex flex-col min-w-0"
-                style={{ display: activeMainTab?.type === "troubleshooting" ? undefined : "none" }}>
-                <TroubleshootingPanel
-                  rootPath={rootPath}
                   theme={{ borderLight: tk.borderLight, accent: tk.accent, accentHover: tk.accentHover || tk.accent }}
                 />
               </div>
