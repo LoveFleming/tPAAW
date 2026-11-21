@@ -154,6 +154,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   // 2026-11-21 Fleming：三份 AI 文件（Prod Spec / DFO / Release Info）狀態 + 決定性檢查
   const [docs, setDocs] = useState<any | null>(null);
   const [docBusy, setDocBusy] = useState<string | null>(null);
+  const [matrixFrozen, setMatrixFrozen] = useState<number | null>(null);
 
   const fetchSelDetail = useCallback(async (rrId: string) => {
     if (!rootPath || !rrId) { setSelDetail(null); return; }
@@ -193,7 +194,16 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     if (!rootPath || !selRR) { setDocs(null); return; }
     try {
       const d = await fetch(`${API_BASE}/api/coding-releases/docs?rr=${encodeURIComponent(selRR)}&path=${encodeURIComponent(rootPath)}`).then(r => r.json());
-      if (!d?.error) setDocs(d);
+      if (!d?.error) {
+        setDocs(d);
+        // Release Info 做完 → 直接載入同版號凍結的 Evidence Matrix（2026-11-21 Fleming：矩陣是 release info 的一部分）
+        if (d?.docs?.releaseInfo?.status === "done") {
+          try {
+            const m = await fetch(`${API_BASE}/api/coding-releases/release-info/matrix?rr=${encodeURIComponent(selRR)}&path=${encodeURIComponent(rootPath)}`).then(r => r.json());
+            if (m?.ok && m.matrix) { setEvApi(m.matrix); setMatrixFrozen(m.version); }
+          } catch {}
+        }
+      }
     } catch { /* 不擋主頁 */ }
   }, [rootPath, selRR]);
 
@@ -205,6 +215,23 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     const id = setTimeout(() => { fetchDocs(); if (selRR) fetchSelDetail(selRR); }, 5000);
     return () => clearTimeout(id);
   }, [docs, fetchDocs, selRR, fetchSelDetail]);
+
+  const anyDocRunning = !!(docs && Object.values(docs.docs || {}).some((x: any) => x?.status === "running"));
+
+  const buildAllDocs = async () => {
+    if (!rootPath || !selRR || docBusy || anyDocRunning) return;
+    if (!window.confirm(`製作 ${selRR} 的 Release Info？\n\n會做：Prod Spec 更新 → DFO 更新 → Release Info（含 Evidence Matrix）\n需要數分鐘，完成後有問題會列出來讓你決定是否重做`)) return;
+    setDocBusy("all");
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-releases/release-docs/build-all?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ rr: selRR }),
+      }).then(r => r.json());
+      if (r?.error) setToast({ ok: false, text: String(r.error) });
+      else setToast({ ok: true, text: `🚀 開始製作（${selRR}）：Prod Spec + DFO + Release Info + Evidence Matrix` });
+      await fetchDocs();
+    } catch (e: any) { setToast({ ok: false, text: e.message }); }
+    finally { setDocBusy(null); }
+  };
 
   const rebuildDoc = async (kind: "spec" | "dfo" | "releaseInfo") => {
     if (!rootPath || !selRR || docBusy) return;
@@ -461,16 +488,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
               style={{ borderColor: tk.borderLight || "#e7e5e4", color: tk.accent || "#8b5e3c" }}
               title={t("projectMd.chatToggle")}>💬</button>
             {readiness && (
-              <select value={selCommit} onChange={(e) => { const v = e.target.value; setSelCommit(v); if (evApi) loadEvApi(v); }}
-                className="text-[11px] border rounded-lg px-1.5 py-1 bg-white min-w-0 max-w-[260px] shrink" style={{ borderColor: tk.borderLight }}
-                title={t("rm.reportCommitTip")} data-testid="rm-report-commit-select">
-                <option value="">HEAD（目前）</option>
-                {baselines.map((b) => (
-                  <option key={b.sha} value={b.sha}>{fmtShort(b.at)} {b.short} · {b.subject.slice(0, 40)}</option>
-                ))}
-              </select>
-            )}
-            {readiness && (
               <button onClick={() => loadEvApi()} disabled={evApiBusy}
                 className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
                 style={{ backgroundColor: "#b45309" }} data-testid="rm-ev-load" title={t("rm.ev.loadTip")}>
@@ -483,30 +500,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                 className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90"
                 style={{ backgroundColor: "#dc2626" }} data-testid="rm-ai-verify">
                 🔍 {t("rm.aiVerify")}
-              </button>
-            )}
-            {readiness && (
-              <button onClick={loadE2eInv} disabled={e2eInvBusy}
-                className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
-                style={{ backgroundColor: "#0f766e" }} data-testid="rm-e2e-inv">
-                {e2eInvBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
-                {t("rm.e2eInvBtn")}
-              </button>
-            )}
-            {readiness && (
-              <button onClick={loadPageInv} disabled={pageInvBusy}
-                className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
-                style={{ backgroundColor: "#7c3aed" }} data-testid="rm-page-inv">
-                {pageInvBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
-                {t("rm.pageInvBtn")}
-              </button>
-            )}
-            {readiness && (
-              <button onClick={loadApiStatus} disabled={apiBusy}
-                className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
-                style={{ backgroundColor: "#0369a1" }} data-testid="rm-api-status">
-                {apiBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
-                {t("rm.apiBtn")}
               </button>
             )}
             {/* ↻ 重新整理按鈕移除（2026-11-07 Fleming）— 各區塊按鈕各自載入，不需全頁刷新 */}
@@ -716,6 +709,13 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                 <span className="text-sm font-bold text-stone-800">📄 {t("rm.docs.title")}</span>
                 <span className="text-[10px] text-stone-400">{selRR}</span>
                 <span className="flex-1" />
+                <button onClick={buildAllDocs} disabled={!!docBusy || anyDocRunning}
+                  className="text-xs px-3 py-1 rounded-lg text-white font-bold hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
+                  style={{ backgroundColor: "#b45309" }} data-testid="rm-docs-build-all"
+                  title="按下去會依序做：Prod Spec 更新 → DFO 更新 → Release Info（含 Evidence Matrix）">
+                  {(docBusy === "all" || anyDocRunning) && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
+                  🚀 製作 Release Info
+                </button>
                 {docs?.verify && (
                   <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${docs.verify.ok ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
                     {docs.verify.ok ? `✅ OK${docs.verify.warnings ? ` · ⚠️ ${docs.verify.warnings}` : ""}` : `❌ ${docs.verify.errors} 個錯誤${docs.verify.warnings ? ` · ⚠️ ${docs.verify.warnings}` : ""}`}
@@ -723,11 +723,15 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                 )}
                 <button onClick={fetchDocs} className="text-xs px-2 py-1 rounded-lg border" style={{ borderColor: tk.borderLight, color: tk.accent || "#8b5e3c" }} title="重新檢查">↻</button>
               </div>
+              <div className="px-4 pt-2 pb-1 text-[10px] text-stone-500 leading-relaxed">
+                按「🚀 製作 Release Info」會做四件事（數分鐘）：<b>Prod Spec 更新</b> → <b>DFO 更新</b> → <b>Release Info</b> → <b>Evidence Matrix</b>。
+                Evidence Matrix 是 Release Info 的一部分，跟 info 同版號一起凍結（matrix-vN.json）。做完有問題會列在下面，可按「重做」單獨重跑。
+              </div>
               <div className="px-4 py-2 space-y-1.5">
                 {[
                   { kind: "spec", label: "📄 Prod Spec", key: "spec" },
                   { kind: "dfo", label: "🛠 DFO", key: "dfo" },
-                  { kind: "releaseInfo", label: "🚀 Release Info", key: "releaseInfo" },
+                  { kind: "releaseInfo", label: "🚀 Release Info + ⚖️ Matrix", key: "releaseInfo" },
                 ].map((row) => {
                   const st = docs?.docs?.[row.key];
                   const fs = (docs?.verify?.findings || []).filter((f: any) => f.doc === row.key);
@@ -765,163 +769,13 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
           <div className="px-5 pt-4" data-testid="rm-readiness">
             <div className="rounded-xl border overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
               {/* Header */}
-              {/* ══ E2E 測試盤點（2026-11-07 Fleming 大 feature：deterministic 抽取 + 雙向關聯 + 孤兒可見化）══ */}
-              {e2eInv && (
-                <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight, background: "#f0fdfa" }} data-testid="rm-e2e-inv-block">
-                  <div className="flex items-center gap-2 flex-wrap mb-2">
-                    <span className="text-xs font-bold text-stone-700">{t("rm.e2eInvTitle")}</span>
-                    <span className="text-[10px] text-stone-400">{t("rm.e2eInvHint")}</span>
-                    <button onClick={() => setE2eInv(null)} className="ml-auto text-stone-400 hover:text-stone-600 text-xs">✕</button>
-                  </div>
-                  <div className="flex gap-2 flex-wrap text-[10px] font-bold mb-2">
-                    <span className="px-2 py-1 rounded-lg bg-white border" style={{ borderColor: tk.borderLight }}>{t("rm.e2eInvFiles")} <span className="font-mono text-teal-700 text-xs">{e2eInv.summary.testFiles}</span></span>
-                    <span className="px-2 py-1 rounded-lg bg-white border" style={{ borderColor: tk.borderLight }}>{t("rm.e2eInvTests")} <span className="font-mono text-teal-700 text-xs">{e2eInv.summary.totalTests}</span></span>
-                    <span className="px-1.5 py-1 rounded bg-teal-50 text-teal-700">{t("rm.e2eInvCovered")} {e2eInv.summary.coveredApis}/{e2eInv.summary.apiTotal}</span>
-                    <span className="px-1.5 py-1 rounded bg-stone-100 text-stone-500">{t("rm.e2eInvLinked")} {e2eInv.summary.linkedUrls}/{e2eInv.summary.totalUrls}</span>
-                    <span className="px-1.5 py-1 rounded bg-amber-50 text-amber-700">{t("rm.e2eInvOrphan")} {e2eInv.summary.orphanTestFiles}</span>
-                    {typeof e2eInv.summary.blackboxTestFiles === "number" && <span className="px-1.5 py-1 rounded bg-stone-100 text-stone-500">{t("rm.e2eInvBlackbox")} {e2eInv.summary.blackboxTestFiles}</span>}
-                    {typeof e2eInv.summary.blackboxTestFiles === "number" && <span className="px-1.5 py-1 rounded bg-stone-100 text-stone-500">{t("rm.e2eInvBlackbox")} {e2eInv.summary.blackboxTestFiles}</span>}
-                  </div>
-                  <div className="max-h-72 overflow-auto rounded-lg border bg-white text-[10px]" style={{ borderColor: tk.borderLight }}>
-                    <table className="w-full">
-                      <thead className="sticky top-0 bg-stone-50 text-stone-500">
-                        <tr>
-                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.e2eColFile")}</th>
-                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.e2eColTests")}</th>
-                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.e2eColUrl")}</th>
-                          <th className="text-left px-2 py-1.5 font-bold">API</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {e2eInv.files.slice(0, 200).map((f: any, i: number) => {
-                          const linked = f.urls.find((u: any) => u.apis.length);
-                          return (
-                            <tr key={i} className="border-t hover:bg-teal-50/40" style={{ borderColor: tk.borderLight }}>
-                              <td className="px-2 py-1 font-mono text-stone-600 max-w-[220px] truncate" title={f.file}>{f.file}</td>
-                              <td className="px-2 py-1 text-center text-stone-600">{f.testCount}</td>
-                              <td className="px-2 py-1 font-mono text-stone-700 max-w-[180px] truncate" title={f.urls.map((u: any) => u.url).join("\n")}>
-                                {linked ? linked.url : f.urls[0]?.url || "—"}
-                              </td>
-                              <td className="px-2 py-1">
-                                {linked
-                                  ? <span className="text-teal-700 font-mono">{linked.apis.slice(0, 2).map((a: string) => a.length > 40 ? a.slice(0, 40) + "…" : a).join(", ")}{linked.apis.length > 2 ? ` +${linked.apis.length - 2}` : ""}</span>
-                                  : <span className="text-amber-600">{f.urls.length ? t("rm.e2eNoLink") : t("rm.e2eInvNoUrl")}</span>}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* ══ Page 盤點（2026-11-07 Fleming：前端 API-first — route 錨點 + components/unit/e2e/API 關聯）══ */}
-              {pageInv && (
-                <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight, background: "#f5f3ff" }} data-testid="rm-page-inv-block">
-                  <div className="flex items-center gap-2 flex-wrap mb-2">
-                    <span className="text-xs font-bold text-stone-700">{t("rm.pageInvTitle")}</span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-100 text-violet-700">{pageInv.frontendType === "fullstack" ? t("rm.pageFullstack") : t("rm.pageFrontendOnly")}</span>
-                    <button onClick={() => setPageInv(null)} className="ml-auto text-stone-400 hover:text-stone-600 text-xs">✕</button>
-                  </div>
-                  <div className="flex gap-2 flex-wrap text-[10px] font-bold mb-2">
-                    <span className="px-2 py-1 rounded-lg bg-white border" style={{ borderColor: tk.borderLight }}>{t("rm.pageRoutes")} <span className="font-mono text-violet-700 text-xs">{pageInv.summary.totalRoutes}</span></span>
-                    <span className="px-1.5 py-1 rounded bg-violet-50 text-violet-700">{t("rm.pageUnitTest")} {pageInv.summary.pagesWithUnitTest}/{pageInv.summary.totalRoutes}</span>
-                    <span className="px-1.5 py-1 rounded bg-teal-50 text-teal-700">{t("rm.pageE2e")} {pageInv.summary.pagesWithE2e}/{pageInv.summary.totalRoutes}</span>
-                    <span className="px-1.5 py-1 rounded bg-sky-50 text-sky-700">{t("rm.pageApiLinked")} {pageInv.summary.apiLinkedRoutes}</span>
-                    <span className="px-1.5 py-1 rounded bg-stone-100 text-stone-500">{t("rm.pageComponents")} {pageInv.summary.componentTotal}</span>
-                  </div>
-                  <div className="max-h-72 overflow-auto rounded-lg border bg-white text-[10px]" style={{ borderColor: tk.borderLight }}>
-                    <table className="w-full">
-                      <thead className="sticky top-0 bg-stone-50 text-stone-500">
-                        <tr>
-                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.pageColRoute")}</th>
-                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.pageColName")}</th>
-                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.pageColPage")}</th>
-                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.pageColComponents")}</th>
-                          <th className="text-left px-2 py-1.5 font-bold">{t("rm.pageColUnit")}</th>
-                          <th className="text-left px-2 py-1.5 font-bold">E2E</th>
-                          <th className="text-left px-2 py-1.5 font-bold">API</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pageInv.rows.slice(0, 200).map((r: any, i: number) => (
-                          <tr key={i} className="border-t hover:bg-violet-50/40" style={{ borderColor: tk.borderLight }}>
-                            <td className="px-2 py-1 font-mono text-violet-700 whitespace-nowrap">{r.route}{r.kind && <span className="text-stone-400 ml-1.5 text-[10px]">{({ "react-router": "router", "router-config": "router", "next-app": "next", "next-pages": "next", tanstack: "tanstack", "tab-view": "tab", "tab-view-inline": "tab" } as any)[r.kind] || r.kind}</span>}</td>
-                            <td className="px-2 py-1 text-stone-700 max-w-[140px] truncate" title={`${r.category || ""}${r.name ? " · " + r.name : ""}`}>{r.name ? <span><span className="text-stone-400">{r.category} · </span>{r.name}</span> : <span className="text-stone-300">—</span>}</td>
-                            <td className="px-2 py-1 font-mono text-stone-600 max-w-[200px] truncate" title={r.page}>{r.page}</td>
-                            <td className="px-2 py-1 text-center text-stone-600" title={r.components?.slice(0, 20).join("\n")}>{r.componentCount}</td>
-                            <td className="px-2 py-1 text-center">{r.unitTestedCount > 0
-                              ? <span className="text-green-700 font-mono">{r.unitTestedCount}/{r.componentCount}</span>
-                              : <span className="text-amber-600">0</span>}</td>
-                            <td className="px-2 py-1 text-center">{r.e2eFiles.length
-                              ? <span className="text-teal-700 font-mono" title={r.e2eFiles.join("\n")}>✓ {r.e2eFiles.length}</span>
-                              : <span className="text-amber-600">—</span>}</td>
-                            <td className="px-2 py-1 font-mono text-sky-700 max-w-[220px] truncate" title={r.apiCalls?.join("\n")}>
-                              {r.apiCalls?.length ? r.apiCalls.slice(0, 2).map((a: string) => a.length > 36 ? a.slice(0, 36) + "…" : a).join(", ") + (r.apiCalls.length > 2 ? ` +${r.apiCalls.length - 2}` : "") : <span className="text-stone-400">—</span>}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {pageInv.summary.totalRoutes === 0 && (
-                    <div className="mt-2 text-[10px] text-stone-400">{t("rm.pageNoRoutes")}</div>
-                  )}
-                </div>
-              )}
-
-              {/* ══ API 現況（2026-11-03 Fleming：一鍵清點前後端 API + 測試狀態 + AI 摘要）══ */}
-                {apiStatus && (
-                  <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight, background: "#f0f9ff" }} data-testid="rm-api-status-block">
-                    <div className="flex items-center gap-2 flex-wrap mb-2">
-                      <span className="text-xs font-bold text-stone-700">{t("rm.apiTitle")}</span>
-                      <button onClick={genApiSummary} disabled={apiSummaryBusy}
-                        className="ml-auto text-[10px] px-2.5 py-1 rounded-full border font-bold text-violet-600 hover:bg-violet-50 disabled:opacity-50 flex items-center gap-1"
-                        style={{ borderColor: "#ddd6fe" }} data-testid="rm-api-summary-btn">
-                        {apiSummaryBusy && <span className="animate-spin inline-block w-2.5 h-2.5 border-[1.5px] border-current border-t-transparent rounded-full" />}
-                        {t("rm.apiGenSummary")}
-                      </button>
-                    </div>
-                    <div className="flex gap-2 flex-wrap text-[10px] font-bold mb-2">
-                      <span className="px-2 py-1 rounded-lg bg-white border" style={{ borderColor: tk.borderLight }}>
-                        {t("rm.apiBackend")} <span className="font-mono text-sky-700 text-xs">{apiStatus.backend.total}</span>
-                        <span className="text-stone-400 font-normal">（{apiStatus.backend.withTests} {t("rm.apiHasTest")} / {apiStatus.backend.total - apiStatus.backend.withTests} {t("rm.apiNoTest")}）</span>
-                      </span>
-                      <span className="px-2 py-1 rounded-lg bg-white border" style={{ borderColor: tk.borderLight }}>
-                        {t("rm.apiFrontend")} <span className="font-mono text-sky-700 text-xs">{apiStatus.frontend.pages}</span>
-                        <span className="text-stone-400 font-normal"> · {t("rm.apiCalls")} {apiStatus.frontend.apiCallsTotal}</span>
-                      </span>
-                    </div>
-                    <div className="max-h-64 overflow-y-auto rounded-lg border bg-white" style={{ borderColor: tk.borderLight }}>
-                      <div className="grid gap-1 text-[9px] font-bold text-stone-400 px-2 py-1 sticky top-0 bg-white border-b" style={{ gridTemplateColumns: "2.1fr 1.4fr 0.8fr 0.6fr 0.7fr", borderColor: tk.borderLight }}>
-                        <span>{t("rm.apiColApi")}</span><span>{t("rm.apiColName")}</span><span>Unit Test</span><span>E2E</span><span>SG</span>
-                      </div>
-                      {(apiStatus.apis || []).map((a: any, i: number) => (
-                        <div key={i} className="grid gap-1 items-center px-2 py-1 text-[10px] hover:bg-stone-50" style={{ gridTemplateColumns: "2.1fr 1.4fr 0.8fr 0.6fr 0.7fr" }}>
-                          <span className="font-mono font-bold text-stone-700 truncate" title={a.entry}>{a.entry}</span>
-                          <span className="text-stone-500 truncate" title={a.name}>{a.name}</span>
-                          <span className={`font-mono font-bold ${(a.testCount ?? a.tests?.length ?? 0) > 0 ? "text-green-600" : "text-red-500"}`} title={(a.tests || []).join("\n") || t("rm.ev.noTest")}>{(a.testCount ?? a.tests?.length ?? 0) > 0 ? `✓${a.testCount ?? a.tests.length}` : "✗"}</span>
-                          <span className={`font-mono font-bold ${a.e2eCovered ? "text-green-600" : "text-stone-300"}`}>{a.e2eCovered ? "✓" : "—"}</span>
-                          <span className={`font-mono font-bold ${a.sg?.ok ? ((a.sg.total ?? 0) > 0 ? "text-amber-600" : "text-green-600") : "text-red-500"}`} title={a.sg?.reason || `${a.sg?.total ?? 0} findings（high ${a.sg?.high ?? 0}）`}>{a.sg ? (a.sg.ok ? ((a.sg.total ?? 0) > 0 ? `⚠${a.sg.total}` : "✓0") : `✗${a.sg.high}hi`) : "—"}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {apiSummary && (
-                      <div className="mt-2 rounded-lg bg-violet-50 border px-3 py-2 text-[11px] text-stone-700 whitespace-pre-wrap" style={{ borderColor: "#ddd6fe" }} data-testid="rm-api-summary">
-                        <div className="text-[9px] font-bold text-violet-600 mb-0.5">{t("rm.apiSummaryTitle")}</div>
-                        {apiSummary}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ⚖️ Evidence Matrix（2026-11-07 Fleming v3：API-first，按鈕才載入；窗口 = 下拉選的 baseline commit 之後的 change）*/}
+              {/* ⚖️ Evidence Matrix（2026-11-07 Fleming v3：API-first，按鈕才載入；窗口 = 下拉選的 baseline commit 之後的 change）*/}
                 {evApi && (
                   <div className="px-4 py-3 border-t" style={{ borderColor: tk.borderLight }} data-testid="rm-evidence-matrix">
                     <div className="flex items-center gap-2 flex-wrap mb-2">
                       <span className="text-xs font-bold text-stone-700">⚖️ {t("rm.ev.title")}</span>
                       <span className="text-[10px] text-stone-400">{evApi.anchor === "all" ? t("rm.ev.sinceHead") : `${evApi.anchor} · ${evApi.commitsInWindow} commits`}</span>
+                      {matrixFrozen ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold" title="與 Release Info 同版號凍結">🔒 凍結 v{matrixFrozen}</span> : null}
                       {onOpenReviewBoard && <button type="button" onClick={onOpenReviewBoard} className="text-[10px] px-2 py-0.5 rounded-full border font-bold text-violet-600 hover:bg-violet-50" style={{ borderColor: "#ddd6fe" }} data-testid="rm-open-review-board">{t("rm.ev.openBoard")} →</button>}
                       {/* 2026-11-07 Fleming v5：產生 Review Report 搬進本塊 — 按鈕在這，結果在表格下方 */}
                       <button type="button" onClick={generateReport} disabled={reviewBusy}

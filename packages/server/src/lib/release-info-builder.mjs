@@ -39,6 +39,7 @@ import { generateEvidenceSnapshot } from "./release-evidence-snapshot.mjs";
 import { getReleaseRequest, listReleaseRequests } from "./release-requests.mjs";
 import { callProjectLLM } from "../routes/coding-helpers.mjs";
 import { shellExec } from "./shell-exec.mjs";
+import { buildEvidenceByApi } from "./evidence-by-api.mjs";
 import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 
@@ -68,6 +69,11 @@ export function listInfoVersions(projectPath, rrId) {
       .map(m => parseInt(m[1], 10))
       .sort((a, b) => a - b);
   } catch { return []; }
+}
+
+/** 讀某一版的 Evidence Matrix（matrix-vN.json — 跟 info 同版號凍結） */
+export function readInfoMatrix(projectPath, rrId, v) {
+  try { return JSON.parse(readFileSync(join(infoDir(projectPath, rrId), `matrix-v${v}.json`), "utf-8")); } catch { return null; }
 }
 
 export function readInfoVersion(projectPath, rrId, v) {
@@ -274,7 +280,7 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
     rrId,
     running: true,
     step: "tests",
-    steps: ["tests", "evidence", "cu", "ai-write"],
+    steps: ["tests", "evidence", "matrix", "cu", "ai-write"],
     startedAt: new Date().toISOString(),
     startedBy: by,
     error: null,
@@ -297,12 +303,22 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
       let snap = null;
       try { snap = await generateEvidenceSnapshot(projectPath, { baseline: rr.baseline?.sha || "auto", by: `release-info:${rrId}` }); } catch (e) { st.evidenceError = e.message; }
       st.evidenceSnapshot = snap ? { id: snap.id, at: snap.generatedAt || snap.at } : null;
+      // ── 2b. Evidence Matrix（2026-11-21 Fleming：Release Info 的一部分，同版號凍結 matrix-vN.json）──
+      st.step = "matrix";
+      writeStatus(projectPath, rrId, st);
+      let matrix = null;
+      try { matrix = await buildEvidenceByApi(projectPath, { sinceSha: rr.baseline?.sha || null }); } catch (e) { st.matrixError = e.message; }
+      st.matrix = matrix ? { apis: matrix.apis.length, summary: matrix.summary } : null;
       st.step = "cu"; // 2026-11-21 Fleming：做 release unit 時觸發 CU（機械層同步重掃 + 智慧層背景增量）
       writeStatus(projectPath, rrId, st);
 
       // ── 3. CU 蒐集（Schema 1.1：AI 拿 Feature Map/API Map 理解程式碼，不是只看 git comment）──
       const scope0 = rr.scope || {};
       const cu = await _cuContext(projectPath, scope0.files || []);
+      if (matrix?.summary) {
+        const m = matrix.summary;
+        cu.txt += `\n\n[Evidence Matrix by API] APIs ${m.changedApis} / 有測試 ${m.withTests} / e2e 覆蓋 ${m.e2eCovered} / SG high ${m.sgHigh} / 有 review ${m.withReview} / 有 QA ${m.withQa}`;
+      }
       st.cu = { affectedFeatures: cu.affected.map((f) => f.id) };
       st.step = "ai-write";
       writeStatus(projectPath, rrId, st);
@@ -364,11 +380,13 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
       const dir = infoDir(projectPath, rrId);
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, `info-v${v}.json`), JSON.stringify(info, null, 2), "utf-8");
+      if (matrix) writeFileSync(join(dir, `matrix-v${v}.json`), JSON.stringify(matrix, null, 2), "utf-8");
       writeFileSync(join(dir, `bundle-v${v}.json`), JSON.stringify({
         version: v,
         generatedAt: new Date().toISOString(),
         testRun: st.testRun,
         evidenceSnapshot: st.evidenceSnapshot,
+        evidenceMatrix: matrix ? { file: `matrix-v${v}.json`, anchor: matrix.anchor, summary: matrix.summary } : null,
         baseline: rr.baseline,
         target: freshRR?.target || rr.target,
         aiFallback: !!st.aiFallback,

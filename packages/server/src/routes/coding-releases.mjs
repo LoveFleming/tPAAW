@@ -26,6 +26,7 @@ import { join, resolve, dirname } from "path";
 import { gatherTaskEvidence } from "./coding-evidence.mjs";
 import { runTaskRetrofit, qualityDebtSummary } from "../lib/task-retrofit.mjs";
 import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
+import { apiE2eCoverageChecker as _apiE2eCoverageChecker } from "../lib/evidence-by-api.mjs";
 import { isTestFileName as isTestFileNameM } from "../lib/cu-source-scan.mjs"; // 2026-11-07：多語言測試檔判定（_test.go / test_*.py）
 import { checkGates } from "../lib/release-unit/gates.mjs";
 import { shellExec } from "../lib/shell-exec.mjs";
@@ -43,58 +44,6 @@ import {
 import { loadFeatures } from "../lib/feature-registry.mjs";
 
 const PHASES_BEFORE_COMMIT = ["spec", "implement", "review", "test", "qa", "docs"];
-
-// 2026-11-07 Fleming：e2e 內容覆蓋 checker（測試檔 corpus 內容含 API path = deterministic 覆蓋證據）—
-// evidence-by-api / api-status 共用（原本 readiness + evidence-by-api 各一份，第三份出現前先抽共用）
-function _apiE2eCoverageChecker(root) {
-  let corpus = null;
-  const build = () => {
-    let buf = "";
-    const TEST_DIR = new Set(["tests", "test", "e2e", "__tests__"]);
-    const SKIP = new Set(["node_modules", "dist", "build", "coverage", "versions", "raw", "crops", ".paaw"]);
-    const isTestFile = (n) => { try { return isTestFileNameM(n); } catch { return /\.(test|spec)\.[cm]?[jt]sx?$/.test(n) || /^test[-_]/.test(n); } };
-    const walk = (dir, depth) => {
-      if (depth > 5) return;
-      let ents; try { ents = readdirSync(dir, { withFileTypes: true }); } catch { return; }
-      for (const e of ents) {
-        if (e.name.startsWith(".") || SKIP.has(e.name)) continue;
-        const p2 = join(dir, e.name);
-        if (e.isDirectory()) walk(p2, depth + 1);
-        else if (isTestFile(e.name) || dir.split(/[\\/]/).some((seg2) => TEST_DIR.has(seg2))) {
-          try { const c = readFileSync(p2, "utf-8"); if (c.length < 500000) buf += "\n" + c; } catch {}
-        }
-      }
-    };
-    walk(root, 0);
-    return buf;
-  };
-  return (apiPath) => {
-    if (!apiPath) return false;
-    if (corpus === null) corpus = build();
-    const segs = apiPath.replace(/\/+$/, "").split("/").filter(Boolean);
-    // 路徑參數段：支援三種寫法 — :id（Express）、<id>（Flask）、{id}（Java MockMvc/JAX-RS 字面 placeholder）
-    // 2026-11-07 修：corpus 裡的 {ownerId} 字面 placeholder 也算命中（[^/]+ 匹配不到大括號字面值，petclinic E2E 全滅的根因）
-    const segPattern = (seg) => {
-      if (seg.startsWith(":") || /^\{[^}/]+\}$/.test(seg) || /^<[^/>]+>$/.test(seg)) return "(?:[^/\"'`{}]|\\{[^}/]+\\})+"; // 實值 或 字面 {param}
-      return seg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    };
-    const tryMatch = (k) => {
-      const suffix = segs.slice(-k);
-      if (suffix.some((s) => s.startsWith(":") || /^\{[^}/]+\}$/.test(s) || /^<[^/>]+>$/.test(s))) return false; // 含參數段的後綴不做降級比對（[^/]+ 太寬會誤中）
-      const re = new RegExp("(?:^|[\\/\"'`\\s({])" + suffix.map(segPattern).join("/") + "(?:/|\\b)"); // nosemgrep: detect-non-literal-regexp
-      return re.test(corpus);
-    };
-    // 1) 全路徑比對（參數段接受實值或字面 placeholder）
-    const fullRe = new RegExp("^/?" + segs.map(segPattern).join("/") + "/?$"); // nosemgrep: detect-non-literal-regexp
-    // 全路徑需在 corpus 中以片段出現（非行首），改用無錨點版本
-    const fullRe2 = new RegExp("(?:^|[\\/\"'`\\s({])" + segs.map(segPattern).join("/") + "/?(?:$|[\\s\"'`})]|\\b)"); // nosemgrep: detect-non-literal-regexp
-    if (fullRe2.test(corpus) || fullRe.test(corpus)) return true;
-    // 2) 2026-11-07 修：變數組路徑（FastAPI f"{settings.API_V1_STR}/items/"）— 字面前綴不在 corpus，
-    //    降級用「後綴」比對（最長 2+ 段、全字面），例如 /items/、users/me
-    for (let k = segs.length - 1; k >= 2; k--) if (tryMatch(k)) return true;
-    return false;
-  };
-}
 
 // ── TASKS.json 原檔讀寫（保留 top-level 欄位如 loopMode）──
 
@@ -405,6 +354,22 @@ export default async function releaseRoutes(req, res, next) {
     return res.json({ ok: true, version_of_info: v, available_versions: versions, release_info: info });
   }
 
+  // GET /release-info/matrix?rr=&v= — 讀某版凍結的 Evidence Matrix（v 省略 = 最新版）
+  if (url === "/api/coding-releases/release-info/matrix" && method === "GET") {
+    const rrId = q.get("rr");
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first
+    if (!rrId) return res.status(400).json({ error: "rr required" });
+    try {
+      const { listInfoVersions, readInfoMatrix } = await import("../lib/release-info-builder.mjs");
+      const versions = listInfoVersions(projectPath, rrId);
+      const v = q.get("v") ? Number(q.get("v")) : (versions.length ? Math.max(...versions) : null);
+      const matrix = v ? readInfoMatrix(projectPath, rrId, v) : null;
+      return res.json({ ok: !!matrix, version: v, matrix });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   // GET /release-docs?rr=&path= — 三份文件狀態 + 決定性檢查（Release Manager tab 用）
   if (url === "/api/coding-releases/docs" && method === "GET") {
     const rrId = q.get("rr");
@@ -428,6 +393,21 @@ export default async function releaseRoutes(req, res, next) {
     try {
       const { triggerDoc } = await import("../lib/release-docs.mjs");
       return res.json(await triggerDoc(path, body.rr, body.kind));
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  // POST /release-docs/build-all — 人按「製作 Release Info」：Prod Spec + DFO + Release Info（含 Evidence Matrix）
+  if (url === "/api/coding-releases/release-docs/build-all" && method === "POST") {
+    const body = await readJsonBody(req);
+    if (!body) return res.status(400).json({ error: "invalid JSON body" });
+    const path = assertProjectPath(body.path || projectPath);
+    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first
+    if (!body.rr) return res.status(400).json({ error: "rr required" });
+    try {
+      const { triggerAllDocs } = await import("../lib/release-docs.mjs");
+      return res.json(await triggerAllDocs(path, body.rr));
     } catch (e) {
       return res.status(500).json({ error: e.message });
     }
@@ -824,86 +804,12 @@ export default async function releaseRoutes(req, res, next) {
   if (url === "/api/coding-releases/evidence-by-api" && method === "GET") {
     if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first
     try {
-      const root = resolve(projectPath);
-      const { readApiFeatures } = await import("../lib/coding-db/reads.mjs");
-      const { loadSecurityScan, sgForFeature, loadReviewBoard } = await import("../lib/release-evidence.mjs");
-      const apis = readApiFeatures(root);
-      const sinceSha = q.get("since");
-      const { data: ci } = await buildChangeIntelligence(projectPath, sinceSha ? { fromSha: sinceSha, maxCommits: 300 } : { maxCommits: 300 });
-      const commits = ci?.commits || []; // 新 → 舊，含 files（注意：此處 commit 只有完整 hash，short 自切）
-      // 2026-11-07 smoke：壞 sha 不得靜默回空矩陣（會誤導成「無變更」）— 明確報錯
-      if (sinceSha && commits.length === 0) {
-        return res.status(400).json({ error: `since commit 無效或之後沒有 commit：${sinceSha.slice(0, 10)}` });
+      const { buildEvidenceByApi } = await import("../lib/evidence-by-api.mjs");
+      const out = await buildEvidenceByApi(projectPath, { sinceSha: q.get("since") || null });
+      if (q.get("since") && out.commitsInWindow === 0) {
+        return res.status(400).json({ error: `since commit 無效或之後沒有 commit：${String(q.get("since")).slice(0, 10)}` });
       }
-      const fileCommits = new Map(); // file → [short...]（新→舊）
-      for (const c of commits) {
-        const short = String(c.hash || "").slice(0, 7);
-        for (const f of c.files || []) {
-          const norm = String(f).replace(/\\/g, "/");
-          if (!fileCommits.has(norm)) fileCommits.set(norm, []);
-          fileCommits.get(norm).push(short);
-        }
-      }
-      // SG（file-level — 與 feature 版同掃描源）
-      let scan = null; try { scan = await loadSecurityScan(projectPath); } catch { /* 未掃 → null 如實回 */ }
-      // Code Review 委員會紀錄（2026-11-07 Fleming：by API — 掃過該 API 檔案的會議次數 + 最新一次時間/結論）
-      let board = null; try { board = await loadReviewBoard(projectPath); } catch { /* 無紀錄 → null */ }
-      // QA 記錄（2026-11-07 Fleming：by API — apis[] 明標優先，fallback target/url/summary 文字含 API path）
-      let qaAll = []; try { const { listQaResults } = await import("../lib/qa-results.mjs"); qaAll = listQaResults(projectPath, { limit: 500 }); } catch { /* 無 → 空 */ }
-      const _pathOf = (entry) => String(entry).trim().split(/\s+/).pop() || String(entry).trim();
-      const _normLower = (s) => String(s).replace(/\\/g, "/").toLowerCase();
-      // e2e 內容覆蓋（共用 helper）
-      const apiCovered = _apiE2eCoverageChecker(root);
-      const rows = [];
-      for (const a of apis) {
-        const files = (a.codeFiles || []).map((f) => String(f).replace(/\\/g, "/"));
-        const touched = [...new Set(files.flatMap((f) => fileCommits.get(f) || []))];
-        if (sinceSha && !touched.length) continue; // 只有選 baseline commit 才過濾；HEAD = 全部 API 不 by 時間
-        const sg = sgForFeature(scan, files);
-        const reviews = (board?.reports || []).filter((r) => {
-          const scope = (r.scopeFiles?.length ? r.scopeFiles : r.findingFiles || []).map((f) => String(f).replace(/\\/g, "/").replace(/^\.\//, ""));
-          return scope.some((f) => files.includes(f));
-        }).map((r) => ({ at: r.at, decision: r.decision }));
-        // QA 記錄 by API（新→舊，取前 5 筆明細；count 為全部）
-        const apiPathLower = _normLower(_pathOf(a.entry));
-        const qaHits = qaAll.filter((r) => {
-          if ((r.apis || []).some((x) => _normLower(x) === _normLower(a.entry) || _normLower(_pathOf(x)) === apiPathLower)) return true;
-          if (apiPathLower.length < 3) return false; // 太短（如 "/"）不做文字比對，免全match
-          const hay = `${r.target || ""} ${r.url || ""} ${r.summary || ""} ${(r.evidence || []).join(" ")}`.toLowerCase();
-          return hay.includes(apiPathLower);
-        });
-        const qaLatest = qaHits[0] || null;
-        rows.push({
-          entry: a.entry, name: a.name, category: a.category, files,
-          commits: touched, commitCount: touched.length,
-          reviews, reviewCount: reviews.length, latestReviewAt: reviews.filter((r) => r.at).map((r) => r.at).sort().pop() || null,
-          qa: {
-            count: qaHits.length,
-            latestAt: qaLatest?.ts || null,
-            latestVerdict: qaLatest?.verdict || null,
-            latestActor: qaLatest?.actor || null,
-            items: qaHits.slice(0, 5).map((r) => ({ at: r.ts, verdict: r.verdict, actor: r.actor, summary: String(r.summary || "").slice(0, 80), id: r.id })),
-          },
-          tests: (a.tests || []).map((x) => (typeof x === "string" ? x : x?.file)).filter(Boolean),
-          e2eCovered: apiCovered(a.entry),
-          sg: { ok: sg.ok, high: sg.high ?? 0, total: sg.total ?? 0, reason: sg.reason || null },
-        });
-      }
-      return res.json({
-        ok: true, sinceSha: sinceSha || null, anchor: sinceSha ? `${sinceSha.slice(0, 7)}..HEAD` : "all",
-        commitsInWindow: commits.length,
-        summary: {
-          changedApis: rows.length,
-          withTests: rows.filter((r) => r.tests.length > 0).length,
-          e2eCovered: rows.filter((r) => r.e2eCovered).length,
-          sgHigh: rows.filter((r) => !r.sg.ok).length,
-          withReview: rows.filter((r) => r.reviewCount > 0).length,
-          withQa: rows.filter((r) => r.qa.count > 0).length,
-          qaLatestFail: rows.filter((r) => r.qa.latestVerdict && r.qa.latestVerdict !== "pass").length,
-          sgScannedAt: scan?.scannedAt || null,
-        },
-        apis: rows, generatedAt: new Date().toISOString(),
-      });
+      return res.json(out);
     } catch (e) {
       return res.status(500).json({ error: "evidence-by-api failed", detail: e.message });
     }
@@ -1079,10 +985,8 @@ export default async function releaseRoutes(req, res, next) {
     if (!path) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     try {
       const rr = await createReleaseRequest(path, { title: body.title, baseline: body.baseline || "auto" });
-      // 2026-11-21 Fleming：建單後 AI 自動製作三份文件 — Prod Spec + DFO + Release Info（背景，不 await）
-      import("../lib/release-docs.mjs")
-        .then(({ triggerAllDocs }) => triggerAllDocs(path, rr.id))
-        .catch((e) => console.warn(`[release-docs] auto build failed (${rr.id}):`, e.message));
+      // 2026-11-21 Fleming：建單不自動做文件 — 由人在 Release Manager 按「製作 Release Info」觸發
+      // （按鈕會做：Prod Spec 更新 → DFO 更新 → Release Info（含 Evidence Matrix），全部版控）
       return res.json(rr);
     } catch (e) {
       return res.status(e.status || 500).json({ error: e.message });
