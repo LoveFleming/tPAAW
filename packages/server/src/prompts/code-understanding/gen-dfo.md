@@ -19,8 +19,7 @@
     { "id": "overview", "title": "系統全景", "markdown": "..." },
     { "id": "operations", "title": "日常操作", "markdown": "..." },
     { "id": "troubleshooting", "title": "事故排查", "markdown": "..." },
-    { "id": "handover", "title": "交接上手", "markdown": "..." },
-    { "id": "rollback", "title": "回滾與降級", "markdown": "..." }
+    { "id": "handover", "title": "交接上手", "markdown": "..." }
   ]
 }
 ```
@@ -41,10 +40,9 @@
    - 症狀多時附一張 mermaid 排查決策 flowchart
    - ERROR CODES 有資料卻沒寫進這一節 = 嚴重缺失
 4. **handover 交接上手** — 新人/AI 接手 10 分鐘上手：專案結構導覽、開發工作流（誰開 task 誰派工）、關鍵檔案、地雷區。C4 的 container 對應到哪些目錄/入口檔要講清楚（接手者第一個問題就是「這段在哪」）。
-5. **rollback 回滾與降級** — 怎麼退版（git/部署）、退了會影響什麼、哪些狀態不可逆要小心。
 
 ## 規則
-- **圖優先**：架構 flowchart、排查決策樹、回滾流程 — 能畫就畫（```mermaid 圍籬；flowchart 用 graph TD，互動用 sequenceDiagram）
+- **圖優先**：架構 flowchart、排查決策樹 — 能畫就畫（```mermaid 圍籬；flowchart 用 graph TD，互動用 sequenceDiagram）
 - **證據優先**：只寫知識庫/git log/package.json 裡看得到的事實，不可發明 API、指令、錯誤碼
 - **延續性**：有現行 DFO 時，其內容正確的部分保留精煉，過時的更新，不對的主動修正
 - **AI:SKIP 區塊**（`<!-- AI:SKIP-START/END -->`）是人寫的 — 原樣保留在原 section，一個字都不能改

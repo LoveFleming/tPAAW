@@ -2664,14 +2664,14 @@ baseline ${rr.baseline?.short}(${rr.baseline?.source})→ target ${rr.target?.sh
         if (!d) return "DFO 尚未建立 — 可用 dfo_write 從零寫，或請人在 DFO 頁按 🔄 AI 生成。";
         if (args.section) {
           const s = d.sections.find(x => x.id === args.section);
-          return s ? `【${d.version} · ${s.title}】\n\n${s.markdown}` : `Error: 不合法 section id：${args.section}（合法：overview/operations/troubleshooting/handover/rollback）`;
+          return s ? `【${d.version} · ${s.title}】\n\n${s.markdown}` : `Error: 不合法 section id：${args.section}（合法：overview/operations/troubleshooting/handover）`;
         }
         return JSON.stringify({ version: d.version, updatedAt: d.updatedAt, sections: d.sections.map(s => ({ id: s.id, title: s.title, markdown: s.markdown })) }, null, 1);
       }
       case "dfo_write": {
         const { writeDfo, dfoFrozenReason } = await import("./dfo.mjs");
         const id = args.section, md = String(args.markdown || "").trim();
-        const VALID = ["overview", "operations", "troubleshooting", "handover", "rollback"];
+        const VALID = ["overview", "operations", "troubleshooting", "handover"];
         if (!VALID.includes(id)) return `Error: section 必須是 ${VALID.join("/")}。`;
         if (!md) return "Error: markdown 不可為空（整節覆寫）。";
         try {

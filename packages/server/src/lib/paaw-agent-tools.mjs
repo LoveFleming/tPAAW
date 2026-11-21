@@ -614,7 +614,7 @@ const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "dfo_read",
-      description: "讀 DFO（Design for Operation）維運文件 — 現行版全文（五節：overview 系統全景 / operations 日常操作 / troubleshooting 事故排查 / handover 交接上手 / rollback 回滾降級）。要改之前先讀。",
+      description: "讀 DFO（Design for Operation）維運文件 — 現行版全文（四節：overview 系統全景 / operations 日常操作 / troubleshooting 事故排查 / handover 交接上手）。要改之前先讀。",
       parameters: {
         type: "object",
         properties: {

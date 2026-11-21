@@ -1,7 +1,7 @@
 /**
  * DfoPanel — 📋 DFO（Design for Operation）維運文件頁（2026-11-20 Fleming）
  *
- * Handover page 改造：五節 tab + markdown/mermaid render + 版本列（看歷版唯讀）
+ * Handover page 改造：四節 tab + markdown/mermaid render + 版本列（看歷版唯讀）
  * + 🔄 AI 更新（POST generate，一次 LLM 全量）+ 💬 side chat 直連 Greta（coding.ops，dfo_write）。
  */
 
@@ -34,7 +34,6 @@ const SECTION_DEFS = [
   { id: "operations", icon: "🔧" },
   { id: "troubleshooting", icon: "🚨" },
   { id: "handover", icon: "🤝" },
-  { id: "rollback", icon: "⏪" },
 ];
 
 interface DfoSection { id: string; title: string; markdown: string }
@@ -140,7 +139,7 @@ export default function DfoPanel({ rootPath, active, theme: tk }: { rootPath: st
           </div>
           {genMsg && <div className="shrink-0 px-4 py-1.5 text-xs border-b bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>{genMsg}</div>}
 
-          {/* 五節 tab */}
+          {/* 節 tab */}
           <div className="shrink-0 flex items-center gap-1 px-4 pt-2 border-b overflow-x-auto" style={{ borderColor: tk.borderLight }}>
             {SECTION_DEFS.map(def => {
               const s = shown?.sections.find(x => x.id === def.id);
@@ -163,7 +162,7 @@ export default function DfoPanel({ rootPath, active, theme: tk }: { rootPath: st
               <div className="flex flex-col items-center justify-center h-full gap-3 text-stone-400">
                 <span className="text-4xl">📋</span>
                 <div className="text-sm">尚無 DFO 文件</div>
-                <div className="text-xs">DFO = 系統全景 / 日常操作 / 事故排查 / 交接上手 / 回滾降級 — 一鍵 AI 生成，之後 AI 持續維護進版</div>
+                <div className="text-xs">DFO = 系統全景 / 日常操作 / 事故排查 / 交接上手 — 一鍵 AI 生成，之後 AI 持續維護進版</div>
                 <button onClick={generate} disabled={generating} className="mt-2 px-4 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-50" style={{ backgroundColor: tk.accent }}>
                   🔄 AI 生成
                 </button>
@@ -188,7 +187,7 @@ export default function DfoPanel({ rootPath, active, theme: tk }: { rootPath: st
             agentId="ops"
             agentName="格蕾塔·穆勒 · 維運助理"
             agentEmoji="🛠️"
-            greeting="Guten Tag！我是 Greta，DFO 文件的 owner。左邊五節看得到現況 — 想改哪節直接跟我說（例如「回滾那節加上退 port 的步驟」），我用 dfo_write 寫入自動進版。"
+            greeting="Guten Tag！我是 Greta，DFO 文件的 owner。左邊四節看得到現況 — 想改哪節直接跟我說（例如「事故排查那節補上 Redis 斷線的處置」），我用 dfo_write 寫入自動進版。"
             cwd={rootPath}
             accent={tk.accent}
             accentHover={tk.accentHover || tk.accent}

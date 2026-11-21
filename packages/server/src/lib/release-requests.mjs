@@ -48,7 +48,7 @@ const CHECKLIST_DEFS = [
   { id: "review-board", label: "Review 委員會（report 覆蓋放行範圍）" },
   { id: "risk", label: "風險評估（readiness heuristic）" },
   // 2026-11-20 Fleming：DFO（Design for Operation）上線 — ops + handover 兩項合併成一項 dfo
-  // （維運/回滾/交接都在 DFO 五節裡，owner = Greta/coding.ops；release-gated：本單期間要有更新紀錄）
+  // （維運/交接都在 DFO 四節裡，owner = Greta/coding.ops；release-gated：本單期間要有更新紀錄）
   { id: "dfo", label: "DFO 維運文件已更新至本版（維運/回滾/交接）— 簽核" },
 ];
 

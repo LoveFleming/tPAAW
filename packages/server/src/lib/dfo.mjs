@@ -14,7 +14,6 @@ export const DFO_SECTIONS = [
   { id: "operations", title: "日常操作" },
   { id: "troubleshooting", title: "事故排查" },
   { id: "handover", title: "交接上手" },
-  { id: "rollback", title: "回滾與降級" },
 ];
 export const DFO_SCHEMA_VERSION = 1;
 
@@ -32,6 +31,7 @@ export function validateDfo(dfo) {
     if (!ids.includes(def.id)) throw new Error(`缺少 section: ${def.id}`);
   }
   for (const s of dfo.sections) {
+    if (!DFO_SECTIONS.some(d => d.id === s.id)) continue; // 舊版多餘 section（如已移除的 rollback）忽略
     if (typeof s.markdown !== "string") throw new Error(`section ${s.id} 的 markdown 必須是 string`);
     const def = DFO_SECTIONS.find(d => d.id === s.id);
     if (def && s.title !== undefined && s.title !== def.title) throw new Error(`section ${s.id} title 不合法（固定: ${def.title}）`);
