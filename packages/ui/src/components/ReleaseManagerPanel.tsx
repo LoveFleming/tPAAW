@@ -150,6 +150,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const [newRrBusy, setNewRrBusy] = useState(false);
   const [rebuildBusy, setRebuildBusy] = useState(false);
   const [riRefreshing, setRiRefreshing] = useState(false);
+  const [releaseBusy, setReleaseBusy] = useState(false);
 
   const fetchSelDetail = useCallback(async (rrId: string) => {
     if (!rootPath || !rrId) { setSelDetail(null); return; }
@@ -177,8 +178,11 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
         scope: r.scope, shipped: r.status === "released",
       }));
       setRrOptions(list);
-      // 預選：保留目前選擇（還在清單）→ 否則最近一張 released → 否則最新一張（draft）
-      setSelRR((prev: string) => (keepSel && list.some((r: any) => r.id === prev)) ? prev : (list.find((r: any) => r.shipped)?.id || list[0]?.id || ""));
+      // 預選（Fleming 2026-11-21 定調）：有未定案 draft（產生中/待 Release）→ 選它；否則最近一張 released；否則空
+      setSelRR((prev: string) => {
+        if (keepSel && list.some((r: any) => r.id === prev)) return prev;
+        return (list.find((r: any) => !r.shipped)?.id) || (list.find((r: any) => r.shipped)?.id) || "";
+      });
     } catch { /* 不擋主頁 */ }
   }, [rootPath]);
 
@@ -209,6 +213,37 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
       fetchSelDetail(selRR);
     } catch (e: any) { setToast({ ok: false, text: e.message }); }
     finally { setRebuildBusy(false); }
+  };
+
+  // ✅ Release：確認對話框 → open（draft→reviewing + 自動跑 checklist）→ close（全部 pass 才定案）
+  const confirmRelease = async () => {
+    if (!rootPath || !selRR || releaseBusy) return;
+    const ri = selDetail?.releaseInfo;
+    if (!window.confirm(`確定定案 ${selRR} 為 v${ri?.version || "?"} ？\n\n${(ri?.summary || "").slice(0, 150)}\n\n定案後寫入 REL 記錄（Release Info 凍結，不可改）`)) return;
+    setReleaseBusy(true);
+    try {
+      const p = (a: string) => `${API_BASE}/api/coding-releases/requests/${encodeURIComponent(selRR)}/${a}?path=${encodeURIComponent(rootPath)}`;
+      const cur = rrOptions.find(r => r.id === selRR);
+      if (cur?.status === "draft") {
+        const o = await fetch(p("open"), { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then(r => r.json());
+        if (o.error) { setToast({ ok: false, text: `open 失敗：${o.error}` }); return; }
+      }
+      // 自動檢查 pass 的項目自動套 pass（人不用逐項點）；其餘留人審 → close 誠實擋
+      const fresh = await fetch(`${API_BASE}/api/coding-releases/requests/${encodeURIComponent(selRR)}?path=${encodeURIComponent(rootPath)}`).then(r => r.json());
+      for (const c of (fresh?.checklist || [])) {
+        if (c.verdict === "pending" && c.auto?.status === "pass") {
+          await fetch(p("checklist"), {
+            method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ itemId: c.id, verdict: "pass", note: "auto 檢查 pass（Release Manager 一鍵定案）" }),
+          });
+        }
+      }
+      const c = await fetch(p("close"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ note: `Release v${ri?.version || ""} — Release Manager 一鍵定案` }) }).then(r => r.json());
+      if (c.error) { setToast({ ok: false, text: `定案未過：${String(c.error).slice(0, 200)}` }); await fetchRrOptions(true); return; }
+      setToast({ ok: true, text: `✅ ${c.releaseId || selRR} 已定案（v${ri?.version || "?"}）— Release Info 已凍結` });
+      await fetchRrOptions(true);
+    } catch (e: any) { setToast({ ok: false, text: e.message }); }
+    finally { setReleaseBusy(false); }
   };
 
   const createNewRR = async () => {
@@ -466,8 +501,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                 title={t("rm.ri.refreshTip")} data-testid="rm-ri-refresh">
                 {riRefreshing ? "⏳" : "↻"}
               </button>
-              {/* 重新產生 Release Info（可重複產，版本遞增）*/}
-              {selRR && (
+              {/* 🔄 重新產生（只在未定案 draft 顯示）*/}
+              {selRR && !rrOptions.find(r => r.id === selRR)?.shipped && (
                 <button onClick={rebuildInfo} disabled={rebuildBusy || selDetail?.building}
                   className="text-xs px-3 py-1 rounded-lg text-white font-bold hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
                   style={{ backgroundColor: "#0369a1" }} data-testid="rm-ri-rebuild" title={t("rm.ri.rebuildTip")}>
@@ -475,12 +510,33 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                   🔄 {t("rm.ri.rebuildBtn")}
                 </button>
               )}
-              <button onClick={createNewRR} disabled={newRrBusy}
-                className="text-xs px-3 py-1 rounded-lg text-white font-bold hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
-                style={{ backgroundColor: "#16a34a" }} data-testid="rm-ri-new">
-                {newRrBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
-                🚀 {rrOptions.length ? t("rm.ri.newBtn") : t("rm.ri.firstBtn")}
-              </button>
+              {/* ✅ Release：AI 產完 content 才 on（2026-11-21 Fleming：create off → release on）*/}
+              {(() => {
+                const sel = rrOptions.find(r => r.id === selRR);
+                const show = sel && !sel.shipped && selDetail?.releaseInfo && !selDetail?.building;
+                if (!show) return null;
+                return (
+                  <button onClick={confirmRelease} disabled={releaseBusy}
+                    className="text-xs px-3 py-1 rounded-lg text-white font-bold hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
+                    style={{ backgroundColor: "#b45309" }} data-testid="rm-ri-release" title={t("rm.ri.releaseTip")}>
+                    {releaseBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
+                    ✅ Release
+                  </button>
+                );
+              })()}
+              {/* 🚀 Create New Release：有未定案 draft（產生中/待確認）= off */}
+              {(() => {
+                const hasDraft = rrOptions.some(r => !r.shipped);
+                return (
+                  <button onClick={createNewRR} disabled={newRrBusy || hasDraft}
+                    className="text-xs px-3 py-1 rounded-lg text-white font-bold hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
+                    style={{ backgroundColor: hasDraft ? "#a8a29e" : "#16a34a" }}
+                    title={hasDraft ? t("rm.ri.createOffTip") : t("rm.ri.firstBtnTip")} data-testid="rm-ri-new">
+                    {newRrBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
+                    🚀 {t("rm.ri.createBtn")}
+                  </button>
+                );
+              })()}
             </div>
             {rrOptions.length === 0 ? (
               <div className="px-4 py-6 text-center text-xs text-stone-400">{t("rm.ri.empty")}</div>
