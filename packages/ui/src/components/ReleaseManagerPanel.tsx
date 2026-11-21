@@ -624,6 +624,22 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                           ))}
                         </div>
                       )}
+                      {(ri.features || []).length > 0 && (
+                        <div className="px-3 pb-2 border-t pt-2" style={{ borderColor: tk.borderLight }}>
+                          <div className="text-[10px] font-bold text-stone-500 mb-1">{t("rm.ri.features")}（{ri.features.length}）</div>
+                          <div className="space-y-1 max-h-40 overflow-auto">
+                            {ri.features.map((f: any, i: number) => (
+                              <div key={i} className="flex gap-2 items-start text-[11px]">
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0 bg-indigo-100 text-indigo-700 font-mono">{f.id}</span>
+                                <div className="min-w-0">
+                                  <span className="font-bold text-stone-700">{f.name}</span>
+                                  {f.impact && <span className="text-stone-400"> — {f.impact}</span>}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <div className="px-3 py-1.5 border-t flex gap-3 text-[10px] font-mono text-stone-400" style={{ borderColor: tk.borderLight }}>
                         <span>commit {ri.git?.commit || "—"}</span>
                         <span>prev_tag {ri.git?.previous_tag || "null"}</span>

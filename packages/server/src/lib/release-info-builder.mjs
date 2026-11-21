@@ -39,8 +39,11 @@ import { generateEvidenceSnapshot } from "./release-evidence-snapshot.mjs";
 import { getReleaseRequest, listReleaseRequests } from "./release-requests.mjs";
 import { callProjectLLM } from "../routes/coding-helpers.mjs";
 import { shellExec } from "./shell-exec.mjs";
+import { dirname, resolve } from "path";
+import { fileURLToPath } from "url";
 
-const SCHEMA_VERSION = "1.0";
+const PAAW_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", ".."); // tPAAW repo root
+const SCHEMA_VERSION = "1.1";
 const _building = new Set(); // `${projectPath}::${rrId}` 防重入
 
 function infoDir(projectPath, rrId) {
@@ -131,6 +134,42 @@ function _stripFence(s) {
   return out.trim();
 }
 
+/** Schema 1.1（2026-11-21 Fleming）：CU 觸發 + 蒐集 — 機械層同步重掃（零 token 秒級）、
+ * 智慧層背景自呼 cu-status 增量重跑（不阻塞），再讀 ru_info/Feature Map/API Map 組 AI 上下文。
+ * 摘要不是改寫 git comment — 是拿 CU 對程式碼的理解去講變更的實質功能影響。 */
+async function _cuContext(projectPath, changedFiles = []) {
+  const result = { txt: "", affected: [] };
+  const norm = (f) => String(f || "").replace(/\\/g, "/");
+  const changed = new Set((changedFiles || []).map(norm));
+  const hit = (files = []) => (files || []).some((f) => changed.has(norm(f)));
+  try {
+    try {
+      const { rescanMechanicalLayer } = await import("./cu-mechanical.mjs");
+      await rescanMechanicalLayer(projectPath, PAAW_ROOT);
+      const { importCodingDb } = await import("./coding-db/import.mjs");
+      importCodingDb(projectPath);
+    } catch {}
+    // 智慧層：背景自呼 cu-status（route 偵測 stale 會自動跑 AI CU），fire-and-forget 不阻塞
+    try {
+      const { PORT } = await import("../routes/shared.mjs");
+      fetch(`http://127.0.0.1:${PORT}/api/coding-project/cu-status?path=${encodeURIComponent(projectPath)}`).catch(() => {});
+    } catch {}
+    let feats = [], apis = [], ruInfo = null;
+    try { ruInfo = (await import("./coding-db/ru-info.repo.mjs")).readRuInfo(projectPath); } catch {}
+    try { feats = (await import("./coding-db/reads.mjs")).readFeatures(projectPath) || []; } catch {}
+    try { apis = (await import("./coding-db/reads.mjs")).readApiFeatures(projectPath).slice(0, 40); } catch {}
+    result.affected = feats.filter((f) => hit(f.codeFiles)).slice(0, 15)
+      .map((f) => ({ id: f.id, name: f.name, impact: "（系統比對變更檔案命中）" }));
+    const lines = [];
+    if (ruInfo?.ai_overview) lines.push(`## 專案概述\n${String(ruInfo.ai_overview).slice(0, 800)}`);
+    if (ruInfo?.ai_architecture) lines.push(`## 架構\n${String(ruInfo.ai_architecture).slice(0, 800)}`);
+    if (feats.length) lines.push(`## Feature Map（${feats.length} 個 feature）\n` + feats.slice(0, 25).map((f) => `- ${f.id} ${f.name}：${String(f.description || "").slice(0, 120)}${hit(f.codeFiles) ? " ← 本版變更命中" : ""}`).join("\n"));
+    if (apis.length) lines.push(`## API Map（前 ${Math.min(apis.length, 25)}）\n` + apis.slice(0, 25).map((a) => `- ${a.id} [${a.category || ""}] ${a.name}（entry: ${a.entry || "—"}）：${String(a.description || a.bizLogic || "").slice(0, 120)}`).join("\n"));
+    result.txt = lines.join("\n\n") || "（無 CU 資料 — 尚未跑過 Code Understanding）";
+  } catch (e) { result.txt = `（CU 蒐集失敗：${e.message}）`; }
+  return result;
+}
+
 /** AI 失敗/解析失敗時的 deterministic fallback：changes 直接由 git log subjects 組成（type=chore） */
 function _fallbackChanges(gitLog) {
   return gitLog.split("\n").filter(Boolean).slice(0, 30).map(line => {
@@ -139,23 +178,29 @@ function _fallbackChanges(gitLog) {
   });
 }
 
-async function _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle, previousTag, unitLog = "" }) {
+async function _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle, previousTag, unitLog = "", cuTxt = "" }) {
   const initial = !previousTag; // 無前版 tag = 首次 release（含 import 別人的 release unit 起手）
   const modeTxt = initial
     ? `這是首次 release（Initial Release${gitLog || unitLog ? "，匯入他人的 release unit 起手" : "，程式剛匯入、尚無後續變更"}）。
 summary 必須以「首次匯入 Initial Release」角度寫：這個 release unit 是什麼、核心功能/主要內容、測試狀態，目的是讓接手開發者從 release/DFO 角度快速理解全貌、準備第一次 release。用語用「首次匯入」，不要寫「本版無程式碼變更」。${gitLog ? "changes 把整段歷史歸納成主要能力/變更項目。" : "changes 必須是空陣列 []（本版無新增差異）；summary 依「完整歷史」摘要整個 release unit 的內容。"}`
     : `這是接續前版（${previousTag}）的一般 release，summary 摘要本版變更重點。`;
-  const prompt = `你是 Release Manager。根據以下 deterministic 證據（git log 為主），產生 Release Info 的 summary 與 changes。
+  const prompt = `你是 Release Manager。根據以下 deterministic 證據產生 Release Info 的 summary / changes / features。
+
+【核心理念 — 2026-11-21 Fleming】
+不要只改寫 git comment。git comment 只是線索；你要拿 Code Understanding（專案概述/Feature Map/API Map）
+對程式碼的理解，去講這次變更的實質功能意義：改了什麼能力、影響哪些 feature/API、對使用者/接手開發者的意義。
+第二次 release 起，重點是「從上次 release 到現在了哪些內容、影響的 feature 是什麼」。
 
 【輸出格式 — 嚴格遵守，每次一致】
 只輸出一個 JSON 物件，不要 code fence、不要 markdown、不要說明文字。結構必須完全是：
-{"summary": "<一兩句話摘要>", "changes": [{"type": "<type>", "title": "<標題>", "description": "<說明>"}]}
+{"summary": "<一兩句話摘要>", "changes": [{"type": "<type>", "title": "<標題>", "description": "<說明>"}], "features": [{"id": "<feature id>", "name": "<feature 名>", "impact": "<本版對它的影響>"}]}
 - summary：字串，一兩句話的版本摘要（繁體中文）
-- changes：陣列，把 git log 的 commits 歸納成變更項目（相近 commits 合併一項）
+- changes：陣列，把變更歸納成變更項目（相近 commits 合併；description 講實質功能影響，不是貼 commit message）
 - 每個 change 必須恰好三個 key：type / title / description，不可多不可少
 - type 只能是這五個之一：feature | improvement | fix | breaking | chore
 - title：短標題（兰 80 字）；description：具體說明（兰 300 字）
 - 只描述證據支援的事實，不可編造
+- features：本版變更影響到的 feature（拿 Feature Map 比對變更檔案 + API Map 理解實質影響；標「← 本版變更命中」的優先）；無影響 = 空陣列 []。feature id/name 必須照 Feature Map 原文，不可編造
 
 # 情境
 ${modeTxt}
@@ -163,6 +208,8 @@ ${modeTxt}
 # Release：${rrTitle}
 # 變更範圍
 ${scopeTxt}
+# Code Understanding（專案概述 / Feature Map / API Map — 摘要的主要依據）
+${cuTxt}
 # Git Log
 ${gitLog}
 # 完整歷史（僅供 initial 摘要 release unit 全貌，不列入 changes）
@@ -177,7 +224,7 @@ ${testRunTxt}`;
   return _validateAiPart(parsed, { hasCommits: gitLog.split("\n").filter(Boolean).length > 0 }); // 不符 schema 直接 throw → 上層重試/fallback
 }
 
-/** 嚴格驗證 AI 產的 summary/changes（Schema v1.0）— 格式每次一致，不合規就拒收 */
+/** 嚴格驗證 AI 產的 summary/changes/features（Schema 1.1）— 格式每次一致，不合規就拒收 */
 const VALID_TYPES = new Set(["feature", "improvement", "fix", "breaking", "chore"]);
 function _validateAiPart(parsed, { hasCommits = true } = {}) {
   if (!parsed || typeof parsed !== "object") throw new Error("AI 輸出不是物件");
@@ -198,7 +245,18 @@ function _validateAiPart(parsed, { hasCommits = true } = {}) {
       description: description.slice(0, 500),
     });
   }
-  return { summary: summary.slice(0, 600), changes };
+  // Schema 1.1：features — 影響到的 feature（id/name 照 Feature Map 原文，impact 一句話）
+  if (!Array.isArray(parsed.features)) throw new Error("features 缺失或非陣列（沒有影響 = 空陣列）");
+  const features = [];
+  for (const f of parsed.features) {
+    if (!f || typeof f !== "object") throw new Error("feature 不是物件");
+    const id = typeof f.id === "string" ? f.id.trim() : "";
+    const name = typeof f.name === "string" ? f.name.trim() : "";
+    const impact = typeof f.impact === "string" ? f.impact.trim() : "";
+    if (!id || !name) throw new Error("feature.id/name 缺失");
+    features.push({ id: id.slice(0, 80), name: name.slice(0, 120), impact: impact.slice(0, 300) });
+  }
+  return { summary: summary.slice(0, 600), changes, features: features.slice(0, 20) };
 }
 
 /**
@@ -216,7 +274,7 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
     rrId,
     running: true,
     step: "tests",
-    steps: ["tests", "evidence", "ai-write"],
+    steps: ["tests", "evidence", "cu", "ai-write"],
     startedAt: new Date().toISOString(),
     startedBy: by,
     error: null,
@@ -239,6 +297,13 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
       let snap = null;
       try { snap = await generateEvidenceSnapshot(projectPath, { baseline: rr.baseline?.sha || "auto", by: `release-info:${rrId}` }); } catch (e) { st.evidenceError = e.message; }
       st.evidenceSnapshot = snap ? { id: snap.id, at: snap.generatedAt || snap.at } : null;
+      st.step = "cu"; // 2026-11-21 Fleming：做 release unit 時觸發 CU（機械層同步重掃 + 智慧層背景增量）
+      writeStatus(projectPath, rrId, st);
+
+      // ── 3. CU 蒐集（Schema 1.1：AI 拿 Feature Map/API Map 理解程式碼，不是只看 git comment）──
+      const scope0 = rr.scope || {};
+      const cu = await _cuContext(projectPath, scope0.files || []);
+      st.cu = { affectedFeatures: cu.affected.map((f) => f.id) };
       st.step = "ai-write";
       writeStatus(projectPath, rrId, st);
 
@@ -265,11 +330,11 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
       // AI 欄位：summary + changes（驗 schema 不合規重試一次 → 仍失敗 fallback 由 git log 組成）
       let ai;
       try {
-        try { ai = await _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle: freshRR?.title || rr.title, previousTag: det.previous_tag, unitLog }); }
+        try { ai = await _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle: freshRR?.title || rr.title, previousTag: det.previous_tag, unitLog, cuTxt: cu.txt }); }
         catch (first) {
           st.aiRetry = first.message;
           writeStatus(projectPath, rrId, st);
-          ai = await _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle: freshRR?.title || rr.title, previousTag: det.previous_tag, unitLog });
+          ai = await _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle: freshRR?.title || rr.title, previousTag: det.previous_tag, unitLog, cuTxt: cu.txt });
         }
       }
       catch (e) {
@@ -280,6 +345,7 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
             ? `首次匯入 initial release（AI 摘要失敗，自動 fallback：本版匯入基準 ${det.commit?.slice(0, 8) || "HEAD"}，無後續變更）`
             : `本版含 ${scope.commits?.count ?? gitLog.split("\n").filter(Boolean).length} 個 commits（AI 摘要失敗，由系統列出 commit 清單）`,
           changes: _fallbackChanges(gitLog),
+          features: cu.affected, // fallback：系統比對變更檔案↔feature map 的命中清單（deterministic）
         };
       }
 
@@ -289,6 +355,7 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
         release_date: new Date().toISOString().slice(0, 10),
         summary: ai.summary,
         changes: ai.changes,
+        features: ai.features || [],
         git: det.git,
       };
 
