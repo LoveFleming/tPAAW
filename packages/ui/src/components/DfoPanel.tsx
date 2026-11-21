@@ -169,7 +169,7 @@ export default function DfoPanel({ rootPath, active, theme: tk }: { rootPath: st
                 </button>
               </div>
             ) : sec?.markdown ? (
-              <div className="max-w-3xl">
+              <div className={showChat ? "max-w-3xl" : "w-full"}>
                 <MarkdownText>{sec.markdown}</MarkdownText>
               </div>
             ) : (
