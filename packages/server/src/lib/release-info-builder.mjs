@@ -215,8 +215,8 @@ features 即使在 0 commits 的 initial release 也【不可】空陣列：必�
   - name：人話功能名，從該組 API 的 name/description 歸納。
     嚴格要求：name 不可與 id 相同、不可直接照抄分類名、不可只寫兩個字的分類。
     對照範例：id「對話補全」→ name「Chat Completions 代理」；id「向量化」→「Embeddings 向量端點」；id「批次任務」→「批次任務管理」；id「管理介面」→「管理 API 與日誌查詢」。
-  - impact：一句話說明這個功能「對使用者/接手者的意義或狀態」（initial = 全貌盤點；一般 release = 本版對它的影響）。
-    不可只寫「N 支 API：…」這種數量描述 — 要講功能本身。
+  - impact：一到兩句（約 30–60 字）白話說明這個功能「做什麼、對使用者有什麼用」（initial = 全貌盤點；一般 release = 本版對它的影響）。
+    不可只寫「N 支 API：…」這種數量描述 — 要講功能本身；不要堆術語，讓沒碰過這個 repo 的人一看就懂。
   - initial release：分組 = 整個 release unit 的全部能力域
   - 一般 release：分組 = 本版變更影響到的功能；真的無分組 = 空陣列 []
 
@@ -315,7 +315,7 @@ async function _aiFeaturesOnly(baseGroups) {
 規則：
 1. id 必須與下面完全一致、順序一致、數量恰好 ${baseGroups.length} 項。
 2. name 必須是功能導向的人話名稱，不可等於 id、不可只寫分類名。例：對話補全 → Chat Completions 代理；向量化 → Embeddings 向量端點。
-3. impact 講功能本身對使用者的意義，不可只寫「N 支 API」。
+3. impact 用一到兩句白話（約 30–60 字）講這個功能做什麼、對使用者有什麼用；不可只寫「N 支 API」、不可堆術語。
 
 ${list}`;
   const r = await callProjectLLM({ messages: [{ role: "user", content: prompt }] }, { caller: "release-info-features", timeoutMs: 120_000, maxRetries: 1 });
