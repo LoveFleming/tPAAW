@@ -803,31 +803,38 @@ export async function refreshReleaseRequest(projectPath, id) {
  * 3. auto 變 fail 但人只給 pass（未 waive）→ 409（證據變化要重審）
  * 4. 快照 REL → .paaw/releases/ + 批次放行範圍內 pending tasks
  */
-export async function closeReleaseRequest(projectPath, id, { note } = {}) {
+export async function closeReleaseRequest(projectPath, id, { note, force = false } = {}) {
   let rr = await refreshReleaseRequest(projectPath, id);
   if (!rr) { const e = new Error("release request not found"); e.status = 404; throw e; }
+  // 2026-11-21 Fleming：Set RR to Close = 只改 status，不卡關（draft 自動 open，checklist 不擋）
+  if (rr.status === "draft") rr = (await openReleaseRequest(projectPath, id)) || rr;
   if (rr.status !== "reviewing") { const e = new Error(`狀態是 ${rr.status}，只有 reviewing 可以結案`); e.status = 400; throw e; }
 
-  const notDone = rr.checklist.filter(c => !["pass", "waived"].includes(c.verdict));
-  if (notDone.length) {
-    const e = new Error(`尚有 ${notDone.length} 項未通過審查：${notDone.map(c => `${c.id}(${c.verdict})`).join(", ")}`);
-    e.status = 409; e.extra = { pending: notDone.map(c => c.id) };
-    throw e;
-  }
-  const staleFail = rr.checklist.filter(c => c.auto?.status === "fail" && c.verdict !== "waived");
-  if (staleFail.length) {
-    const e = new Error(`證據狀態已變化（自動檢查 fail 但未 waive）：${staleFail.map(c => `${c.id} — ${c.auto.detail}`).join("；")}`);
-    e.status = 409; e.extra = { stale: staleFail.map(c => c.id) };
-    throw e;
+  if (!force) {
+    const notDone = rr.checklist.filter(c => !["pass", "waived"].includes(c.verdict));
+    if (notDone.length) {
+      const e = new Error(`尚有 ${notDone.length} 項未通過審查：${notDone.map(c => `${c.id}(${c.verdict})`).join(", ")}`);
+      e.status = 409; e.extra = { pending: notDone.map(c => c.id) };
+      throw e;
+    }
+    const staleFail = rr.checklist.filter(c => c.auto?.status === "fail" && c.verdict !== "waived");
+    if (staleFail.length) {
+      const e = new Error(`證據狀態已變化（自動檢查 fail 但未 waive）：${staleFail.map(c => `${c.id} — ${c.auto.detail}`).join("；")}`);
+      e.status = 409; e.extra = { stale: staleFail.map(c => c.id) };
+      throw e;
+    }
   }
 
   // 快照 REL（存 target sha，之後的 RR auto baseline 直接用，不再靠日期 fallback）
   const ts = new Date();
   const pad = (n) => String(n).padStart(2, "0");
-  const stamp = `${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}`;
-  const relId = `REL-${stamp}-rr${rr.id.split("-").pop()}`;
+  // 含秒數：reopen 後同一分鐘再 close 不會撞號覆蓋前一個 REL
+  const stamp = `${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}`;
   const relDir = join(projectPath, ".paaw", "releases");
   if (!existsSync(relDir)) await mkdir(relDir, { recursive: true });
+  // 撞號保護（reopen 後同秒再 close）→ 加序號，绝不覆蓋既有 REL 記錄
+  let relId = `REL-${stamp}-rr${rr.id.split("-").pop()}`;
+  for (let n = 2; existsSync(join(relDir, `${relId}.json`)); n++) relId = `REL-${stamp}-${n}-rr${rr.id.split("-").pop()}`;
   // 2026-11-21：Release Info（Schema v1.0）凍結進 REL 記錄 — 每次上線的 release 資訊跟著 release 走
   let releaseInfo = null;
   try {
@@ -879,9 +886,25 @@ export async function closeReleaseRequest(projectPath, id, { note } = {}) {
   rr.status = "released";
   rr.releaseId = relId;
   rr.closedAt = new Date().toISOString();
-  hist(rr, "human", "closed", `${relId}${releasedTasks ? `，放行 ${releasedTasks} tasks` : ""}${note ? `：${note}` : ""}`);
+  hist(rr, "human", "closed", `${relId}${releasedTasks ? `，放行 ${releasedTasks} tasks` : ""}${force ? "（force：未過 checklist）" : ""}${note ? `：${note}` : ""}`);
   await saveRR(projectPath, rr);
   return { ok: true, rr, releaseId: relId, releasedTasks };
+}
+
+/** 2026-11-21 Fleming：最新一版可 reopen 重做（臨時要加功能，保留 release 彈性）
+ * released → reviewing；清掉本次 releaseId（REL 記錄保留在 .paaw/releases，歷史不消失），可再 close 出新 REL。 */
+export async function reopenReleaseRequest(projectPath, id, { reason } = {}) {
+  const rr = await getReleaseRequest(projectPath, id);
+  if (!rr) { const e = new Error("release request not found"); e.status = 404; throw e; }
+  if (rr.status !== "released") { const e = new Error(`只有已 release 的 RR 可以 reopen（目前 ${rr.status}）`); e.status = 400; throw e; }
+  const prevRel = rr.releaseId || null;
+  rr.status = "reviewing";
+  rr.releaseId = null;
+  rr.closedAt = null;
+  rr.reopenedFrom = [...(rr.reopenedFrom || []), { releaseId: prevRel, at: new Date().toISOString(), reason: reason || null }];
+  hist(rr, "human", "reopened", `${prevRel || "—"}${reason ? `：${reason}` : ""}`);
+  await saveRR(projectPath, rr);
+  return rr;
 }
 
 export async function cancelReleaseRequest(projectPath, id, { reason } = {}) {

@@ -405,6 +405,34 @@ export default async function releaseRoutes(req, res, next) {
     return res.json({ ok: true, version_of_info: v, available_versions: versions, release_info: info });
   }
 
+  // GET /release-docs?rr=&path= — 三份文件狀態 + 決定性檢查（Release Manager tab 用）
+  if (url === "/api/coding-releases/docs" && method === "GET") {
+    const rrId = q.get("rr");
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first
+    if (!rrId) return res.status(400).json({ error: "rr required" });
+    try {
+      const { getDocsOverview } = await import("../lib/release-docs.mjs");
+      return res.json(await getDocsOverview(projectPath, rrId));
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  // POST /release-docs/rebuild — 人按「重做」觸發單份文件
+  if (url === "/api/coding-releases/release-docs/rebuild" && method === "POST") {
+    const body = await readJsonBody(req);
+    if (!body) return res.status(400).json({ error: "invalid JSON body" });
+    const path = assertProjectPath(body.path || projectPath);
+    if (!path || !existsSync(path)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first
+    if (!body.rr || !body.kind) return res.status(400).json({ error: "rr and kind required" });
+    try {
+      const { triggerDoc } = await import("../lib/release-docs.mjs");
+      return res.json(await triggerDoc(path, body.rr, body.kind));
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   // GET /release-info/latest — 進場卡：最新 RR + 最新版 info + 最新 shipped release
   if (url === "/api/coding-releases/release-info/latest" && method === "GET") {
     if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
@@ -978,7 +1006,7 @@ export default async function releaseRoutes(req, res, next) {
   }
 
   // POST /requests/:id/{open|checklist|close|cancel|lock|unlock}
-  const rrAction = url.match(/^\/api\/coding-releases\/requests\/([^/]+)\/(open|checklist|close|cancel|lock|unlock)$/);
+  const rrAction = url.match(/^\/api\/coding-releases\/requests\/([^/]+)\/(open|checklist|close|reopen|cancel|lock|unlock)$/);
   if (rrAction && method === "POST") {
     const body = await readJsonBody(req); // QA M1
     if (!body) return res.status(400).json({ error: "invalid JSON body" });
@@ -993,7 +1021,11 @@ export default async function releaseRoutes(req, res, next) {
         if (!itemId || !verdict) return res.status(400).json({ error: "itemId and verdict required" });
         return res.json(await reviewChecklistItem(path, id, itemId, verdict, note));
       }
-      if (action === "close") return res.json(await closeReleaseRequest(path, id, { note: body.note }));
+      if (action === "close") return res.json(await closeReleaseRequest(path, id, { note: body.note, force: !!body.force }));
+      if (action === "reopen") {
+        const { reopenReleaseRequest } = await import("../lib/release-requests.mjs");
+        return res.json(await reopenReleaseRequest(path, id, { reason: body.reason }));
+      }
       if (action === "cancel") return res.json(await cancelReleaseRequest(path, id, { reason: body.reason }));
       // 2026-10-22 lineage 制：人類否決權 — 鎖定/解鎖 target 自動前進
       if (action === "lock") return res.json(await setTargetLock(path, id, true));
@@ -1047,10 +1079,10 @@ export default async function releaseRoutes(req, res, next) {
     if (!path) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     try {
       const rr = await createReleaseRequest(path, { title: body.title, baseline: body.baseline || "auto" });
-      // 2026-11-21 Fleming：建單後 AI 自動開工 — 實跳 unit+e2e + 證據快照 + AI 寫 release information（背景，不 await）
-      import("../lib/release-info-builder.mjs")
-        .then(({ startReleaseInfoBuild }) => startReleaseInfoBuild(path, rr.id, { by: "auto:on-create" }))
-        .catch((e) => console.warn(`[release-info] auto build failed (${rr.id}):`, e.message));
+      // 2026-11-21 Fleming：建單後 AI 自動製作三份文件 — Prod Spec + DFO + Release Info（背景，不 await）
+      import("../lib/release-docs.mjs")
+        .then(({ triggerAllDocs }) => triggerAllDocs(path, rr.id))
+        .catch((e) => console.warn(`[release-docs] auto build failed (${rr.id}):`, e.message));
       return res.json(rr);
     } catch (e) {
       return res.status(e.status || 500).json({ error: e.message });

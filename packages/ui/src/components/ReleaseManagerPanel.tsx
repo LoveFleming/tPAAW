@@ -151,6 +151,9 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const [rebuildBusy, setRebuildBusy] = useState(false);
   const [riRefreshing, setRiRefreshing] = useState(false);
   const [releaseBusy, setReleaseBusy] = useState(false);
+  // 2026-11-21 Fleming：三份 AI 文件（Prod Spec / DFO / Release Info）狀態 + 決定性檢查
+  const [docs, setDocs] = useState<any | null>(null);
+  const [docBusy, setDocBusy] = useState<string | null>(null);
 
   const fetchSelDetail = useCallback(async (rrId: string) => {
     if (!rootPath || !rrId) { setSelDetail(null); return; }
@@ -186,6 +189,38 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     } catch { /* 不擋主頁 */ }
   }, [rootPath]);
 
+  const fetchDocs = useCallback(async () => {
+    if (!rootPath || !selRR) { setDocs(null); return; }
+    try {
+      const d = await fetch(`${API_BASE}/api/coding-releases/docs?rr=${encodeURIComponent(selRR)}&path=${encodeURIComponent(rootPath)}`).then(r => r.json());
+      if (!d?.error) setDocs(d);
+    } catch { /* 不擋主頁 */ }
+  }, [rootPath, selRR]);
+
+  useEffect(() => { fetchDocs(); }, [fetchDocs]);
+  // 有文件在跑 → 5s 輪詢
+  useEffect(() => {
+    const running = docs && Object.values(docs.docs || {}).some((x: any) => x?.status === "running");
+    if (!running) return;
+    const id = setTimeout(() => { fetchDocs(); if (selRR) fetchSelDetail(selRR); }, 5000);
+    return () => clearTimeout(id);
+  }, [docs, fetchDocs, selRR, fetchSelDetail]);
+
+  const rebuildDoc = async (kind: "spec" | "dfo" | "releaseInfo") => {
+    if (!rootPath || !selRR || docBusy) return;
+    setDocBusy(kind);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-releases/release-docs/rebuild?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ rr: selRR, kind }),
+      }).then(r => r.json());
+      if (r?.error) setToast({ ok: false, text: String(r.error) });
+      else setToast({ ok: true, text: `🔄 ${kind} 開始重做（${selRR}）` });
+      await fetchDocs();
+    } catch (e: any) { setToast({ ok: false, text: e.message }); }
+    finally { setDocBusy(null); }
+  };
+
   useEffect(() => { fetchRrOptions(); }, [fetchRrOptions]);
   useEffect(() => { if (selRR) fetchSelDetail(selRR); }, [selRR, fetchSelDetail]);
   // build 進行中 → 輪詢（選中那張）
@@ -215,33 +250,42 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     finally { setRebuildBusy(false); }
   };
 
-  // ✅ Release：確認對話框 → open（draft→reviewing + 自動跑 checklist）→ close（全部 pass 才定案）
+  // ✅ Set RR to Close（2026-11-21 Fleming）：只改 status，不卡關；文件有問題先提示，人可照樣關
   const confirmRelease = async () => {
     if (!rootPath || !selRR || releaseBusy) return;
     const ri = selDetail?.releaseInfo;
-    if (!window.confirm(`確定定案 ${selRR} 為 v${ri?.version || "?"} ？\n\n${(ri?.summary || "").slice(0, 150)}\n\n定案後寫入 REL 記錄（Release Info 凍結，不可改）`)) return;
+    const errs = (docs?.verify?.findings || []).filter((f: any) => f.level === "error");
+    const warnTxt = errs.length
+      ? `\n\n⚠️ 文件檢查有 ${errs.length} 個問題：\n- ${errs.slice(0, 5).map((f: any) => `[${f.doc}] ${f.message}`).join("\n- ")}\n（可先按重做，或照樣關閉）`
+      : "";
+    if (!window.confirm(`把 ${selRR} 設為 close（release）？\n\n版本 v${ri?.version || "?"} — ${(ri?.summary || "").slice(0, 120)}${warnTxt}`)) return;
     setReleaseBusy(true);
     try {
-      const p = (a: string) => `${API_BASE}/api/coding-releases/requests/${encodeURIComponent(selRR)}/${a}?path=${encodeURIComponent(rootPath)}`;
-      const cur = rrOptions.find(r => r.id === selRR);
-      if (cur?.status === "draft") {
-        const o = await fetch(p("open"), { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then(r => r.json());
-        if (o.error) { setToast({ ok: false, text: `open 失敗：${o.error}` }); return; }
-      }
-      // 自動檢查 pass 的項目自動套 pass（人不用逐項點）；其餘留人審 → close 誠實擋
-      const fresh = await fetch(`${API_BASE}/api/coding-releases/requests/${encodeURIComponent(selRR)}?path=${encodeURIComponent(rootPath)}`).then(r => r.json());
-      for (const c of (fresh?.checklist || [])) {
-        if (c.verdict === "pending" && c.auto?.status === "pass") {
-          await fetch(p("checklist"), {
-            method: "POST", headers: { "content-type": "application/json" },
-            body: JSON.stringify({ itemId: c.id, verdict: "pass", note: "auto 檢查 pass（Release Manager 一鍵定案）" }),
-          });
-        }
-      }
-      const c = await fetch(p("close"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ note: `Release v${ri?.version || ""} — Release Manager 一鍵定案` }) }).then(r => r.json());
-      if (c.error) { setToast({ ok: false, text: `定案未過：${String(c.error).slice(0, 200)}` }); await fetchRrOptions(true); return; }
-      setToast({ ok: true, text: `✅ ${c.releaseId || selRR} 已定案（v${ri?.version || "?"}）— Release Info 已凍結` });
+      const c = await fetch(`${API_BASE}/api/coding-releases/requests/${encodeURIComponent(selRR)}/close?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ force: true, note: `Set to close by human — v${ri?.version || ""}` }),
+      }).then(r => r.json());
+      if (c.error) { setToast({ ok: false, text: `關閉失敗：${String(c.error).slice(0, 200)}` }); await fetchRrOptions(true); return; }
+      setToast({ ok: true, text: `✅ ${c.releaseId || selRR} 已 close（v${ri?.version || "?"}）` });
       await fetchRrOptions(true);
+      fetchDocs();
+    } catch (e: any) { setToast({ ok: false, text: e.message }); }
+    finally { setReleaseBusy(false); }
+  };
+
+  // ↩ Reopen 最新一版：released → reviewing（可重做、可再加功能後重新 close）
+  const reopenRR = async () => {
+    if (!rootPath || !selRR || releaseBusy) return;
+    if (!window.confirm(`Reopen ${selRR}？\n\n會回到 reviewing，可重新產生文件、加功能後再 close（原 REL 記錄保留）`)) return;
+    setReleaseBusy(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-releases/requests/${encodeURIComponent(selRR)}/reopen?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reason: "human reopen" }),
+      }).then(r => r.json());
+      if (r.error) { setToast({ ok: false, text: String(r.error) }); return; }
+      setToast({ ok: true, text: `↩ ${selRR} 已 reopen（reviewing）` });
+      await fetchRrOptions(true);
+      if (selRR) { fetchSelDetail(selRR); fetchDocs(); }
     } catch (e: any) { setToast({ ok: false, text: e.message }); }
     finally { setReleaseBusy(false); }
   };
@@ -510,17 +554,26 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                   🔄 {t("rm.ri.rebuildBtn")}
                 </button>
               )}
-              {/* ✅ Release：AI 產完 content 才 on（2026-11-21 Fleming：create off → release on）*/}
+              {/* ✅ Set RR to Close（2026-11-21 Fleming：只改 status，不卡關）*/}
               {(() => {
                 const sel = rrOptions.find(r => r.id === selRR);
-                const show = sel && !sel.shipped && selDetail?.releaseInfo && !selDetail?.building;
-                if (!show) return null;
+                if (!sel) return null;
+                if (sel.shipped) {
+                  return (
+                    <button onClick={reopenRR} disabled={releaseBusy}
+                      className="text-xs px-3 py-1 rounded-lg text-white font-bold hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
+                      style={{ backgroundColor: "#7c3aed" }} data-testid="rm-ri-reopen" title="Reopen：回到 reviewing 重做（原 REL 保留）">
+                      {releaseBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
+                      ↩ {t("rm.reopenBtn")}
+                    </button>
+                  );
+                }
                 return (
                   <button onClick={confirmRelease} disabled={releaseBusy}
                     className="text-xs px-3 py-1 rounded-lg text-white font-bold hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
-                    style={{ backgroundColor: "#b45309" }} data-testid="rm-ri-release" title={t("rm.ri.releaseTip")}>
+                    style={{ backgroundColor: "#b45309" }} data-testid="rm-ri-release" title="Set RR to Close（只改 status，不卡關）">
                     {releaseBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
-                    ✅ Release
+                    ✅ {t("rm.closeBtn")}
                   </button>
                 );
               })()}
@@ -654,6 +707,58 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
             )}
           </div>
         </div>
+
+        {/* ═══ AI 文件（Prod Spec / DFO / Release Info）— 有問題顯示，人按重做（2026-11-21 Fleming）═══ */}
+        {selRR && (
+          <div className="px-5 pt-3" data-testid="rm-docs">
+            <div className="rounded-xl border overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
+              <div className="px-4 py-2 flex items-center gap-2 flex-wrap border-b bg-stone-50/60" style={{ borderColor: tk.borderLight }}>
+                <span className="text-sm font-bold text-stone-800">📄 {t("rm.docs.title")}</span>
+                <span className="text-[10px] text-stone-400">{selRR}</span>
+                <span className="flex-1" />
+                {docs?.verify && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${docs.verify.ok ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
+                    {docs.verify.ok ? `✅ OK${docs.verify.warnings ? ` · ⚠️ ${docs.verify.warnings}` : ""}` : `❌ ${docs.verify.errors} 個錯誤${docs.verify.warnings ? ` · ⚠️ ${docs.verify.warnings}` : ""}`}
+                  </span>
+                )}
+                <button onClick={fetchDocs} className="text-xs px-2 py-1 rounded-lg border" style={{ borderColor: tk.borderLight, color: tk.accent || "#8b5e3c" }} title="重新檢查">↻</button>
+              </div>
+              <div className="px-4 py-2 space-y-1.5">
+                {[
+                  { kind: "spec", label: "📄 Prod Spec", key: "spec" },
+                  { kind: "dfo", label: "🛠 DFO", key: "dfo" },
+                  { kind: "releaseInfo", label: "🚀 Release Info", key: "releaseInfo" },
+                ].map((row) => {
+                  const st = docs?.docs?.[row.key];
+                  const fs = (docs?.verify?.findings || []).filter((f: any) => f.doc === row.key);
+                  const errs = fs.filter((f: any) => f.level === "error");
+                  const warns = fs.filter((f: any) => f.level === "warn");
+                  const status = st?.status || (docs ? "idle" : "loading");
+                  const badge = status === "running" ? "⏳ 產生中" : status === "done" ? (errs.length ? "❌ 有錯" : warns.length ? "⚠️ 提醒" : "✅ OK") : status === "error" ? "❌ 失敗" : errs.length ? "❌ 有錯" : "—";
+                  const badgeCls = status === "running" ? "bg-amber-100 text-amber-700" : (errs.length || status === "error") ? "bg-red-100 text-red-600" : warns.length ? "bg-amber-100 text-amber-700" : status === "done" ? "bg-green-100 text-green-700" : "bg-stone-100 text-stone-500";
+                  const busy = docBusy === row.kind || status === "running";
+                  return (
+                    <div key={row.kind} className="flex items-start gap-2 text-[11px]">
+                      <span className="font-bold text-stone-700 w-32 shrink-0">{row.label}</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0 ${badgeCls}`}>{badge}</span>
+                      <div className="min-w-0 flex-1">
+                        {st?.error && <div className="text-red-500">{st.error}</div>}
+                        {errs.map((f: any, i: number) => <div key={`e${i}`} className="text-red-500">• {f.message}</div>)}
+                        {warns.map((f: any, i: number) => <div key={`w${i}`} className="text-amber-600">• {f.message}</div>)}
+                        {!errs.length && !warns.length && st?.detail && <div className="text-stone-400">{st.detail}</div>}
+                      </div>
+                      <button onClick={() => rebuildDoc(row.kind as any)} disabled={busy || !!docBusy}
+                        className="text-[10px] px-2 py-0.5 rounded border shrink-0 disabled:opacity-40"
+                        style={{ borderColor: tk.borderLight, color: tk.accent || "#8b5e3c" }} data-testid={`rm-doc-rebuild-${row.kind}`}>
+                        {busy ? "⏳" : t("rm.docs.rebuild")}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ═══ Release Readiness 報告（APRS 風格 — 打開就能跟老闆報告）═══ */}
         {readiness && (

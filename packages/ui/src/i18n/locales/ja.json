@@ -2187,5 +2187,10 @@
   "vibe.welcome.title": "Coding IDE",
   "vibe.welcomeLine1": "左でプロジェクトを開く → ファイルをクリックして閲覧（クリックで編集）",
   "vibe.welcomeLine2": "🔀 Git — diff 表示、blame、AI 自動レビュー",
-  "vibe.welcomeLine3": "🌐 API テスター — Postman 風テストツール"
+  "vibe.welcomeLine3": "🌐 API テスター — Postman 風テストツール",
+  "rm.docs.title": "AI ドキュメント",
+  "rm.docs.rebuild": "再作成",
+  "rm.closeBtn": "Set RR to Close",
+  "rm.reopenBtn": "Reopen",
+  "rm.docs.idle": "—"
 }
