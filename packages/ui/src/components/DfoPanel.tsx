@@ -50,6 +50,7 @@ export default function DfoPanel({ rootPath, active, theme: tk }: { rootPath: st
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genMsg, setGenMsg] = useState("");
+  const [frozen, setFrozen] = useState<string | null>(null);
   const [showChat, setShowChat] = useState(true);
   const chatRef = useRef<AgentSideChatHandle>(null);
   const gretaPane = useColResize(520, 300, 760);
@@ -63,6 +64,7 @@ export default function DfoPanel({ rootPath, active, theme: tk }: { rootPath: st
       setExists(!!d.exists);
       setDfo(d.exists ? d.dfo : null);
       setVersions(d.versions || []);
+      setFrozen(d.frozen || null);
       setViewVersion("current");
       setViewDfo(d.exists ? d.dfo : null);
     } catch { setExists(false); }
@@ -114,11 +116,9 @@ export default function DfoPanel({ rootPath, active, theme: tk }: { rootPath: st
           <div className="shrink-0 flex items-center gap-2 px-4 py-2 border-b text-xs" style={{ borderColor: tk.borderLight }}>
             <span className="font-bold" style={{ color: tk.accent }}>📋 DFO 維運文件</span>
             {shown ? (
-              <>
-                <span className="text-stone-500">{shown.version}</span>
-                <span className="text-stone-400">{new Date(shown.updatedAt).toLocaleString("zh-TW")} · by {shown.updatedBy}</span>
-              </>
+              <span className="text-stone-500">{shown.version}</span>
             ) : <span className="text-stone-400">{loading ? "載入中…" : "尚無 DFO — 按 🔄 AI 生成"}</span>}
+            {frozen && <span className="text-amber-600 font-bold" title={frozen}>🔒 已凍結（RR 已關閉）</span>}
             <div className="flex-1" />
             {versions.length > 0 && (
               <select value={viewVersion} onChange={e => setViewVersion(e.target.value)}
@@ -129,10 +129,10 @@ export default function DfoPanel({ rootPath, active, theme: tk }: { rootPath: st
               </select>
             )}
             {viewVersion !== "current" && <span className="text-amber-600 font-bold">👁️ {viewVersion} 唯讀</span>}
-            <button onClick={generate} disabled={generating || !rootPath}
+            <button onClick={generate} disabled={generating || !rootPath || !!frozen}
               className="px-2.5 py-1 rounded border font-bold transition-colors disabled:opacity-50"
               style={{ borderColor: tk.accent, color: tk.accent }}
-              title={exists ? "AI 參考現行版 + 程式碼，全量更新（自動進版）" : "AI 首次生成 DFO"}>
+              title={frozen || (exists ? "AI 參考現行版 + 程式碼，全量更新（自動進版）" : "AI 首次生成 DFO")}>
               {generating ? "⏳ 生成中…" : "🔄 AI 更新"}
             </button>
             <button onClick={() => setShowChat(v => !v)} className="px-2 py-1 rounded border text-stone-500 hover:bg-stone-50"

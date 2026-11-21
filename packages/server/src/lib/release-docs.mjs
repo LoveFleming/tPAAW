@@ -59,11 +59,11 @@ export async function triggerDoc(projectPath, rrId, kind) {
         setDoc(projectPath, rrId, kind, { status: "done", error: null, detail: `已更新 ${(d.sections || []).length} 節` });
       } else if (kind === "dfo") {
         const r = await fetch(`${BASE()}/api/coding-dfo/generate?path=${encodeURIComponent(projectPath)}`, {
-          method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ cwd: projectPath }),
+          method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ cwd: projectPath, rr: rrId }),
         });
         const d = await r.json().catch(() => ({}));
         if (!r.ok || d?.error) throw new Error(d?.error || `dfo generate HTTP ${r.status}`);
-        setDoc(projectPath, rrId, kind, { status: "done", error: null, detail: `DFO v${d.version ?? "?"}` });
+        setDoc(projectPath, rrId, kind, { status: "done", error: null, detail: `DFO ${d.version ?? "?"}` });
       } else if (kind === "releaseInfo") {
         const { startReleaseInfoBuild, getBuildStatus, listInfoVersions } = await import("./release-info-builder.mjs");
         await startReleaseInfoBuild(projectPath, rrId, { by: "auto:docs" });

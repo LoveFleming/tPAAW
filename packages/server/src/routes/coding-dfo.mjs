@@ -17,7 +17,7 @@ import { join, resolve } from "path";
 import { fileURLToPath } from "url";
 import { exec as _exec } from "child_process";
 import { promisify } from "util";
-import { readDfo, readDfoVersion, listDfoVersions, writeDfo, validateDfo, DFO_SECTIONS, dfoDir } from "../lib/dfo.mjs";
+import { readDfo, readDfoVersion, listDfoVersions, writeDfo, validateDfo, DFO_SECTIONS, dfoDir, dfoFrozenReason } from "../lib/dfo.mjs";
 import { createPaawProject } from "../lib/paaw-project.mjs";
 import { callProjectLLM, CU_LLM_OPTS, parseQuery } from "./coding-helpers.mjs";
 import { scanProjectFiles } from "./coding-health.mjs";
@@ -57,7 +57,9 @@ export default async function dfoRoutes(req, res) {
     // GET /api/coding-dfo — 現行版
     if (url === "/api/coding-dfo" && method === "GET") {
       const dfo = readDfo(root);
-      return json(res, 200, dfo ? { exists: true, dfo, versions: listDfoVersions(root) } : { exists: false, versions: listDfoVersions(root), sections: DFO_SECTIONS });
+      return json(res, 200, dfo
+        ? { exists: true, dfo, versions: listDfoVersions(root), frozen: await dfoFrozenReason(root) }
+        : { exists: false, versions: listDfoVersions(root), sections: DFO_SECTIONS });
     }
 
     // GET /api/coding-dfo/versions — 清單
@@ -80,6 +82,10 @@ export default async function dfoRoutes(req, res) {
       const genRoot = body.cwd || body.path ? resolve(String(body.cwd || body.path)) : root; // UI 傳 cwd（2026-11-20 實測抓到的 404）
       if (!genRoot) return json(res, 400, { error: "缺少 path（query）或 cwd（body）" });
       const modelOverride = body.model || null;
+      // 凍結檢查：現行版屬於已關閉的 RR → 不可改（2026-11-21 Fleming）
+      const frozen = await dfoFrozenReason(genRoot);
+      if (frozen) return json(res, 403, { error: frozen });
+      const rrLabel = body.rr ? String(body.rr).trim() : null; // 版本代號 = RR id（首次無 RR = initial）
       // 蒐證：現行 DFO + CU 知識庫 + git log + package.json + 檔案樹
       const paaw = createPaawProject(genRoot);
       const current = readDfo(genRoot);
@@ -135,7 +141,7 @@ export default async function dfoRoutes(req, res) {
       if (!Array.isArray(parsed.sections)) return json(res, 500, { error: "AI 回應缺少 sections 陣列" });
       // 寫入（writeDfo 內部：schema 驗證 + SKIP 區塊機械保留 + 版本快照）
       try {
-        const dfo = writeDfo(genRoot, parsed.sections, "greta:generate");
+        const dfo = writeDfo(genRoot, parsed.sections, "greta:generate", rrLabel);
         return json(res, 200, { ok: true, version: dfo.version, updatedAt: dfo.updatedAt, sections: dfo.sections.map(s => ({ id: s.id, chars: s.markdown.length })) });
       } catch (e) {
         return json(res, 400, { error: `DFO 寫入被 schema 擋下：${e.message}` });
@@ -150,6 +156,8 @@ export default async function dfoRoutes(req, res) {
       const id = body.id, markdown = String(body.markdown || "").trim();
       if (!DFO_SECTIONS.some(s => s.id === id)) return json(res, 400, { error: `不合法 section id：${id}（合法：${DFO_SECTIONS.map(s => s.id).join(", ")}）` });
       if (!markdown) return json(res, 400, { error: "markdown 不可為空" });
+      const frozenSec = await dfoFrozenReason(secRoot);
+      if (frozenSec) return json(res, 403, { error: frozenSec });
       const dfo = writeDfo(secRoot, [{ id, markdown }], body.updatedBy || `user:${"manual"}`);
       return json(res, 200, { ok: true, version: dfo.version, updatedAt: dfo.updatedAt });
     }

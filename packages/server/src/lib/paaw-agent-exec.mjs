@@ -2669,12 +2669,14 @@ baseline ${rr.baseline?.short}(${rr.baseline?.source})→ target ${rr.target?.sh
         return JSON.stringify({ version: d.version, updatedAt: d.updatedAt, sections: d.sections.map(s => ({ id: s.id, title: s.title, markdown: s.markdown })) }, null, 1);
       }
       case "dfo_write": {
-        const { writeDfo } = await import("./dfo.mjs");
+        const { writeDfo, dfoFrozenReason } = await import("./dfo.mjs");
         const id = args.section, md = String(args.markdown || "").trim();
         const VALID = ["overview", "operations", "troubleshooting", "handover", "rollback"];
         if (!VALID.includes(id)) return `Error: section 必須是 ${VALID.join("/")}。`;
         if (!md) return "Error: markdown 不可為空（整節覆寫）。";
         try {
+          const frozenMsg = await dfoFrozenReason(cwd);
+          if (frozenMsg) return `Error: ${frozenMsg}`;
           const d = writeDfo(cwd, [{ id, markdown: md }], "greta:dfo_write");
           if (onEvent) onEvent({ type: "tool_end", name: "dfo_write", result: `${d.version} ${id}` });
           return `✅ DFO ${id} 已寫入（${d.version}，自動進版 + 快照）。UI 按 🔄 看最新。`;
