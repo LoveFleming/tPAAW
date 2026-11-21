@@ -143,24 +143,74 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     finally { setEvApiBusy(false); }
   };
 
-  // 2026-11-21 Fleming：Release Information 進場卡 — 建 RR 後 AI 自動產 release info（實蹓 unit+e2e 實體證據，版本遞增）
-  const [relInfo, setRelInfo] = useState<any | null>(null);
+  // 2026-11-21 Fleming：Release Info 卡 — RR 下拉選單（預設最近一次 release/draft）+ ↻ refresh + 重新產生
+  const [rrOptions, setRrOptions] = useState<any[]>([]);   // 全部 RR（最新在前）
+  const [selRR, setSelRR] = useState<string>("");          // 選中的 RR id
+  const [selDetail, setSelDetail] = useState<any | null>(null); // { releaseInfo, buildStatus, versions }
   const [newRrBusy, setNewRrBusy] = useState(false);
-  const fetchRelInfo = useCallback(async () => {
-    if (!rootPath) return;
+  const [rebuildBusy, setRebuildBusy] = useState(false);
+  const [riRefreshing, setRiRefreshing] = useState(false);
+
+  const fetchSelDetail = useCallback(async (rrId: string) => {
+    if (!rootPath || !rrId) { setSelDetail(null); return; }
     try {
-      const d = await fetch(`${API_BASE}/api/coding-releases/release-info/latest?path=${encodeURIComponent(rootPath)}`).then(r => r.json());
-      if (d && !d.error) setRelInfo(d);
+      const p = (e: string) => `${API_BASE}/api/coding-releases/release-info/${e}?path=${encodeURIComponent(rootPath)}`;
+      const [itemR, stR] = await Promise.all([
+        fetch(`${p("item")}&rr=${encodeURIComponent(rrId)}`).then(r => r.json()).catch(() => null),
+        fetch(`${p("status")}&rr=${encodeURIComponent(rrId)}`).then(r => r.json()).catch(() => null),
+      ]);
+      setSelDetail({
+        releaseInfo: itemR?.release_info || null,
+        infoVersion: itemR?.version_of_info || null,
+        buildStatus: stR?.status || null,
+        building: !!stR?.running,
+      });
     } catch { /* 不擋主頁 */ }
   }, [rootPath]);
-  useEffect(() => { fetchRelInfo(); }, [fetchRelInfo]);
-  // build 進行中 → 輪詢到結束
+
+  const fetchRrOptions = useCallback(async (keepSel = false) => {
+    if (!rootPath) return;
+    try {
+      const d = await fetch(`${API_BASE}/api/coding-releases/requests?path=${encodeURIComponent(rootPath)}`).then(r => r.json());
+      const list = (d?.requests || []).map((r: any) => ({
+        id: r.id, status: r.status, title: r.title, createdAt: r.createdAt, releaseId: r.releaseId,
+        scope: r.scope, shipped: r.status === "released",
+      }));
+      setRrOptions(list);
+      // 預選：保留目前選擇（還在清單）→ 否則最近一張 released → 否則最新一張（draft）
+      setSelRR((prev: string) => (keepSel && list.some((r: any) => r.id === prev)) ? prev : (list.find((r: any) => r.shipped)?.id || list[0]?.id || ""));
+    } catch { /* 不擋主頁 */ }
+  }, [rootPath]);
+
+  useEffect(() => { fetchRrOptions(); }, [fetchRrOptions]);
+  useEffect(() => { if (selRR) fetchSelDetail(selRR); }, [selRR, fetchSelDetail]);
+  // build 進行中 → 輪詢（選中那張）
   useEffect(() => {
-    const st = relInfo?.latestRR?.buildStatus;
-    if (!st?.running) return;
-    const id = setTimeout(fetchRelInfo, 3000);
+    if (!selDetail?.building || !selRR) return;
+    const id = setTimeout(() => { fetchSelDetail(selRR); fetchRrOptions(true); }, 3000);
     return () => clearTimeout(id);
-  }, [relInfo, fetchRelInfo]);
+  }, [selDetail, selRR, fetchSelDetail, fetchRrOptions]);
+
+  const refreshReleaseInfo = async () => {
+    setRiRefreshing(true);
+    try { await Promise.all([fetchRrOptions(true), selRR ? fetchSelDetail(selRR) : null]); } finally { setRiRefreshing(false); }
+  };
+
+  const rebuildInfo = async () => {
+    if (!rootPath || !selRR || rebuildBusy) return;
+    if (selDetail?.building) return;
+    setRebuildBusy(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-releases/requests/${encodeURIComponent(selRR)}/build?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}),
+      }).then(r => r.json());
+      if (r.error) { setToast({ ok: false, text: String(r.error) }); return; }
+      setToast({ ok: true, text: `🔄 開始重新產生 ${selRR} 的 Release Info（實蹓測試 + 證據 + AI 摘要 → 新版 v${(selDetail?.versions?.length ?? 0) + 1 || 1}）` });
+      fetchSelDetail(selRR);
+    } catch (e: any) { setToast({ ok: false, text: e.message }); }
+    finally { setRebuildBusy(false); }
+  };
+
   const createNewRR = async () => {
     if (!rootPath || newRrBusy) return;
     setNewRrBusy(true);
@@ -169,8 +219,9 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}),
       }).then(r => r.json());
       if (r.error) { setToast({ ok: false, text: String(r.error) }); return; }
-      setToast({ ok: true, text: `✅ ${r.id} 已建單 — AI 開始產 release information（實蹓測試 + 證據快照 + 撰寫中）` });
-      fetchRelInfo();
+      setToast({ ok: true, text: `✅ ${r.id} 已建單 — AI 開始產 Release Info（實蹓測試 + 證據快照 + Schema v1.0）` });
+      await fetchRrOptions(true);
+      setSelRR(r.id); // 跳到新建的這張
     } catch (e: any) { setToast({ ok: false, text: e.message }); }
     finally { setNewRrBusy(false); }
   };
@@ -395,33 +446,62 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
           <div className="rounded-xl border overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
             <div className="px-4 py-2.5 flex items-center gap-2 flex-wrap border-b bg-stone-50/60" style={{ borderColor: tk.borderLight }}>
               <span className="text-sm font-bold text-stone-800">🚀 {t("rm.ri.title")}</span>
-              {relInfo?.shipped && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold" title={relInfo.shipped.id}>
-                  {t("rm.ri.shipped")} {relInfo.shipped.releaseId || relInfo.shipped.id} · {String(relInfo.shipped.closedAt || "").slice(0, 10)}
-                </span>
-              )}
+              {/* RR 下拉選單（2026-11-21 Fleming）：預設最近一次 release，可切 draft）*/}
+              {rrOptions.length > 0 ? (
+                <select value={selRR} onChange={(e) => setSelRR(e.target.value)}
+                  className="text-[11px] border rounded-lg px-1.5 py-1 bg-white max-w-[340px] shrink" style={{ borderColor: tk.borderLight }}
+                  data-testid="rm-ri-rr-select">
+                  {rrOptions.map((r: any) => (
+                    <option key={r.id} value={r.id}>
+                      {r.shipped ? "🟢" : r.status === "reviewing" ? "🟡" : "⚪"} {r.id} · {r.status}{r.releaseId ? ` · ${r.releaseId}` : ""}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
               <span className="flex-1" />
+              {/* ↻ refresh（2026-11-21 Fleming 要求）*/}
+              <button onClick={refreshReleaseInfo} disabled={riRefreshing}
+                className="text-xs px-2 py-1 rounded-lg border transition-colors shrink-0"
+                style={{ borderColor: tk.borderLight, color: tk.accent || "#8b5e3c" }}
+                title={t("rm.ri.refreshTip")} data-testid="rm-ri-refresh">
+                {riRefreshing ? "⏳" : "↻"}
+              </button>
+              {/* 重新產生 Release Info（可重複產，版本遞增）*/}
+              {selRR && (
+                <button onClick={rebuildInfo} disabled={rebuildBusy || selDetail?.building}
+                  className="text-xs px-3 py-1 rounded-lg text-white font-bold hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
+                  style={{ backgroundColor: "#0369a1" }} data-testid="rm-ri-rebuild" title={t("rm.ri.rebuildTip")}>
+                  {(rebuildBusy || selDetail?.building) && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
+                  🔄 {t("rm.ri.rebuildBtn")}
+                </button>
+              )}
               <button onClick={createNewRR} disabled={newRrBusy}
                 className="text-xs px-3 py-1 rounded-lg text-white font-bold hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
                 style={{ backgroundColor: "#16a34a" }} data-testid="rm-ri-new">
                 {newRrBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
-                🚀 {relInfo?.latestRR ? t("rm.ri.newBtn") : t("rm.ri.firstBtn")}
+                🚀 {rrOptions.length ? t("rm.ri.newBtn") : t("rm.ri.firstBtn")}
               </button>
             </div>
-            {!relInfo?.latestRR ? (
+            {rrOptions.length === 0 ? (
               <div className="px-4 py-6 text-center text-xs text-stone-400">{t("rm.ri.empty")}</div>
             ) : (
               <div className="px-4 py-3 space-y-2">
-                {/* RR 狀態列 */}
-                <div className="flex items-center gap-2 flex-wrap text-[11px]">
-                  <span className="font-mono font-bold text-stone-700">{relInfo.latestRR.id}</span>
-                  <span className={`px-1.5 py-0.5 rounded font-bold ${relInfo.latestRR.status === "released" ? "bg-green-100 text-green-700" : relInfo.latestRR.status === "reviewing" ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-500"}`}>{relInfo.latestRR.status}</span>
-                  <span className="text-stone-400 truncate max-w-[380px]" title={relInfo.latestRR.title}>{relInfo.latestRR.title}</span>
-                </div>
+                {/* 選中 RR 狀態列 */}
+                {(() => {
+                  const rr = rrOptions.find(r => r.id === selRR);
+                  if (!rr) return null;
+                  return (
+                    <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                      <span className={`px-1.5 py-0.5 rounded font-bold ${rr.status === "released" ? "bg-green-100 text-green-700" : rr.status === "reviewing" ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-500"}`}>{rr.status}</span>
+                      <span className="text-stone-400 truncate max-w-[380px]" title={rr.title}>{rr.title}</span>
+                      {rr.scope && <span className="text-[10px] text-stone-400 font-mono">{rr.scope.commits} commits · {rr.scope.files} files · {rr.scope.tasks} tasks</span>}
+                    </div>
+                  );
+                })()}
                 {/* 實體證據 chips：test run + evidence snapshot */}
                 <div className="flex gap-2 flex-wrap text-[10px] font-bold">
                   {(() => {
-                    const tr = relInfo.latestRR.buildStatus?.testRun;
+                    const tr = selDetail?.buildStatus?.testRun;
                     if (!tr) return <span className="px-2 py-1 rounded-lg bg-white border text-stone-400" style={{ borderColor: tk.borderLight }}>{t("rm.ri.noTest")}</span>;
                     const s = tr.summary || {};
                     return (
@@ -431,31 +511,31 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                       </span>
                     );
                   })()}
-                  {relInfo.latestRR.buildStatus?.evidenceSnapshot ? (
+                  {selDetail?.buildStatus?.evidenceSnapshot ? (
                     <span className="px-2 py-1 rounded-lg bg-white border text-teal-700" style={{ borderColor: tk.borderLight }}
-                      title={relInfo.latestRR.buildStatus.evidenceSnapshot.id}>
-                      ⚖️ {relInfo.latestRR.buildStatus.evidenceSnapshot.id}
+                      title={selDetail.buildStatus.evidenceSnapshot.id}>
+                      ⚖️ {selDetail.buildStatus.evidenceSnapshot.id}
                     </span>
                   ) : null}
-                  {relInfo.latestRR.latestInfoVersion && (
+                  {selDetail?.infoVersion && (
                     <span className="px-2 py-1 rounded-lg bg-white border text-stone-500" style={{ borderColor: tk.borderLight }}>
-                      📄 info v{relInfo.latestRR.latestInfoVersion}
+                      📄 info v{selDetail.infoVersion}
                     </span>
                   )}
                 </div>
                 {/* build 進度 */}
-                {relInfo.latestRR.buildStatus?.running && (
+                {selDetail?.building && (
                   <div className="flex items-center gap-2 text-[11px] text-amber-700">
                     <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-amber-500 border-t-transparent rounded-full" />
-                    {t("rm.ri.building")}：{relInfo.latestRR.buildStatus.step}
+                    {t("rm.ri.building")}：{selDetail?.buildStatus?.step}
                   </div>
                 )}
-                {relInfo.latestRR.buildStatus?.error && (
-                  <div className="text-[11px] text-red-500">⚠ {relInfo.latestRR.buildStatus.error}</div>
+                {selDetail?.buildStatus?.error && (
+                  <div className="text-[11px] text-red-500">⚠ {selDetail.buildStatus.error}</div>
                 )}
                 {/* Release Info（Schema v1.0）render：version + summary + changes（type 徽章）+ git 溯源 */}
-                {relInfo.latestRR.releaseInfo ? (() => {
-                  const ri = relInfo.latestRR.releaseInfo;
+                {selDetail?.releaseInfo ? (() => {
+                  const ri = selDetail.releaseInfo;
                   const TYPE_STYLE: Record<string, string> = {
                     feature: "bg-green-100 text-green-700",
                     improvement: "bg-sky-100 text-sky-700",
@@ -495,7 +575,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                       </div>
                     </div>
                   );
-                })() : !relInfo.latestRR.buildStatus?.running && (
+                })() : !selDetail?.building && (
                   <div className="text-[11px] text-stone-400">{t("rm.ri.noInfo")}</div>
                 )}
               </div>

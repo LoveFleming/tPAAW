@@ -141,13 +141,16 @@ function _fallbackChanges(gitLog) {
 
 async function _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle }) {
   const prompt = `你是 Release Manager。根據以下 deterministic 證據（git log 為主），產生 Release Info 的 summary 與 changes。
-規則：
+
+【輸出格式 — 嚴格遵守，每次一致】
+只輸出一個 JSON 物件，不要 code fence、不要 markdown、不要說明文字。結構必須完全是：
+{"summary": "<一兩句話摘要>", "changes": [{"type": "<type>", "title": "<標題>", "description": "<說明>"}]}
+- summary：字串，一兩句話的版本摘要（繁體中文）
+- changes：陣列，把 git log 的 commits 歸納成變更項目（相近 commits 合併一項）
+- 每個 change 必須恰好三個 key：type / title / description，不可多不可少
+- type 只能是這五個之一：feature | improvement | fix | breaking | chore
+- title：短標題（兰 80 字）；description：具體說明（兰 300 字）
 - 只描述證據支援的事實，不可編造
-- summary：一兩句話的版本摘要（繁體中文）
-- changes：把 git log 的 commits 歸納成變更項目（相近 commits 合併為一項）
-- type 只能是：feature（新增功能）/ improvement（功能改善）/ fix（Bug 修正）/ breaking（不相容變更）/ chore（技術調整、套件更新）
-- 只輸出 JSON，不要 code fence、不要其他文字：
-{"summary": "…", "changes": [{"type": "feature", "title": "…", "description": "…"}]}
 
 # Release：${rrTitle}
 # 變更範圍
@@ -161,12 +164,29 @@ ${testRunTxt}`;
   const m = /\{[\s\S]*\}/.exec(raw);
   if (!m) throw new Error("AI 回應不是 JSON");
   const parsed = JSON.parse(m[0]);
-  const VALID = new Set(["feature", "improvement", "fix", "breaking", "chore"]);
-  const changes = (Array.isArray(parsed.changes) ? parsed.changes : [])
-    .filter(c => c && c.title)
-    .map(c => ({ type: VALID.has(c.type) ? c.type : "chore", title: String(c.title).slice(0, 120), description: String(c.description || "").slice(0, 500) }));
-  if (!parsed.summary || changes.length === 0) throw new Error("AI JSON 缺 summary/changes");
-  return { summary: String(parsed.summary).slice(0, 600), changes };
+  return _validateAiPart(parsed); // 不符 schema 直接 throw → 上層重試/fallback
+}
+
+/** 嚴格驗證 AI 產的 summary/changes（Schema v1.0）— 格式每次一致，不合規就拒收 */
+const VALID_TYPES = new Set(["feature", "improvement", "fix", "breaking", "chore"]);
+function _validateAiPart(parsed) {
+  if (!parsed || typeof parsed !== "object") throw new Error("AI 輸出不是物件");
+  const summary = typeof parsed.summary === "string" ? parsed.summary.trim() : "";
+  if (!summary) throw new Error("summary 缺失或非字串");
+  if (!Array.isArray(parsed.changes) || parsed.changes.length === 0) throw new Error("changes 缺失或空陣列");
+  const changes = [];
+  for (const c of parsed.changes) {
+    if (!c || typeof c !== "object") throw new Error("change 不是物件");
+    const title = typeof c.title === "string" ? c.title.trim() : "";
+    const description = typeof c.description === "string" ? c.description.trim() : "";
+    if (!title) throw new Error("change.title 缺失");
+    changes.push({
+      type: VALID_TYPES.has(c.type) ? c.type : "chore", // type 不在五類 → 降 chore（不拒收整份，但記得可預期）
+      title: title.slice(0, 120),
+      description: description.slice(0, 500),
+    });
+  }
+  return { summary: summary.slice(0, 600), changes };
 }
 
 /**
@@ -226,9 +246,16 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
 
       // deterministic 欄位（系統決定）：git + version + release_date
       const det = await _deterministicGitBlock(projectPath);
-      // AI 欄位：summary + changes（失敗 fallback 由 git log 組成）
+      // AI 欄位：summary + changes（驗 schema 不合規重試一次 → 仍失敗 fallback 由 git log 組成）
       let ai;
-      try { ai = await _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle: freshRR?.title || rr.title }); }
+      try {
+        try { ai = await _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle: freshRR?.title || rr.title }); }
+        catch (first) {
+          st.aiRetry = first.message;
+          writeStatus(projectPath, rrId, st);
+          ai = await _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle: freshRR?.title || rr.title });
+        }
+      }
       catch (e) {
         st.aiFallback = true;
         st.aiFallbackReason = e.message;
