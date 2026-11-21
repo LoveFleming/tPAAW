@@ -88,6 +88,10 @@ const _pathOf = (entry) => String(entry).trim().split(/\s+/).pop() || String(ent
 const _normLower = (s) => String(s).replace(/\\/g, "/").toLowerCase();
 // e2e 內容覆蓋（共用 helper）
 const apiCovered = apiE2eCoverageChecker(root);
+// 2026-11-22 Fleming：Unit Test 證據要有 pass/total + coverage rate（不只 ✓N 檔案數）
+let testRun = null, coverage = null;
+try { const { readLastTestRun } = await import("./test-runner.mjs"); const rec = readLastTestRun(root); if (rec) testRun = { id: rec.id || null, status: rec.status || null, at: rec.finishedAt || null, passed: rec.summary?.passed ?? null, failed: rec.summary?.failed ?? null, skipped: rec.summary?.skipped ?? null, total: rec.summary?.total ?? null }; } catch { /* 無紀錄 → null 如實回 */ }
+try { const { testReportSummary } = await import("./test-report-reader.mjs"); const tr = testReportSummary(root); const cov = tr.mergedCoverage || tr.coverage?.[0] || null; coverage = { linePct: cov?.totalLinePct ?? null, measured: cov?.totalLinePct != null, at: cov?.at ?? cov?.sources?.[0]?.at ?? null, merged: !!cov?.merged, sources: cov?.sources ?? [] }; } catch { /* 無 report → 未量測如實回 */ }
 const rows = [];
 for (const a of apis) {
   const files = (a.codeFiles || []).map((f) => String(f).replace(/\\/g, "/"));
@@ -135,6 +139,7 @@ items: qaHits.slice(0, 5).map((r) => ({ at: r.ts, verdict: r.verdict, actor: r.a
       withQa: rows.filter((r) => r.qa.count > 0).length,
       qaLatestFail: rows.filter((r) => r.qa.latestVerdict && r.qa.latestVerdict !== "pass").length,
       sgScannedAt: scan?.scannedAt || null,
+      testRun, coverage,
     },
     apis: rows, generatedAt: new Date().toISOString(),
   };
