@@ -33,11 +33,17 @@ function loadMermaid(): Promise<any> {
         suppressErrorRendering: true,
         fontFamily: APP_FONT,
         // 2026-10-23 Fleming：圖内文字與 chat 本文同大小（.md-content = text-sm 14px），不突兀
-        themeVariables: { fontSize: "13px" },
+        themeVariables: { fontSize: "14px" },
+        // 2026-11-21 Fleming：循序圖原本吃 mermaid 預設 16px，跟正文/其他圖不一致 → 三種文字統一 14px + 同字族
+        sequence: {
+          useMaxWidth: false,
+          actorFontSize: 14, actorFontFamily: APP_FONT,
+          messageFontSize: 14, messageFontFamily: APP_FONT,
+          noteFontSize: 14, noteFontFamily: APP_FONT,
+        },
         // 2026-10-23 Fleming：關掉 useMaxWidth —— mermaid 預設把整張圖縮到容器寬，
         // 寬圖（graph LR 多節點）被壓縮 → 14px 字視覺上劑 6px。改原始尺寸，太寬就横向捲動（跟 code block 同行為）
         flowchart: { useMaxWidth: false },
-        sequence: { useMaxWidth: false },
         class: { useMaxWidth: false },
         state: { useMaxWidth: false },
         er: { useMaxWidth: false },
@@ -131,7 +137,7 @@ export const MermaidBlock = memo(function MermaidBlock({ code }: { code: string 
         <div className="mermaid-svg-wrap [&_svg]:block [&_svg]:mx-auto">
           {/* CSS 錘子：mermaid v12 的 htmlLabel（foreignObject 裡的 span）不吃 themeVariables.fontSize，
               且 SVG text 的 font-size 是 presentation attribute（CSS 優先序最低層）→ !important 一定赢 */}
-          <style>{`.mermaid-svg-wrap span, .mermaid-svg-wrap p, .mermaid-svg-wrap div, .mermaid-svg-wrap text, .mermaid-svg-wrap tspan { font-size: 13px !important; font-family: ${APP_FONT} !important; }`}</style>
+          <style>{`.mermaid-svg-wrap span, .mermaid-svg-wrap p, .mermaid-svg-wrap div, .mermaid-svg-wrap text, .mermaid-svg-wrap tspan, .mermaid-svg-wrap .messageText, .mermaid-svg-wrap .actor, .mermaid-svg-wrap .noteText, .mermaid-svg-wrap .labelText, .mermaid-svg-wrap .loopText { font-size: inherit !important; font-family: ${APP_FONT} !important; }`}</style>
           <div dangerouslySetInnerHTML={{ __html: svg }} />
         </div>
       )}
