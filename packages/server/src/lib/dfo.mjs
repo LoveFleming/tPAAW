@@ -5,7 +5,7 @@
  * 單一真相 .paaw/dfo/dfo.json；每次寫入自動快照 versions/v{N}.json（不可變）。
  * AI 更新時自動讀現行版當參考（延續性）；`<!-- AI:SKIP-START/END -->` 人寫區塊機械保留。
  */
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync, renameSync } from "fs";
 import { join } from "path";
 import { createHash } from "crypto";
 
@@ -62,7 +62,7 @@ export function listDfoVersions(root) {
   if (!existsSync(dir)) return [];
   try {
     return readdirSync(dir)
-      .filter(f => /^(v\d+|[\w][\w.\-]*(~\d+)?)\.json$/.test(f))
+      .filter(f => /^(v\d+|[\w][\w.\-]*)\.json$/.test(f))
       .map(f => ({ version: f.replace(/\.json$/, ""), file: f, _mtime: statSync(join(dir, f)).mtimeMs }))
       .sort((a, b) => a._mtime - b._mtime);
   } catch { return []; }
@@ -110,13 +110,12 @@ export function writeDfo(root, partialSections, updatedBy, label) {
     return prevMap.get(def.id) || { id: def.id, title: def.title, markdown: "" };
   });
   // 版本代號：無前版 → label 或 "initial"；有前版 → label（來自 RR）或沿用前代號
+  // 2026-11-21 Fleming：一個代號只留一版 — 同代號寫入直接覆寫該版快照，不再產生 ~2/~3 中途版
   const prevLabel = prev?.version ? String(prev.version) : null;
-  const baseLabel = prev ? (label || prevLabel.replace(/~\d+$/, "")) : (label || "initial");
-  const safeLabel = baseLabel.replace(/[^\w.\-]/g, "_");
-  // 同代號第幾份快照
-  const sameLabelCount = listDfoVersions(root).filter(v => v.version === safeLabel || v.version.startsWith(`${safeLabel}~`)).length;
-  const versionStr = sameLabelCount === 0 ? safeLabel : `${safeLabel}~${sameLabelCount + 1}`;
-  const versionNum = versionStr; // 快照檔名 = 代號（去掉可能的 vN 語意）
+  const prevBase = prevLabel ? prevLabel.replace(/~\d+$/, "") : null;
+  const baseLabel = String(prev ? (label || prevBase) : (label || "initial"));
+  const versionStr = baseLabel.replace(/[^\w.\-]/g, "_");
+  const versionNum = versionStr; // 快照檔名 = 代號
   const dfo = {
     schemaVersion: DFO_SCHEMA_VERSION,
     version: versionStr,
@@ -128,12 +127,18 @@ export function writeDfo(root, partialSections, updatedBy, label) {
   mkdirSync(dfoVersionsDir(root), { recursive: true });
   // 快照不可變：同版號已存在（重試情境）→ 內容一致就續用，不一致擋下
   const snapPath = join(dfoVersionsDir(root), `${versionNum}.json`);
-  if (existsSync(snapPath)) {
-    const old = readFileSync(snapPath, "utf-8");
-    if (old !== JSON.stringify(dfo, null, 2)) throw new Error(`版本 ${versionNum} 已存在且內容不同 — 不可竄改歷史版本`);
-  } else {
-    writeFileSync(snapPath, JSON.stringify(dfo, null, 2), "utf-8");
-  }
+  // 同代號 → 覆寫（RR 未關前可持續更新；關了會被 dfoFrozenReason 擋在前面）
+  writeFileSync(snapPath, JSON.stringify(dfo, null, 2), "utf-8");
+  // 舊式 ~N 中途快照（同代號殘留）→ 收進 _archive，下拉不再出現
+  try {
+    for (const f of readdirSync(dfoVersionsDir(root))) {
+      if (f.startsWith(`${versionNum}~`) && f.endsWith(".json")) {
+        const arch = join(dfoVersionsDir(root), "_archive");
+        mkdirSync(arch, { recursive: true });
+        renameSync(join(dfoVersionsDir(root), f), join(arch, f));
+      }
+    }
+  } catch {}
   writeFileSync(dfoPath(root), JSON.stringify(dfo, null, 2), "utf-8");
   return { ...dfo, _snapshot: snapPath, _hash: createHash("sha256").update(JSON.stringify(dfo)).digest("hex").slice(0, 12) };
 }

@@ -172,7 +172,7 @@ export function listSpecVersions(root) {
   if (!existsSync(dir)) return [];
   try {
     return readdirSync(dir)
-      .filter(f => /^[\w][\w.\-]*(~\d+)?\.json$/.test(f))
+      .filter(f => /^[\w][\w.\-]*\.json$/.test(f))
       .map(f => ({ version: f.replace(/\.json$/, ""), file: f, _mtime: statSync(join(dir, f)).mtimeMs }))
       .sort((a, b) => a._mtime - b._mtime)
       .map(({ _mtime, ...v }) => v);
@@ -197,9 +197,8 @@ export function snapshotSpec(root, label, by) {
   if (!parts.some(p => String(p || "").trim())) return null; // 空 spec 不快照
   const list = listSpecVersions(root);
   const prevLabel = list.length ? list[list.length - 1].version.replace(/~\d+$/, "") : null;
-  const baseLabel = String(label || prevLabel || "initial").replace(/[^\w.\-]/g, "_");
-  const n = list.filter(v => v.version === baseLabel || v.version.startsWith(`${baseLabel}~`)).length;
-  const version = n === 0 ? baseLabel : `${baseLabel}~${n + 1}`;
+  // 2026-11-21 Fleming：一個代號只留一版 — 同代號覆寫，不產生 ~2/~3 中途版
+  const version = String(label || prevLabel || "initial").replace(/[^\w.\-]/g, "_");
   try {
     mkdirSync(specVersionsDir(root), { recursive: true });
     const snap = { version, updatedAt: new Date().toISOString(), updatedBy: by || "ai", sections: parts };
