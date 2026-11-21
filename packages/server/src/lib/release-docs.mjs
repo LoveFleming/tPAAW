@@ -120,15 +120,7 @@ export async function verifyDocs(projectPath, rrId) {
     if (info.ai?.source === "fallback" || info.aiFallback) add("releaseInfo", "warn", "AI 摘要失敗，目前內容是系統列出的 commit 清單 — 建議重做");
     if (!Array.isArray(info.changes)) add("releaseInfo", "error", "Release Info 缺少 changes 陣列");
     if (!Array.isArray(info.features)) add("releaseInfo", "warn", "Release Info 沒有 features 資訊（schema 1.1 應有）");
-    // feature id 對照 API Map / Feature Map（2026-11-21：AI 摘要後的 id 可能是 API entry 或功能 slug → 只提醒不當錯誤）
-    try {
-      const { readApiFeatures, readFeatures } = await import("./coding-db/reads.mjs");
-      const ids = new Set();
-      for (const a of readApiFeatures(projectPath) || []) { if (a.entry) ids.add(a.entry); if (a.id) ids.add(a.id); }
-      for (const f of readFeatures(projectPath) || []) ids.add(f.id);
-      const unknown = (info.features || []).map((f) => f?.id).filter((id) => id && !ids.has(id));
-      if (unknown.length) add("releaseInfo", "warn", `${unknown.length} 個 feature id 為 AI 摘要命名（不在 API Map / Feature Map）：${unknown.slice(0, 3).join("、")}${unknown.length > 3 ? " 等" : ""}`);
-    } catch {}
+    // 2026-11-21：features 是 AI 摘要（id 可為 API entry 或功能 slug），不再對照 Feature Map（避免假警報）
     // commit 必須是 HEAD（否則代表有更新沒重做）
     try {
       const { shellExec } = await import("./shell-exec.mjs");
