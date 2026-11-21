@@ -408,4 +408,26 @@ CREATE INDEX idx_ui_category ON ui_features(category);
     sql: `ALTER TABLE ui_features ADD COLUMN backend_files TEXT;
 ALTER TABLE ui_features ADD COLUMN kind TEXT;`,
   },
+
+  {
+    // v9（2026-11-21 Fleming）：Release Info 進 sqlite — 每產生一版寫一行（json 欄位存 changes/features/git 原文）
+    version: 9,
+    sql: `CREATE TABLE IF NOT EXISTS release_infos (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  rr_id         TEXT NOT NULL,
+  version       INTEGER NOT NULL,
+  schema        TEXT,
+  app_version   TEXT,
+  release_date  TEXT,
+  summary       TEXT,
+  changes_json  TEXT,
+  features_json TEXT,
+  git_json      TEXT,
+  matrix_summary TEXT,
+  ai_source     TEXT,
+  test_run_id   TEXT,
+  created_at    TEXT,
+  UNIQUE(rr_id, version)
+);`,
+  },
 ];

@@ -11,7 +11,7 @@
  * 狀態檔：.paaw/release-info/{RR-ID}/docs.json
  */
 
-import { readFileSync, writeFileSync, mkdirSync, statSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, statSync, existsSync } from "fs";
 import { join } from "path";
 import { PORT } from "../routes/shared.mjs";
 import { getReleaseRequest } from "./release-requests.mjs";
@@ -120,15 +120,14 @@ export async function verifyDocs(projectPath, rrId) {
     if (info.ai?.source === "fallback" || info.aiFallback) add("releaseInfo", "warn", "AI 摘要失敗，目前內容是系統列出的 commit 清單 — 建議重做");
     if (!Array.isArray(info.changes)) add("releaseInfo", "error", "Release Info 缺少 changes 陣列");
     if (!Array.isArray(info.features)) add("releaseInfo", "warn", "Release Info 沒有 features 資訊（schema 1.1 應有）");
-    // feature id 必須存在於 API Map（防編造）
+    // feature id 對照 API Map / Feature Map（2026-11-21：AI 摘要後的 id 可能是 API entry 或功能 slug → 只提醒不當錯誤）
     try {
-      const { readApiFeatures } = await import("./coding-db/reads.mjs");
-      const ids = new Set(readApiFeatures(projectPath).map((a) => a.id));
-      const { readFeatures } = await import("./coding-db/reads.mjs");
+      const { readApiFeatures, readFeatures } = await import("./coding-db/reads.mjs");
+      const ids = new Set();
+      for (const a of readApiFeatures(projectPath) || []) { if (a.entry) ids.add(a.entry); if (a.id) ids.add(a.id); }
       for (const f of readFeatures(projectPath) || []) ids.add(f.id);
-      for (const f of info.features || []) {
-        if (f?.id && !ids.has(f.id)) add("releaseInfo", "error", `Release Info 引用不存在的 feature：${f.id}`);
-      }
+      const unknown = (info.features || []).map((f) => f?.id).filter((id) => id && !ids.has(id));
+      if (unknown.length) add("releaseInfo", "warn", `${unknown.length} 個 feature id 為 AI 摘要命名（不在 API Map / Feature Map）：${unknown.slice(0, 3).join("、")}${unknown.length > 3 ? " 等" : ""}`);
     } catch {}
     // commit 必須是 HEAD（否則代表有更新沒重做）
     try {
@@ -143,14 +142,17 @@ export async function verifyDocs(projectPath, rrId) {
   // ── Prod Spec ──
   try {
     const { parseProjectMd, splitSpecSections } = await import("./project-md.mjs");
-    const md = readFileSync(join(projectPath, ".paaw", "PROJECT.md"), "utf-8");
+    const specCandidates = [join(projectPath, ".paaw", "project", "PROJECT.md"), join(projectPath, ".paaw", "PROJECT.md")];
+    const specPath = specCandidates.find((x) => existsSync(x));
+    if (!specPath) throw new Error("PROJECT.md not found");
+    const md = readFileSync(specPath, "utf-8");
     const parts = splitSpecSections(parseProjectMd(md).specSection || "");
     const empty = parts.filter((p) => !String(p || "").trim()).length;
     if (empty === 8) add("spec", "error", "Prod Spec 尚未產生（8 節全空）");
     else if (empty > 0) add("spec", "warn", `Prod Spec 有 ${empty} 節空白 — 建議重做`);
     const bad = parts.join("\n").match(/資料待補|待人確認|待討論/g);
     if (bad) add("spec", "error", `Prod Spec 含 ${bad.length} 處「待補/待確認」佔位 — AI 未填完`);
-    const specMs = _mtime(join(projectPath, ".paaw", "PROJECT.md"));
+    const specMs = _mtime(specPath);
     if (rrCreatedMs && specMs && specMs < rrCreatedMs) add("spec", "warn", "Prod Spec 在 RR 建立後未更新 — 可能沒涵蓋本版變更");
   } catch {
     add("spec", "error", "Prod Spec（PROJECT.md）不存在");

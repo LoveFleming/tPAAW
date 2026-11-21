@@ -354,6 +354,19 @@ export default async function releaseRoutes(req, res, next) {
     return res.json({ ok: true, version_of_info: v, available_versions: versions, release_info: info });
   }
 
+  // GET /release-info/db?rr= — 從 coding.db 讀 Release Info（sqlite 版控查詢）
+  if (url === "/api/coding-releases/release-info/db" && method === "GET") {
+    const rrId = q.get("rr");
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first
+    if (!rrId) return res.status(400).json({ error: "rr required" });
+    try {
+      const { listReleaseInfosDb } = await import("../lib/coding-db/release-info.repo.mjs");
+      return res.json({ ok: true, rows: listReleaseInfosDb(projectPath, rrId) });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   // GET /release-info/matrix?rr=&v= — 讀某版凍結的 Evidence Matrix（v 省略 = 最新版）
   if (url === "/api/coding-releases/release-info/matrix" && method === "GET") {
     const rrId = q.get("rr");

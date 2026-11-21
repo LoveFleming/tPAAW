@@ -1253,7 +1253,6 @@
   "report.total": "Total",
   "rm.agentGreeting": "Before shipping, let's lay out the evidence. I help you decide whether this version is safe to release — review evidence, not code.",
   "rm.agentName": "Piotr Nowak · Release Manager",
-  "rm.aiVerify": "AI verify evidence",
   "rm.apiBackend": "Backend APIs",
   "rm.apiBtn": "🌐 API Status",
   "rm.apiCalls": "Frontend API calls",
@@ -2192,5 +2191,6 @@
   "rm.docs.rebuild": "Redo",
   "rm.closeBtn": "Set RR to Close",
   "rm.reopenBtn": "Reopen",
-  "rm.docs.idle": "—"
+  "rm.docs.idle": "—",
+  "rm.docs.hint": "Click “🚀 Build Release Info” to update in order: Prod Spec → DFO → Release Info (with Evidence Matrix, frozen at the same version). Nothing runs automatically; problems are listed below and can be redone individually."
 }

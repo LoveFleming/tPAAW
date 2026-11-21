@@ -456,20 +456,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     finally { setReviewBusy(false); }
   };
 
-  // 2026-11-06 Fleming：請 AI 實際去看證據（不只看表 — 讀 code/test 檔驗證）
-  const askAiVerify = () => {
-    const mx = matrixEvidenceText();
-    if (!mx) return;
-    chatRef.current?.send(
-      `以下是 Evidence Matrix 表格（by API，deterministic 證據）：\n\n${mx}\n\n` +
-      `請不要只看表格 — 實際去 repo（cwd）查證據，回答：\n` +
-      `1) Tests ✗ 的 API：去看該 API 的 code 與現有測試，找出沒測到的部分\n` +
-      `2) 哪些 API 變更風險最高（無測試 + 無 e2e 覆蓋 + 高 commit 數），實際讀 code 說明風險\n` +
-      `3) SG ✗ 的原因是什麼（真的有 high finding 還是掃描沒覆蓋）\n` +
-      `結論要附實際檔案路徑與行號證據（No answer without evidence）。`
-    );
-  };
-
   // 2026-11-03：老闆五問快捷鈕移除（Fleming：過度設計）— generateReport 已涵蓋同內容
 
   return (
@@ -493,13 +479,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                 style={{ backgroundColor: "#b45309" }} data-testid="rm-ev-load" title={t("rm.ev.loadTip")}>
                 {evApiBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
                 ⚖️ {t("rm.ev.loadBtn")}
-              </button>
-            )}
-            {evApi && (
-              <button onClick={askAiVerify}
-                className="text-xs px-3 py-1 rounded-lg text-white font-bold shrink-0 hover:opacity-90"
-                style={{ backgroundColor: "#dc2626" }} data-testid="rm-ai-verify">
-                🔍 {t("rm.aiVerify")}
               </button>
             )}
             {/* ↻ 重新整理按鈕移除（2026-11-07 Fleming）— 各區塊按鈕各自載入，不需全頁刷新 */}
@@ -530,6 +509,12 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                   ))}
                 </select>
               ) : null}
+              {(() => {
+                const cur = rrOptions.find((r: any) => r.id === selRR);
+                if (!cur) return null;
+                const map: Record<string, string> = { draft: "bg-stone-100 text-stone-500", reviewing: "bg-amber-50 text-amber-700", released: "bg-green-50 text-green-700" };
+                return <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${map[cur.status] || "bg-stone-100 text-stone-500"}`}>{cur.status}</span>;
+              })()}
               <span className="flex-1" />
               <button onClick={buildAllDocs} disabled={!!docBusy || anyDocRunning || !!rrOptions.find(r => r.id === selRR)?.shipped}
                 className="text-xs px-3 py-1 rounded-lg text-white font-bold hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
@@ -577,58 +562,62 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
             {rrOptions.length === 0 ? (
               <div className="px-4 py-6 text-center text-xs text-stone-400">{t("rm.ri.empty")}</div>
             ) : (
-              <div className="px-4 py-3 space-y-3" data-testid="rm-docs">
-                {/* ── 1. 狀態一行 ── */}
-                {(() => {
-                  const rr = rrOptions.find(r => r.id === selRR);
-                  if (!rr) return null;
-                  return (
-                    <div className="flex items-center gap-2 flex-wrap text-[11px]">
-                      <span className={`px-1.5 py-0.5 rounded font-bold ${rr.status === "released" ? "bg-green-100 text-green-700" : rr.status === "reviewing" ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-500"}`}>{rr.status}</span>
-                      <span className="text-stone-500 truncate max-w-[320px]" title={rr.title}>{rr.title}</span>
-                      {rr.scope && <span className="text-[10px] text-stone-400 font-mono">{rr.scope.commits} commits · {rr.scope.files} files</span>}
-                    </div>
-                  );
-                })()}
-
-                {/* ── 2. 文件狀態 chips（點 = 重做該份）── */}
-                <div className="flex items-center gap-1.5 flex-wrap" data-testid="rm-docs">
-                  {[
-                    { kind: "spec", label: "📄 Spec" },
-                    { kind: "dfo", label: "🛠 DFO" },
-                    { kind: "releaseInfo", label: "🚀 Info + ⚖️ Matrix" },
-                  ].map((row) => {
-                    const st = docs?.docs?.[row.kind];
-                    const fs = (docs?.verify?.findings || []).filter((f: any) => f.doc === row.kind);
-                    const errs = fs.filter((f: any) => f.level === "error");
-                    const warns = fs.filter((f: any) => f.level === "warn");
-                    const running = st?.status === "running";
-                    const failed = st?.status === "error" || errs.length > 0;
-                    const ok = st?.status === "done" && !errs.length && !warns.length;
-                    const cls = running ? "bg-amber-50 border-amber-200 text-amber-700" : failed ? "bg-red-50 border-red-200 text-red-600" : ok ? "bg-green-50 border-green-200 text-green-700" : "bg-stone-50 text-stone-500";
-                    const msg = errs[0]?.message || warns[0]?.message || st?.error || "";
-                    return (
-                      <button key={row.kind} onClick={() => rebuildDoc(row.kind as any)}
-                        disabled={running || !!docBusy}
-                        className={`text-[10px] px-2 py-1 rounded-lg border font-bold flex items-center gap-1 disabled:cursor-default ${cls}`}
-                        style={{ borderColor: tk.borderLight }} data-testid={`rm-doc-${row.kind}`}
-                        title={msg ? `${msg}（點擊重做）` : "點擊重做"}>
-                        {running && <span className="animate-spin inline-block w-2.5 h-2.5 border-[1.5px] border-current border-t-transparent rounded-full" />}
-                        {row.label} {running ? "產生中…" : failed ? "❌" : ok ? "✅" : "—"}
-                      </button>
-                    );
-                  })}
-                  {(() => {
-                    const allMsgs = (docs?.verify?.findings || []).filter((f: any) => f.doc === "spec" || f.doc === "dfo" || f.doc === "releaseInfo");
-                    if (!allMsgs.length) return null;
-                    return (
-                      <div className="w-full space-y-0.5">
-                        {allMsgs.slice(0, 4).map((f: any, i: number) => (
-                          <div key={i} className={`text-[10px] ${f.level === "error" ? "text-red-500" : "text-amber-600"}`}>• {f.message}</div>
-                        ))}
-                      </div>
-                    );
-                  })()}
+              <div className="px-4 py-3 space-y-3" data-testid="rm-docs-body">
+                {/* ── 0. 說明：按鈕會做什麼（不按不會自動做）── */}
+                <div className="text-[10px] leading-relaxed text-stone-500 bg-stone-50 border rounded-lg px-3 py-2" style={{ borderColor: tk.borderLight }}>
+                  {t("rm.docs.hint") || "按「🚀 製作 Release Info」會依序更新：Prod Spec → DFO → Release Info（含 Evidence Matrix，與 info 同版號凍結）。不按不會自動做；有問題列在下方，可單獨重做。"}
+                </div>
+                {/* ── 2. 文件狀態表（動作欄 = 重做）── */}
+                <div className="rounded-lg border overflow-hidden" style={{ borderColor: tk.borderLight }}>
+                  <table className="w-full text-[11px]" data-testid="rm-docs">
+                    <thead>
+                      <tr className="text-left text-[10px] text-stone-500 bg-stone-50" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
+                        <th className="py-2 pl-3 pr-2 font-bold">文件</th>
+                        <th className="py-2 pr-2 font-bold w-24">狀態</th>
+                        <th className="py-2 pr-2 font-bold">說明</th>
+                        <th className="py-2 pr-3 font-bold w-16 text-right"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { kind: "spec", label: "📄 Prod Spec" },
+                        { kind: "dfo", label: "🛠 DFO" },
+                        { kind: "releaseInfo", label: "🚀 Release Info + ⚖️ Matrix" },
+                      ].map((row) => {
+                        const st = docs?.docs?.[row.kind];
+                        const fs = (docs?.verify?.findings || []).filter((f: any) => f.doc === row.kind);
+                        const errs = fs.filter((f: any) => f.level === "error");
+                        const warns = fs.filter((f: any) => f.level === "warn");
+                        const running = st?.status === "running";
+                        const failed = st?.status === "error" || errs.length > 0;
+                        const ok = st?.status === "done" && !errs.length && !warns.length;
+                        const pill = running
+                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-bold text-[10px]"><span className="animate-spin inline-block w-2.5 h-2.5 border-[1.5px] border-amber-500 border-t-transparent rounded-full" />產生中</span>
+                          : failed
+                            ? <span className="inline-block px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-bold text-[10px]">❌ 錯誤</span>
+                            : ok
+                              ? <span className="inline-block px-2 py-0.5 rounded-full bg-green-50 text-green-700 font-bold text-[10px]">✅ OK</span>
+                              : warns.length
+                                ? <span className="inline-block px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-bold text-[10px]">⚠️ 提醒</span>
+                                : <span className="inline-block px-2 py-0.5 rounded-full bg-stone-100 text-stone-400 font-bold text-[10px]">—</span>;
+                        const msg = errs[0]?.message || warns[0]?.message || st?.error || (ok ? st?.detail || "已完成" : "");
+                        return (
+                          <tr key={row.kind} className="border-b last:border-b-0 hover:bg-stone-50/60 transition-colors" style={{ borderColor: tk.borderLight }} data-testid={`rm-doc-${row.kind}`}>
+                            <td className="py-2 pl-3 pr-2 font-bold text-stone-700 whitespace-nowrap">{row.label}</td>
+                            <td className="py-2 pr-2">{pill}</td>
+                            <td className={`py-2 pr-2 leading-snug ${failed ? "text-red-500" : warns.length ? "text-amber-600" : "text-stone-400"}`}>{msg || "—"}</td>
+                            <td className="py-2 pr-3 text-right">
+                              <button onClick={() => rebuildDoc(row.kind as any)} disabled={running || !!docBusy}
+                                className="text-[10px] px-2 py-0.5 rounded-md border hover:bg-white disabled:opacity-40 transition-colors"
+                                style={{ borderColor: tk.borderLight, color: tk.accent || "#8b5e3c" }}>
+                                重做
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
 
                 {/* ── 3. build 進度 / 錯誤 ── */}
@@ -667,8 +656,8 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                       {(ri.features || []).length > 0 && (
                         <div className="px-3 pb-2 flex gap-1.5 flex-wrap">
                           {ri.features.map((f: any, i: number) => (
-                            <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 font-bold"
-                              title={f.impact || f.name}>{f.id} {f.name}</span>
+                            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 font-bold"
+                              title={`${f.id || ""}${f.impact ? " — " + f.impact : ""}`}>{f.name || f.id}</span>
                           ))}
                         </div>
                       )}

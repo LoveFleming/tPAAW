@@ -1253,7 +1253,6 @@
   "report.total": "總計",
   "rm.agentGreeting": "要放行前，把證據攤開來看。我幫你確認這一版能不能安全上線 — 審證據，不審碼。",
   "rm.agentName": "彼得·諾瓦克 · Release Manager",
-  "rm.aiVerify": "AI 實際查證據",
   "rm.apiBackend": "後端 API",
   "rm.apiBtn": "🌐 API 現況",
   "rm.apiCalls": "前端引用 API",
@@ -2192,5 +2191,6 @@
   "rm.docs.rebuild": "重做",
   "rm.closeBtn": "Set RR to Close",
   "rm.reopenBtn": "Reopen",
-  "rm.docs.idle": "—"
+  "rm.docs.idle": "—",
+  "rm.docs.hint": "按「🚀 製作 Release Info」會依序更新：Prod Spec → DFO → Release Info（含 Evidence Matrix，與 info 同版號凍結）。不按不會自動做；有問題列在下方，可單獨重做。"
 }

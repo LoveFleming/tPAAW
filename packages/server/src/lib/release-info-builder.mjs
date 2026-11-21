@@ -206,7 +206,12 @@ summary 必須以「首次匯入 Initial Release」角度寫：這個 release un
 - type 只能是這五個之一：feature | improvement | fix | breaking | chore
 - title：短標題（兰 80 字）；description：具體說明（兰 300 字）
 - 只描述證據支援的事實，不可編造
-- features：本版變更影響到的 feature（拿 Feature Map 比對變更檔案 + API Map 理解實質影響；標「← 本版變更命中」的優先）；無影響 = 空陣列 []。feature id/name 必須照 Feature Map 原文，不可編造
+- features：把這個 release「摘要成主要功能」（3-10 個，給人看的功能盤點，不是貼 Feature Map 原文）
+  - id：填對應最有代表性的 API entry（如 /v1/chat/completions）；initial release 沒有單一代表時可填功能 slug（如 chat-proxy）
+  - name：人話功能名（如「Chat Completions 代理」「供應商路由」），從 API Map 的 name/description 歸納
+  - impact：一句話說明這個功能的角色/狀態（initial = 全貌盤點；一般 release = 本版對它的影響）
+  - initial release：features = 整個 release unit 的功能盤點（主要能力域），不可空陣列
+  - 一般 release：features = 本版變更影響到的功能；真的無 = 空陣列 []
 
 # 情境
 ${modeTxt}
@@ -272,10 +277,21 @@ function _validateAiPart(parsed, { hasCommits = true } = {}) {
 /** features deterministic 來源：變更命中 feature map → 沒有（initial release）就 feature map 全量 */
 async function _deterministicFeatures(projectPath, cu) {
   if (cu?.affected?.length) return cu.affected;
+  // fallback：API Map 依 category 分組 → 摘要成功能域（比 auto-named feature map 可讀）
   try {
-    const { readFeatures } = await import("./coding-db/reads.mjs");
-    const all = readFeatures(projectPath) || [];
-    return all.slice(0, 30).map(f => ({ id: f.id, name: f.name || f.title || f.id, impact: "首次匯入：本 RU 全量 feature" }));
+    const { readApiFeatures } = await import("./coding-db/reads.mjs");
+    const apis = readApiFeatures(projectPath) || [];
+    const byCat = new Map();
+    for (const a of apis) {
+      const c = String(a.category || "core").trim() || "core";
+      if (!byCat.has(c)) byCat.set(c, []);
+      byCat.get(c).push(a);
+    }
+    return [...byCat.entries()].slice(0, 12).map(([c, list]) => ({
+      id: list[0]?.entry || c,
+      name: c,
+      impact: `${list.length} 支 API：${list.slice(0, 3).map(a => a.name || a.entry).join("、")}${list.length > 3 ? " 等" : ""}`,
+    }));
   } catch { return []; }
 }
 
@@ -396,6 +412,16 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, `info-v${v}.json`), JSON.stringify(info, null, 2), "utf-8");
       if (matrix) writeFileSync(join(dir, `matrix-v${v}.json`), JSON.stringify(matrix, null, 2), "utf-8");
+      // 2026-11-21 Fleming：release 資訊也要進 sqlite（coding.db release_infos，UNIQUE(rr_id, version)）
+      try {
+        const { writeReleaseInfo } = await import("./coding-db/release-info.repo.mjs");
+        writeReleaseInfo(projectPath, {
+          rrId, v, schema: info.schema, appVersion: info.version, releaseDate: info.release_date,
+          summary: info.summary, changes: info.changes, features: info.features, git: info.git,
+          matrixSummary: matrix?.summary || null,
+          aiSource: st.aiFallback ? "fallback" : "ai", testRunId: st.testRun?.id || null,
+        });
+      } catch (e) { st.dbError = e.message; }
       writeFileSync(join(dir, `bundle-v${v}.json`), JSON.stringify({
         version: v,
         generatedAt: new Date().toISOString(),
