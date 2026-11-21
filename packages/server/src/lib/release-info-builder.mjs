@@ -147,6 +147,7 @@ async function _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle }) {
 {"summary": "<一兩句話摘要>", "changes": [{"type": "<type>", "title": "<標題>", "description": "<說明>"}]}
 - summary：字串，一兩句話的版本摘要（繁體中文）
 - changes：陣列，把 git log 的 commits 歸納成變更項目（相近 commits 合併一項）
+- 若 git log 為空（首次 release 無差異）：changes 必須是空陣列 []，summary 說明本版無程式碼變更
 - 每個 change 必須恰好三個 key：type / title / description，不可多不可少
 - type 只能是這五個之一：feature | improvement | fix | breaking | chore
 - title：短標題（兰 80 字）；description：具體說明（兰 300 字）
@@ -164,16 +165,18 @@ ${testRunTxt}`;
   const m = /\{[\s\S]*\}/.exec(raw);
   if (!m) throw new Error("AI 回應不是 JSON");
   const parsed = JSON.parse(m[0]);
-  return _validateAiPart(parsed); // 不符 schema 直接 throw → 上層重試/fallback
+  return _validateAiPart(parsed, { hasCommits: gitLog.split("\n").filter(Boolean).length > 0 }); // 不符 schema 直接 throw → 上層重試/fallback
 }
 
 /** 嚴格驗證 AI 產的 summary/changes（Schema v1.0）— 格式每次一致，不合規就拒收 */
 const VALID_TYPES = new Set(["feature", "improvement", "fix", "breaking", "chore"]);
-function _validateAiPart(parsed) {
+function _validateAiPart(parsed, { hasCommits = true } = {}) {
   if (!parsed || typeof parsed !== "object") throw new Error("AI 輸出不是物件");
   const summary = typeof parsed.summary === "string" ? parsed.summary.trim() : "";
   if (!summary) throw new Error("summary 缺失或非字串");
-  if (!Array.isArray(parsed.changes) || parsed.changes.length === 0) throw new Error("changes 缺失或空陣列");
+  if (!Array.isArray(parsed.changes)) throw new Error("changes 缺失或非陣列");
+  // 2026-11-21 fix：0 commits 的 RR（baseline=HEAD）AI 誠實回空陣列是「正確」— 只有真的有 commits 但 AI 回空才算失敗
+  if (hasCommits && parsed.changes.length === 0) throw new Error("有 commits 但 changes 是空的");
   const changes = [];
   for (const c of parsed.changes) {
     if (!c || typeof c !== "object") throw new Error("change 不是物件");
