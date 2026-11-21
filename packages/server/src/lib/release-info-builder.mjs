@@ -307,7 +307,11 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
       st.step = "matrix";
       writeStatus(projectPath, rrId, st);
       let matrix = null;
-      try { matrix = await buildEvidenceByApi(projectPath, { sinceSha: rr.baseline?.sha || null }); } catch (e) { st.matrixError = e.message; }
+      try {
+        matrix = await buildEvidenceByApi(projectPath, { sinceSha: rr.baseline?.sha || null });
+        // baseline = HEAD（initial release / 0 commits）→ 窗口空，矩陣改看全部 API（不然 initial release 會是空表）
+        if (!matrix.apis.length) matrix = await buildEvidenceByApi(projectPath, { sinceSha: null });
+      } catch (e) { st.matrixError = e.message; }
       st.matrix = matrix ? { apis: matrix.apis.length, summary: matrix.summary } : null;
       st.step = "cu"; // 2026-11-21 Fleming：做 release unit 時觸發 CU（機械層同步重掃 + 智慧層背景增量）
       writeStatus(projectPath, rrId, st);
