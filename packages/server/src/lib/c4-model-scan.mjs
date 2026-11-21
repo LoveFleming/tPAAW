@@ -248,8 +248,45 @@ export function collectExternalSignals(root) {
     if (existsSync(p)) scanUri(p);
   }
 
+  // ── 自有程式碼結構（2026-11-21：portkey 誤判「僅部署設定、無自有程式碼」— LLM 沒拿到 own-code 證據就瞎猜）──
+  const pkgMain = _readJson(join(projectRoot, "package.json")) || {};
+  const CODE_EXT = new Set(["js", "mjs", "cjs", "ts", "tsx", "jsx", "py", "go", "java", "rb", "rs", "php", "kt"]);
+  const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", ".paaw", "vendor", "coverage", ".next", "build-out"]);
+  const countByExt = {};
+  let srcFiles = 0;
+  const topDirs = [];
+  try {
+    for (const e of readdirSync(projectRoot, { withFileTypes: true })) {
+      if (e.isDirectory() && !e.name.startsWith(".")) topDirs.push(e.name);
+    }
+    const walk = (dir, depth) => {
+      if (depth > 3 || srcFiles > 2000) return;
+      let entries; try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+      for (const e of entries) {
+        if (srcFiles > 2000) return;
+        if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) walk(join(dir, e.name), depth + 1); continue; }
+        const ext = (extname(e.name).slice(1) || "").toLowerCase();
+        if (!CODE_EXT.has(ext)) continue;
+        srcFiles++;
+        countByExt[ext] = (countByExt[ext] || 0) + 1;
+      }
+    };
+    walk(projectRoot, 0);
+  } catch {}
+  const self = {
+    name: String(pkgMain.name || ""),
+    version: String(pkgMain.version || ""),
+    scripts: Object.keys(pkgMain.scripts || {}).slice(0, 15),
+    main: String(pkgMain.main || pkgMain.module || ""),
+    hasOwnCode: srcFiles > 0,
+    srcFileCount: srcFiles,
+    srcFilesByExt: countByExt,
+    topDirs: topDirs.slice(0, 25),
+  };
+
   return {
     projectRoot,
+    self,
     deps: deps.slice(0, 120),
     envKeys: [...new Map(envKeys.map(x => [x.key + "|" + x.file, x])).values()].slice(0, 80),
     compose,

@@ -5,6 +5,7 @@ You are a software architect building the **C4 Level 1-2 model** for this releas
 ## What You Receive
 
 - **EXTERNAL SIGNALS** — machine-collected evidence（零 token 收集）：
+  - `self`：這個 RU 自己的程式碼結構（package.json scripts/main、自有 source 檔數與副檔名分佈、頂層目錄）— **先看這個判斷 RU 形態**：`hasOwnCode: true` = 有自有程式碼，containers 必須以自有 app 為主體（從 scripts/main/src 統計推入口與技術栈），docker-compose 只是其中一種部署形態，不是全部；`hasOwnCode: false` = 純部署/設定 repo 才可以寫「無自有程式碼」
   - `deps`：manifest 裡的外部服務依賴（分類 db/cache/queue/cloud/api-client/framework；`external?` = heuristic 猜的，要你判讀）
   - `envKeys`：env 檔的 KEY 名（值不提供 — 安全）
   - `compose` / `exposedPorts`：docker-compose services / Dockerfile EXPOSE
@@ -34,6 +35,6 @@ You are a software architect building the **C4 Level 1-2 model** for this releas
 2. **這個 RU 本身也是 container**（app/api/worker/frontend…），用 framework 證據標 technology。
 3. docker-compose 裡的 db/redis 屬於「此系統的 container」（跟著 RU 一起部署）還是外部？看 compose 是否在 repo 內定義 → repo 內 = container；只出現在 env/URI/依賴 = external system。
 4. `envKeys` 只有 KEY 名：從命名推斷用途（`SMTP_HOST` → 寄信服務），不要猜值。
-5. 沒有證據的寧可不列；不確定的放 notes 說明。不發明不存在的服務。
+5. 沒有證據的寧可不列；不確定的放 notes 說明。不發明不存在的服務。**尤其不可在 `self.hasOwnCode: true` 時寫「僅有部署設定、無自有程式碼」** — 這是嚴重誤判。
 6. relationships 只連模型裡存在的名字（container ↔ container ↔ external）。
 7. description 用繁體中文，技術術語保留英文。
