@@ -45,7 +45,7 @@ export const SPEC_SECTION_TITLES = SPEC_SECTIONS.map(s => s.split(" — ")[0]);
 export const SPEC_SECTION_SCHEMAS = [
   {
     n: 1, title: "Product Overview",
-    format: `以條列呈現，固定五塊（沒有的寫「（待討論）」）：
+    format: `以條列呈現，固定五塊（證據沒有的整行省略，不寫待補/待確認）：
 - **定位**：一句話產品定位
 - **目標**：
 - **範圍內**：
@@ -194,21 +194,24 @@ function buildSectionPrompt(index, transcript, facts, extra = "") {
 ${schema.format}
 
 嚴格規則：
-- 人貼的內容/決定最優先，原汁原味收錄（可整理排版，不得改意思）；其次專案事實；都沒有的寫「（待討論）」
-- 不得捏造事實；專案事實沒有的 API/feature 不要發明
+- 人貼的內容/決定最優先，原汁原味收錄（可整理排版，不得改意思）；其次專案事實（apiDetail/errorCodeDetail 是決定性證據，當完整範圍用，不得遺漏 API）
+- 你是唯一作者：人只訂 schema、不逐項確認 — 所有欄位由你依證據寫完；嚴禁出現「資料待補」「待人確認」「待討論」等字樣。證據没有的資訊：該行省略或寫「—」，不可留空待補
+- 第 2 節：FR 從 apiDetail 的 bizLogic/processFlow 提煉，每支 API/feature 至少一條 FR，驗收條件從 validation 寫
+- 第 4 節：apiDetail 每支 API 都要出現（總表 + 逐一 API-XX）；Request/Response 依 validation/dataTouch/bizLogic 整理成 schema/範例；Error Codes 用 errorCodeDetail 全列（code/message/HTTP status/檔案；code=null 列 message+kind）
+- 不得捏造事實；專案事實沒有的 API/feature/error code 不要發明
 - ID 編號（FR-01 等）延續遞增，不要重號
 - 流程/架構/互動盡量附 mermaid 圖（mermaid 圍籬：flowchart / sequenceDiagram / stateDiagram-v2）
 - 只輸出這一節的 markdown 本體：不加 ## 標題（外層會加）、不包 \`\`\` 圍籬、無前言結語${extra}
 ${transcript ? `
 與人的討論紀錄（最新在後，可能含人貼上的規格內容）：
-${transcript}` : "\n（尚無討論紀錄 — 依專案事實寫，沒有的寫待討論）"}
+${transcript}` : "\n（尚無討論紀錄 — 完全依專案事實寫完，不留待補）"}
 
 專案事實（JSON）：
 ${JSON.stringify(facts, null, 2)}`;
 }
 
 async function callAndStrip(callLLM, prompt) {
-  const r = await callLLM({ messages: [{ role: "user", content: prompt }], temperature: 0.3, maxTokens: 8192, thinking: { type: "disabled" } });
+  const r = await callLLM({ messages: [{ role: "user", content: prompt }], temperature: 0.3, maxTokens: 16384, thinking: { type: "disabled" } });
   return stripCodeFence(r?.content);
 }
 
@@ -368,6 +371,22 @@ async function collectFacts(root) {
   } catch {}
 
   const features = apiFeats.map(a => ({ id: a.id, name: a.name, desc: a.description || "", codeFiles: (a.codeFiles || []).length, apis: 1 }));
+  // 2026-11-21 Fleming：spec 產出全靠 AI 讀 code — API Map 明細 + 錯誤碼全清單是決定性證據，當範圍給 AI 才不會漏
+  const clip = (s, n) => (s == null ? "" : String(s).slice(0, n));
+  const apiDetail = apiFeats.slice(0, 40).map(a => ({
+    id: a.id, entry: a.entry, method: a.method || (a.entry || "").split(" ")[0], name: a.name, category: a.category,
+    description: clip(a.description, 300),
+    bizLogic: clip(a.bizLogic, 400),
+    processFlow: (a.processFlow || []).slice(0, 8).map(s => ({ action: clip(s.action || s, 120), detail: clip(s.detail, 160), file: s.file })),
+    validation: (a.validation || []).slice(0, 8).map(v => ({ field: v.field, rule: clip(v.rule, 200), on: v.on, fail: v.fail })),
+    dataTouch: (a.dataTouch || []).slice(0, 6).map(d => clip(typeof d === "string" ? d : JSON.stringify(d), 150)),
+    codeFiles: (a.codeFiles || []).slice(0, 5),
+  }));
+  const errorCodeDetail = [];
+  for (const bf of (ec?.byFeature || [])) {
+    for (const c of (bf.codes || []).slice(0, 30)) errorCodeDetail.push({ feature: clip(bf.featureName, 60), code: c.code, message: clip(c.message, 150), kind: c.kind, httpStatus: c.httpStatus ?? null, file: c.file });
+  }
+  for (const c of (ec?.unmapped || []).slice(0, 20)) errorCodeDetail.push({ feature: "（未對應 feature）", code: c.code, message: clip(c.message, 150), kind: c.kind, httpStatus: c.httpStatus ?? null, file: c.file });
   const deps = { ...(pkg?.dependencies || {}), ...(pkg?.devDependencies || {}) };
   const knownFw = [["next", "Next.js"], ["react", "React"], ["vue", "Vue"], ["svelte", "Svelte"], ["express", "Express"], ["fastify", "Fastify"], ["nestjs", "NestJS"], ["@nestjs/core", "NestJS"], ["electron", "Electron"], ["vite", "Vite"], ["tailwindcss", "Tailwind CSS"]];
   const frameworks = knownFw.filter(([k]) => deps[k]).map(([, n]) => n);
@@ -379,6 +398,8 @@ async function collectFacts(root) {
     frameworks,
     scripts,
     features: features.map(f => ({ id: f.id, name: f.name, desc: f.description || "", codeFiles: f.codeFiles?.length || 0, apis: f.apis?.length || 0 })),
+    apiDetail,
+    errorCodeDetail: errorCodeDetail.slice(0, 120),
     tests: ti?.stats ? { files: ti.stats.totalTestFiles, byType: ti.stats.byType || {}, coverage: ti.stats.coverageRate } : null,
     errorCodes: ec?.stats?.uniqueCodes ?? null,
     codeIntel: ciSum ? { functions: ciSum.callGraph?.totalFunctions, symbols: ciSum.symbolIndex?.total } : null,
@@ -405,7 +426,9 @@ export async function generateSpecDraft(root, opts = {}) {
       const prompt = `你是 release unit 的 spec 工程師。根據下方「事實資料」寫 PRODUCT Spec 初稿（code→spec 反向生成）。
 
 嚴格規則：
-- 只用事實資料，不捏造；資料沒有的寫「（資料待補 — 待人確認）」
+- 你是唯一作者：人只訂 schema、不逐項確認 — 全部內容由你依證據寫完，嚴禁出現「資料待補」「待人確認」「待討論」字樣；證據沒有的資訊該行省略或寫「—」
+- apiDetail 是 API 的決定性完整範圍：第 4 節每支 API 都要寫（總表 + 逐一，Request/Response 依 validation/dataTouch/bizLogic 整理）；第 2 節每支 API/feature 至少一條 FR（bizLogic/processFlow 提煉，validation 寫驗收條件）；Error Codes 用 errorCodeDetail 全列（code/message/HTTP status/檔案）
+- 不得捏造；事實資料沒有的不發明
 - 固定八個二級標題照抄，每節照各自的格式 schema 寫：
 ${schemaNote}
 - 不包 \`\`\` 圍籬、不加 # 一級標題、無前言結語
@@ -425,16 +448,29 @@ ${JSON.stringify(facts, null, 2)}`;
     // 確定性 fallback：骨架 + 事實能填的填
     const L = [];
     L.push(`## 1. Product Overview`);
-    L.push(facts.description ? `- ${facts.description}` : "- （資料待補 — 待人確認）");
+    L.push(facts.description ? `- ${facts.description}` : "- 技術栈：" + facts.frameworks.join(" / "));
     L.push("");
     L.push(`## 2. Functional Requirements`);
     if (facts.features.length) for (const f of facts.features.slice(0, 30)) L.push(`- [${f.id}] ${f.name}${f.desc ? " — " + f.desc.slice(0, 60) : ""}`);
-    else L.push("- （資料待補 — 待人確認）");
+    // LLM 失敗 fallback：FR 只列 feature 清單（真資料），無 feature 就省略
     L.push("");
     for (const t of ["3. Non-Functional Requirements", "4. API & Data Contract", "5. Architecture Design", "6. Technical Design", "7. Testing Strategy", "8. Operations & Observability"]) {
       L.push(`## ${t}`);
-      L.push("- （資料待補 — 待人確認）");
       L.push("");
+      L.push("");
+    }
+    // 第 4 節 fallback：API 總表 + 錯誤碼全清單（deterministic 真資料，不是佔位）
+    if ((facts.apiDetail || []).length) {
+      const i4 = L.indexOf("## 4. API & Data Contract");
+      if (i4 > -1) {
+        const api = ["| Endpoint | Method | 用途 |", "|---|---|---|",
+          ...facts.apiDetail.slice(0, 40).map(a => `| ${a.entry} | ${a.method} | ${a.name} |`)];
+        if ((facts.errorCodeDetail || []).length) {
+          api.push("", `**Error Codes**（${facts.errorCodeDetail.length} 筆；code=(inline) 表 throw 字串）`);
+          for (const c of facts.errorCodeDetail.slice(0, 60)) api.push(`- ${c.code ?? "(inline)"}${c.httpStatus ? ` HTTP ${c.httpStatus}` : ""} ${c.message}（${c.file || "—"}）`);
+        }
+        L.splice(i4 + 1, 0, ...api);
+      }
     }
     if (facts.frameworks.length) L.splice(L.indexOf("## 5. Architecture Design") + 1, 0, `- 技術栈：${facts.frameworks.join(" / ")}`);
     if (facts.tests) { const i = L.indexOf("## 7. Testing Strategy"); if (i > -1) L.splice(i + 1, 0, `- 測試：${facts.tests.files} 檔，coverage ${facts.tests.coverage ?? "—"}`); }
