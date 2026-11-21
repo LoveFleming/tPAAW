@@ -568,6 +568,18 @@ export default async function projectRoute(req, res) {
 
     // ── PROJECT.md（schema v3 — User Remarks / Product Spec / AI Overview）2026-11-16 ──
     // GET：讀三區；POST：寫 User Remarks 和/或 Product Spec 區（AI 區保留）；POST /regenerate：重寫 AI 區；POST /spec-draft：生 spec 初稿
+    // ── Product Spec 版本（2026-11-21 Fleming：可選哪一版，預設最新）──
+    if (url.startsWith("/api/coding-project/project-md/spec-versions") && method === "GET") {
+      const { listSpecVersions, readSpecVersion } = await import("../lib/project-md.mjs");
+      const m = url.match(/\/spec-versions\/([^/?]+)$/);
+      if (m) {
+        const snap = readSpecVersion(root, decodeURIComponent(m[1]));
+        if (!snap) { res.writeHead(404, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "版本不存在" })); return true; }
+        res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: true, spec: snap })); return true;
+      }
+      res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: true, versions: listSpecVersions(root) }));
+      return true;
+    }
     if (url.startsWith("/api/coding-project/project-md") && method === "GET") {
       if (!paaw.exists) await paaw.init();
       const md = await paaw.readFile("PROJECT.md");
@@ -584,11 +596,11 @@ export default async function projectRoute(req, res) {
     if (url.startsWith("/api/coding-project/project-md/spec-fill") && method === "POST") {
       // 一次填整份 8 節（2026-11-18 Fleming：人貼 project 內容給曉薇 → 一鍵填好）— 逐節生成，全寫入 PROJECT.md
       if (!paaw.exists) await paaw.init();
-      let modelOverride = null;
-      try { const b = JSON.parse(await readBody(req) || "{}"); modelOverride = b.model || null; } catch {}
+      let modelOverride = null; let specLabel = null;
+      try { const b = JSON.parse(await readBody(req) || "{}"); modelOverride = b.model || null; specLabel = b.rr || null; } catch {}
       try {
         const { generateFullSpec } = await import("../lib/project-md.mjs");
-        const r = await generateFullSpec(root, { callLLM: (b) => callProjectLLM({ ...b, model: b.model || modelOverride || undefined }, { caller: "spec-fill-all", timeoutMs: 120_000, maxRetries: 2 }) });
+        const r = await generateFullSpec(root, { label: specLabel, by: "ai:full", callLLM: (b) => callProjectLLM({ ...b, model: b.model || modelOverride || undefined }, { caller: "spec-fill-all", timeoutMs: 120_000, maxRetries: 2 }) });
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(r));
       } catch (e) {
@@ -604,7 +616,7 @@ export default async function projectRoute(req, res) {
       const modelOverride = body.model || null;
       try {
         const { generateSpecSection } = await import("../lib/project-md.mjs");
-        const r = await generateSpecSection(root, Number(body.index), { callLLM: (b) => callProjectLLM({ ...b, model: b.model || modelOverride || undefined }, { caller: "spec-section-write", timeoutMs: 120_000, maxRetries: 2 }) });
+        const r = await generateSpecSection(root, Number(body.index), { label: body.rr || null, by: "ai:section", callLLM: (b) => callProjectLLM({ ...b, model: b.model || modelOverride || undefined }, { caller: "spec-section-write", timeoutMs: 120_000, maxRetries: 2 }) });
         if (!r) {
           res.writeHead(502, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "LLM 回覆空 — 未寫入" }));

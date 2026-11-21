@@ -2194,5 +2194,7 @@
   "rm.docs.idle": "—",
   "rm.docs.hint": "按「🚀 製作 Release Info」會依序更新：Prod Spec → DFO → Release Info（含 Evidence Matrix，同 info 版號凍結）。不按不會自動做；有問題列在下面，可單獨重做。",
   "rm.ri.featCol": "功能",
-  "rm.ri.impactCol": "說明"
+  "rm.ri.impactCol": "說明",
+  "projectMd.versionTitle": "版本（預設最新）",
+  "projectMd.versionCurrent": "現行版"
 }

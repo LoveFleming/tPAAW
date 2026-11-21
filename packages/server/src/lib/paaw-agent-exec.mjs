@@ -2714,8 +2714,10 @@ baseline ${rr.baseline?.short}(${rr.baseline?.source})→ target ${rr.target?.sh
         let name = cwd.split(/[\\/]/).pop() || "Project";
         try { const pkg = JSON.parse(readSync(join(cwd, "package.json"), "utf-8")); if (pkg?.name) name = pkg.name; } catch {}
         await paaw.writeFile("PROJECT.md", buildProjectMd(name, null, null, joinSpecSections(parts)));
+        let specV = null;
+        try { const { snapshotSpec } = await import("./project-md.mjs"); specV = snapshotSpec(cwd, null, "ai:spec_write")?.version || null; } catch {}
         if (onEvent) onEvent({ type: "tool_end", name, result: wroteDesc });
-        return `✅ Product Spec 已寫入 PROJECT.md（${wroteDesc}）。UI 按 🔄 可看到最新内容。`;
+        return `✅ Product Spec 已寫入 PROJECT.md（${wroteDesc}${specV ? `，版本 ${specV}` : ""}）。UI 按 🔄 可看到最新内容。`;
       }
 
       // ── Unified project_edit handler ──

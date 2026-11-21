@@ -29,6 +29,11 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [showChat, setShowChat] = useState(true); // 林曉薇 side chat 開關（預設開）
   const [filling, setFilling] = useState(false); // ✨ AI 填整份進行中（2026-11-18）
+  // 版本下拉（2026-11-21 Fleming：可選哪一版，預設最新；沒有就顯示沒有）
+  const [versions, setVersions] = useState<Array<{ version: string }>>([]);
+  const [viewVersion, setViewVersion] = useState<string>("current");
+  const [verSections, setVerSections] = useState<string[] | null>(null);
+  const [verMeta, setVerMeta] = useState<{ version: string; updatedAt?: string } | null>(null);
   const chatPane = useColResize(520, 300, 760); // 2026-11-19 Fleming：預設寬與 architect/handover/release/ops 統一（520）
 
   const load = useCallback(async () => {
@@ -38,12 +43,34 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
       const d = await r.json();
       setExists(!!d.exists);
       setSections((d.specSections && d.specSections.length === 8) ? d.specSections : new Array(8).fill(""));
+      try {
+        const vr = await fetch(`${API_BASE}/api/coding-project/project-md/spec-versions?path=${encodeURIComponent(rootPath)}`).then(x => x.json());
+        setVersions(Array.isArray(vr?.versions) ? vr.versions : []);
+      } catch { setVersions([]); }
     } catch {
       setExists(false);
+      setVersions([]);
     }
   }, [rootPath]);
 
   useEffect(() => { setExists(null); load(); }, [load]);
+
+  // 看歷史版本（唯讀）
+  useEffect(() => {
+    if (viewVersion === "current") { setVerSections(null); setVerMeta(null); return; }
+    if (!rootPath || !viewVersion) return;
+    let alive = true;
+    (async () => {
+      try {
+        const d = await fetch(`${API_BASE}/api/coding-project/project-md/spec-versions/${encodeURIComponent(viewVersion)}?path=${encodeURIComponent(rootPath)}`).then(x => x.json());
+        if (!alive) return;
+        const secs = d?.spec?.sections;
+        setVerSections(Array.isArray(secs) && secs.length === 8 ? secs.map((x: any) => String(x || "")) : new Array(8).fill(""));
+        setVerMeta({ version: d?.spec?.version || viewVersion, updatedAt: d?.spec?.updatedAt });
+      } catch { if (alive) { setVerSections(new Array(8).fill("")); setVerMeta({ version: viewVersion }); } }
+    })();
+    return () => { alive = false; };
+  }, [viewVersion, rootPath]);
   // 曉薇寫入後自動看到：切 tab 或視窗聚焦時重抓（輕量，不打擾）
   useEffect(() => {
     const onFocus = () => load();
@@ -116,6 +143,18 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
             style={{ borderColor: tk.borderLight || "#e7e5e4", color: tk.accent || "#8b5e3c" }}
             title={t("projectMd.fillAllTitle")}
           >{filling ? `⏳ ${t("projectMd.fillAllRunning")}` : t("projectMd.fillAll")}</button>
+          {versions.length > 0 && (
+            <select
+              value={viewVersion}
+              onChange={e => setViewVersion(e.target.value)}
+              className="text-xs px-1.5 py-1 border rounded-lg bg-white whitespace-nowrap"
+              style={{ borderColor: tk.borderLight || "#e7e5e4", color: tk.accent || "#8b5e3c" }}
+              title={t("projectMd.versionTitle")}
+            >
+              <option value="current">{t("projectMd.versionCurrent")}</option>
+              {[...versions].reverse().map(v => <option key={v.version} value={v.version}>{v.version}</option>)}
+            </select>
+          )}
           <button
             onClick={refresh}
             disabled={refreshing}
@@ -133,9 +172,12 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
 
         {/* 唯讀渲染區：markdown + mermaid 圖 */}
         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 text-sm leading-relaxed" style={{ color: tk.text || "#44403c", scrollbarWidth: "thin" }}>
-          <div className="text-sm font-bold mb-3">📄 {activeIdx + 1}. {tabLabels[activeIdx]}</div>
-          {sections[activeIdx]?.trim() ? (
-            <MarkdownText>{sections[activeIdx]}</MarkdownText>
+          <div className="text-sm font-bold mb-3">
+            📄 {activeIdx + 1}. {tabLabels[activeIdx]}
+            {verSections && <span className="ml-2 text-amber-600 font-normal">👁️ {verMeta?.version || viewVersion} 唯讀</span>}
+          </div>
+          {(verSections || sections)[activeIdx]?.trim() ? (
+            <MarkdownText>{(verSections || sections)[activeIdx]}</MarkdownText>
           ) : (
             <div className="text-center py-8 text-stone-400 text-sm">
               <div className="text-2xl mb-2">📄</div>

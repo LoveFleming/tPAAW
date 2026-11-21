@@ -51,12 +51,12 @@ export async function triggerDoc(projectPath, rrId, kind) {
     try {
       if (kind === "spec") {
         const r = await fetch(`${BASE()}/api/coding-project/project-md/spec-fill?path=${encodeURIComponent(projectPath)}`, {
-          method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+          method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ rr: rrId }),
         });
         const d = await r.json().catch(() => ({}));
         if (!r.ok || d?.error) throw new Error(d?.error || `spec-fill HTTP ${r.status}`);
         if (!d?.written) throw new Error(d?.reason || "spec 未寫入");
-        setDoc(projectPath, rrId, kind, { status: "done", error: null, detail: `已更新 ${(d.sections || []).length} 節` });
+        setDoc(projectPath, rrId, kind, { status: "done", error: null, detail: `spec ${d.version || ""} · ${(d.sections || []).length} 節` });
       } else if (kind === "dfo") {
         const r = await fetch(`${BASE()}/api/coding-dfo/generate?path=${encodeURIComponent(projectPath)}`, {
           method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ cwd: projectPath, rr: rrId }),

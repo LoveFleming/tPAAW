@@ -2194,5 +2194,7 @@
   "rm.docs.idle": "—",
   "rm.docs.hint": "Click “🚀 Build Release Info” to update in order: Prod Spec → DFO → Release Info (with Evidence Matrix, frozen at the same version). Nothing runs automatically; problems are listed below and can be redone individually.",
   "rm.ri.featCol": "Feature",
-  "rm.ri.impactCol": "Impact"
+  "rm.ri.impactCol": "Impact",
+  "projectMd.versionTitle": "Version (latest by default)",
+  "projectMd.versionCurrent": "Current"
 }

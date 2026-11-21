@@ -10,7 +10,7 @@
 // 注意：路徑用 .paaw/PROJECT.md（與 context-providers projectProvider、舊 maybeWriteProjectDraft 一致）
 
 import { join } from "node:path";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { createPaawProject } from "./paaw-project.mjs";
 import { loadFeatures as registryLoadFeatures } from "./feature-registry.mjs";
 
@@ -162,6 +162,52 @@ export function joinSpecSections(parts) {
 }
 
 /** 讀林曉薇 spec side chat 對話歷史當寫入依據：active.json 優先， fallback 最新 s-*.json */
+// ── Product Spec 版本快照（2026-11-21 Fleming：spec 也要能選版本，代號對準 RR）──
+// 每次 spec 寫入（AI 全填 / 單節 / spec_write）→ 快照 .paaw/spec/versions/{代號}.json
+// 代號規則同 DFO：首次 "initial"；有 RR 帶 rr id；同代號多次寫 → 代號~2、~3（不可變）
+export function specVersionsDir(root) { return join(root, ".paaw", "spec", "versions"); }
+
+export function listSpecVersions(root) {
+  const dir = specVersionsDir(root);
+  if (!existsSync(dir)) return [];
+  try {
+    return readdirSync(dir)
+      .filter(f => /^[\w][\w.\-]*(~\d+)?\.json$/.test(f))
+      .map(f => ({ version: f.replace(/\.json$/, ""), file: f, _mtime: statSync(join(dir, f)).mtimeMs }))
+      .sort((a, b) => a._mtime - b._mtime)
+      .map(({ _mtime, ...v }) => v);
+  } catch { return []; }
+}
+
+export function readSpecVersion(root, version) {
+  const list = listSpecVersions(root);
+  if (!list.length) return null;
+  const v = version || list[list.length - 1].version;
+  try { return JSON.parse(readFileSync(join(specVersionsDir(root), `${v}.json`), "utf-8")); } catch { return null; }
+}
+
+/** 快照目前的 spec（8 節）；label = RR id 或省略（沿用前代號 / 首次 initial） */
+export function snapshotSpec(root, label, by) {
+  let md = null;
+  for (const cand of [join(root, ".paaw", "project", "PROJECT.md"), join(root, ".paaw", "PROJECT.md")]) {
+    try { md = readFileSync(cand, "utf-8"); break; } catch {}
+  }
+  if (!md) return null;
+  const parts = splitSpecSections(parseProjectMd(md).specSection || "");
+  if (!parts.some(p => String(p || "").trim())) return null; // 空 spec 不快照
+  const list = listSpecVersions(root);
+  const prevLabel = list.length ? list[list.length - 1].version.replace(/~\d+$/, "") : null;
+  const baseLabel = String(label || prevLabel || "initial").replace(/[^\w.\-]/g, "_");
+  const n = list.filter(v => v.version === baseLabel || v.version.startsWith(`${baseLabel}~`)).length;
+  const version = n === 0 ? baseLabel : `${baseLabel}~${n + 1}`;
+  try {
+    mkdirSync(specVersionsDir(root), { recursive: true });
+    const snap = { version, updatedAt: new Date().toISOString(), updatedBy: by || "ai", sections: parts };
+    writeFileSync(join(specVersionsDir(root), `${version}.json`), JSON.stringify(snap, null, 2), "utf-8");
+    return snap;
+  } catch { return null; }
+}
+
 async function readSpecAiConversation(paaw) {
   const dir = "coding-memory/conversations/coding.spec-side";
   const readJson = async (rel) => {
@@ -240,7 +286,8 @@ export async function generateSpecSection(root, index, opts = {}) {
   const specSection = joinSpecSections(parts);
   let name = facts.name || "Project";
   await paaw.writeFile("PROJECT.md", buildProjectMd(name, null, null, specSection));
-  return { written: true, index, content };
+  const snap = snapshotSpec(root, opts.label, opts.by || "ai:section");
+  return { written: true, index, content, version: snap?.version || null };
 }
 
 /**
@@ -272,7 +319,8 @@ export async function generateFullSpec(root, opts = {}) {
   for (let i = 0; i < 8; i++) if (!parts[i] && oldParts[i]) parts[i] = oldParts[i];
   let name = facts.name || root.split(/[\\/]/).pop() || "Project";
   await paaw.writeFile("PROJECT.md", buildProjectMd(name, null, null, joinSpecSections(parts)));
-  return { written: true, sections: parts.map((p, i) => (p ? i + 1 : 0)).filter(Boolean), failed: failed.length ? failed : undefined };
+  const snap = snapshotSpec(root, opts.label, opts.by || "ai:full");
+  return { written: true, sections: parts.map((p, i) => (p ? i + 1 : 0)).filter(Boolean), failed: failed.length ? failed : undefined, version: snap?.version || null };
 }
 
 function sliceBetween(md, startMark, endMark) {
