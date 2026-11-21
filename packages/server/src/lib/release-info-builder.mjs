@@ -269,6 +269,16 @@ function _validateAiPart(parsed, { hasCommits = true } = {}) {
  * 啟動 build（背景 job，不 await 結果）— 回傳起始狀態。
  * 已在跑 → 回 running；RR 不存在 → throw 404。
  */
+/** features deterministic 來源：變更命中 feature map → 沒有（initial release）就 feature map 全量 */
+async function _deterministicFeatures(projectPath, cu) {
+  if (cu?.affected?.length) return cu.affected;
+  try {
+    const { readFeatures } = await import("./coding-db/reads.mjs");
+    const all = readFeatures(projectPath) || [];
+    return all.slice(0, 30).map(f => ({ id: f.id, name: f.name || f.title || f.id, impact: "首次匯入：本 RU 全量 feature" }));
+  } catch { return []; }
+}
+
 export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", includeE2e = true } = {}) {
   const rr = await getReleaseRequest(projectPath, rrId);
   if (!rr) { const e = new Error(`release request not found: ${rrId}`); e.status = 404; throw e; }
@@ -365,7 +375,7 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
             ? `首次匯入 initial release（AI 摘要失敗，自動 fallback：本版匯入基準 ${det.commit?.slice(0, 8) || "HEAD"}，無後續變更）`
             : `本版含 ${scope.commits?.count ?? gitLog.split("\n").filter(Boolean).length} 個 commits（AI 摘要失敗，由系統列出 commit 清單）`,
           changes: _fallbackChanges(gitLog),
-          features: cu.affected, // fallback：系統比對變更檔案↔feature map 的命中清單（deterministic）
+          features: await _deterministicFeatures(projectPath, cu),
         };
       }
 
@@ -375,7 +385,8 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
         release_date: new Date().toISOString().slice(0, 10),
         summary: ai.summary,
         changes: ai.changes,
-        features: ai.features || [],
+        // 2026-11-21 Fleming：features 不能空 — AI 沒給（initial release 常見）就用 feature map deterministic 補上
+        features: (ai.features || []).length ? ai.features : await _deterministicFeatures(projectPath, cu),
         git: det.git,
       };
 
