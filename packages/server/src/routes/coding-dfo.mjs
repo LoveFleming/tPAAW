@@ -95,7 +95,8 @@ export default async function dfoRoutes(req, res) {
       } else {
         ctxParts.push("--- 現行 DFO：無（首次生成，全新寫）---");
       }
-      for (const [file, label, max] of [["scan.json", "SCAN（專案盤點）", 4000], ["error-codes.json", "ERROR CODES", 3000], ["c4-model.json", "C4（對外連線）", 2000]]) {
+      // 2026-11-21 Fleming：C4 + error codes 必須寫進 DFO → 給足內容（原本 error codes 只切 3000 字，byFeature 細節根本沒進 prompt）
+      for (const [file, label, max] of [["scan.json", "SCAN（專案盤點）", 4000], ["error-codes.json", "ERROR CODES（byFeature + unmapped 全清單）", 12000], ["c4-model.json", "C4 MODEL（system/containers/externalSystems/relationships）", 6000]]) {
         try {
           const c = await paaw.readFile(file);
           if (c && c.trim()) ctxParts.push(`--- ${label} ---\n${c.slice(0, max)}`);

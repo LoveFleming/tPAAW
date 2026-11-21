@@ -4,8 +4,10 @@
 
 ## 你會收到
 - 現行 DFO（若已有 — 這是延續性的基礎，內容對的直接保留精煉）
-- CU 知識庫摘要（scan.json / features / error codes / c4）
+- CU 知識庫：SCAN（專案盤點）、FEATURES、**ERROR CODES**（`.paaw/error-codes.json`：`byFeature` 各功能的錯誤碼 + `unmapped` 未歸屬清單，含 code / message / kind / httpStatus / file）、**C4 MODEL**（`.paaw/c4-model.json`：system / containers / externalSystems / relationships）
 - package.json、git log、目錄結構
+
+> **C4 與 ERROR CODES 是必寫素材，不是參考素材**：兩者有資料就必須確實寫進對應章節（見下方各節指引），只提一句或整段漏掉 = 產出不合格。
 
 ## 你要產出
 
@@ -26,10 +28,19 @@
 ## 每節內容指引
 
 1. **overview 系統全景** — 這系統是什麼、怎麼跑起來（啟動指令/依賴/環境變數/端口）、元件與資料流向。**必附一張 mermaid 架構圖**（graph TD）。
-   **C4 model 是最重要的輸入**：資料裡的「C4（對外連線）」（c4-model.json）描述這個系統的容器、對外依賴與連線 — overview 必須把 C4 的內容消化進來：系統邊界、外部服務/DB/第三方程式怎麼連、依賴什麼協定與環境變數，架構圖也要畫出這些對外連線（不能只畫內部模組）。C4 有資料卻沒寫進 overview = 嚴重缺失。
+   **C4 model 是最重要的輸入**：資料裡的「C4 MODEL」（c4-model.json）描述這個系統的容器、對外依賴與連線 — overview 必須把 C4 的內容消化進來：
+   - 系統邊界與 containers（每個 container 是什麼、負責什麼）
+   - **對外連線表**：外部服務 / DB / 第三方程式 — 名稱、協定、用途、需要的環境變數
+   - 架構圖要畫出這些對外連線（不能只畫內部模組）
+   C4 有資料卻沒寫進 overview = 嚴重缺失。
 2. **operations 日常操作** — 維運例行：部署/重啟/備份/健康檢查/log 在哪怎麼看、常用維運指令。
-3. **troubleshooting 事故排查** — 依 error codes / 已知風險整理：症狀 → 可能根因 → 處置步驟。症狀多的話附一張 mermaid 排查決策 flowchart。
-4. **handover 交接上手** — 新人/AI 接手 10 分鐘上手：專案結構導覽、開發工作流（誰開 task 誰派工）、關鍵檔案、地雷區。
+3. **troubleshooting 事故排查** — **ERROR CODES 是這一節的主體**（不是附錄）：
+   - 必列「錯誤碼對照」表：`code` / HTTP / 訊息 / kind / 來源檔案 / 對應功能 — 涵蓋 `byFeature` 各功能；`unmapped` 的也要列
+   - 錯誤碼多時只列真正會被看到的（高頻/高風險/對外 API 回傳的），其餘按功能分組一句話帶過，不要整份貼
+   - 每類錯誤寫：症狀 → 可能根因 → 處置步驟（可查的檔案/指令/log 位置）
+   - 症狀多時附一張 mermaid 排查決策 flowchart
+   - ERROR CODES 有資料卻沒寫進這一節 = 嚴重缺失
+4. **handover 交接上手** — 新人/AI 接手 10 分鐘上手：專案結構導覽、開發工作流（誰開 task 誰派工）、關鍵檔案、地雷區。C4 的 container 對應到哪些目錄/入口檔要講清楚（接手者第一個問題就是「這段在哪」）。
 5. **rollback 回滾與降級** — 怎麼退版（git/部署）、退了會影響什麼、哪些狀態不可逆要小心。
 
 ## 規則
