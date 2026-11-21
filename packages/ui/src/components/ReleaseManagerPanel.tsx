@@ -143,6 +143,38 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     finally { setEvApiBusy(false); }
   };
 
+  // 2026-11-21 Fleming：Release Information 進場卡 — 建 RR 後 AI 自動產 release info（實蹓 unit+e2e 實體證據，版本遞增）
+  const [relInfo, setRelInfo] = useState<any | null>(null);
+  const [newRrBusy, setNewRrBusy] = useState(false);
+  const fetchRelInfo = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const d = await fetch(`${API_BASE}/api/coding-releases/release-info/latest?path=${encodeURIComponent(rootPath)}`).then(r => r.json());
+      if (d && !d.error) setRelInfo(d);
+    } catch { /* 不擋主頁 */ }
+  }, [rootPath]);
+  useEffect(() => { fetchRelInfo(); }, [fetchRelInfo]);
+  // build 進行中 → 輪詢到結束
+  useEffect(() => {
+    const st = relInfo?.latestRR?.buildStatus;
+    if (!st?.running) return;
+    const id = setTimeout(fetchRelInfo, 3000);
+    return () => clearTimeout(id);
+  }, [relInfo, fetchRelInfo]);
+  const createNewRR = async () => {
+    if (!rootPath || newRrBusy) return;
+    setNewRrBusy(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/coding-releases/request?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}),
+      }).then(r => r.json());
+      if (r.error) { setToast({ ok: false, text: String(r.error) }); return; }
+      setToast({ ok: true, text: `✅ ${r.id} 已建單 — AI 開始產 release information（實蹓測試 + 證據快照 + 撰寫中）` });
+      fetchRelInfo();
+    } catch (e: any) { setToast({ ok: false, text: e.message }); }
+    finally { setNewRrBusy(false); }
+  };
+
   // ▶ 執行測試：POST 背景跑 → 輪詢到結束 → 重抓 readiness（真實數字）
     // 2026-11-07 Fleming 大 feature：E2E 測試盤點（deterministic 抽取測試名/URL ↔ API 雙向關聯，孤兒=黑盒缺口）
   const [e2eInv, setE2eInv] = useState<any | null>(null);
@@ -357,6 +389,80 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
             {toast.text}
           </div>
         )}
+
+        {/* ═══ Release Information 進場卡（2026-11-21 Fleming）— 進來就看到最新一版 release 資訊 + 證據 ═══ */}
+        <div className="px-5 pt-4" data-testid="rm-release-info">
+          <div className="rounded-xl border overflow-hidden bg-white" style={{ borderColor: tk.borderLight }}>
+            <div className="px-4 py-2.5 flex items-center gap-2 flex-wrap border-b bg-stone-50/60" style={{ borderColor: tk.borderLight }}>
+              <span className="text-sm font-bold text-stone-800">🚀 {t("rm.ri.title")}</span>
+              {relInfo?.shipped && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold" title={relInfo.shipped.id}>
+                  {t("rm.ri.shipped")} {relInfo.shipped.releaseId || relInfo.shipped.id} · {String(relInfo.shipped.closedAt || "").slice(0, 10)}
+                </span>
+              )}
+              <span className="flex-1" />
+              <button onClick={createNewRR} disabled={newRrBusy}
+                className="text-xs px-3 py-1 rounded-lg text-white font-bold hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5"
+                style={{ backgroundColor: "#16a34a" }} data-testid="rm-ri-new">
+                {newRrBusy && <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full" />}
+                🚀 {relInfo?.latestRR ? t("rm.ri.newBtn") : t("rm.ri.firstBtn")}
+              </button>
+            </div>
+            {!relInfo?.latestRR ? (
+              <div className="px-4 py-6 text-center text-xs text-stone-400">{t("rm.ri.empty")}</div>
+            ) : (
+              <div className="px-4 py-3 space-y-2">
+                {/* RR 狀態列 */}
+                <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                  <span className="font-mono font-bold text-stone-700">{relInfo.latestRR.id}</span>
+                  <span className={`px-1.5 py-0.5 rounded font-bold ${relInfo.latestRR.status === "released" ? "bg-green-100 text-green-700" : relInfo.latestRR.status === "reviewing" ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-500"}`}>{relInfo.latestRR.status}</span>
+                  <span className="text-stone-400 truncate max-w-[380px]" title={relInfo.latestRR.title}>{relInfo.latestRR.title}</span>
+                </div>
+                {/* 實體證據 chips：test run + evidence snapshot */}
+                <div className="flex gap-2 flex-wrap text-[10px] font-bold">
+                  {(() => {
+                    const tr = relInfo.latestRR.buildStatus?.testRun;
+                    if (!tr) return <span className="px-2 py-1 rounded-lg bg-white border text-stone-400" style={{ borderColor: tk.borderLight }}>{t("rm.ri.noTest")}</span>;
+                    const s = tr.summary || {};
+                    return (
+                      <span className={`px-2 py-1 rounded-lg border ${tr.status === "pass" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`} style={{ borderColor: tk.borderLight }}
+                        title={`${tr.id} @ ${String(tr.at || "").slice(0, 16)}`}>
+                        🧪 {tr.id} {tr.status} · {s.passed ?? "?"}✓ / {s.failed ?? "?"}✗ / {s.skipped ?? "?"}s
+                      </span>
+                    );
+                  })()}
+                  {relInfo.latestRR.buildStatus?.evidenceSnapshot ? (
+                    <span className="px-2 py-1 rounded-lg bg-white border text-teal-700" style={{ borderColor: tk.borderLight }}
+                      title={relInfo.latestRR.buildStatus.evidenceSnapshot.id}>
+                      ⚖️ {relInfo.latestRR.buildStatus.evidenceSnapshot.id}
+                    </span>
+                  ) : null}
+                  {relInfo.latestRR.latestInfoVersion && (
+                    <span className="px-2 py-1 rounded-lg bg-white border text-stone-500" style={{ borderColor: tk.borderLight }}>
+                      📄 info v{relInfo.latestRR.latestInfoVersion}
+                    </span>
+                  )}
+                </div>
+                {/* build 進度 */}
+                {relInfo.latestRR.buildStatus?.running && (
+                  <div className="flex items-center gap-2 text-[11px] text-amber-700">
+                    <span className="animate-spin inline-block w-3 h-3 border-[1.5px] border-amber-500 border-t-transparent rounded-full" />
+                    {t("rm.ri.building")}：{relInfo.latestRR.buildStatus.step}
+                  </div>
+                )}
+                {relInfo.latestRR.buildStatus?.error && (
+                  <div className="text-[11px] text-red-500">⚠ {relInfo.latestRR.buildStatus.error}</div>
+                )}
+                {/* AI 寫的 release information */}
+                {relInfo.latestRR.latestInfoContent && (
+                  <div className="rounded-lg border bg-stone-50/50 p-3 text-[11px] leading-relaxed whitespace-pre-wrap font-mono max-h-72 overflow-auto" style={{ borderColor: tk.borderLight }}>
+                    {relInfo.latestRR.latestInfoContent}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* ═══ Release Readiness 報告（APRS 風格 — 打開就能跟老闆報告）═══ */}
         {readiness && (

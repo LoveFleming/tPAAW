@@ -354,6 +354,43 @@ export default async function releaseRoutes(req, res, next) {
     }
   }
 
+  // ── Release Information（2026-11-21 Fleming：建 RR 後 AI 自動產 release info — 實體證據 unit+e2e 實跑，版本遞增）──
+
+  // POST /requests/:id/build — 手動觸發（建單後已自動觸發，此端點供重跑/新版）
+  const riBuild = url.match(/^\/api\/coding-releases\/requests\/([^/]+)\/build$/);
+  if (riBuild && method === "POST") {
+    const body = await readJsonBody(req);
+    const path = assertProjectPath(body?.path || projectPath);
+    if (!path) return res.status(400).json({ error: "path required" });
+    if (!sanitizeId(riBuild[1])) return res.status(400).json({ error: "invalid request id" });
+    try {
+      const { startReleaseInfoBuild } = await import("../lib/release-info-builder.mjs");
+      return res.json(await startReleaseInfoBuild(path, riBuild[1], { by: body?.by || "human" }));
+    } catch (e) {
+      return res.status(e.status || 500).json({ error: e.message });
+    }
+  }
+
+  // GET /release-info/status?rr=RR-xxx — build 進度輸詢
+  if (url === "/api/coding-releases/release-info/status" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    const rrId = q.get("rr");
+    if (!rrId || !sanitizeId(rrId)) return res.status(400).json({ error: "rr required" });
+    const { getBuildStatus } = await import("../lib/release-info-builder.mjs");
+    return res.json(getBuildStatus(projectPath, rrId));
+  }
+
+  // GET /release-info/latest — 進場卡：最新 RR + 最新版 info + 最新 shipped release
+  if (url === "/api/coding-releases/release-info/latest" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    try {
+      const { getLatestReleaseInfo } = await import("../lib/release-info-builder.mjs");
+      return res.json(await getLatestReleaseInfo(projectPath));
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   // POST test-run — 真實執行測試（背景 job，結果寫 .paaw/test-runs/last.json）
   if (url === "/api/coding-releases/test-run" && method === "POST") {
     if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
@@ -985,6 +1022,10 @@ export default async function releaseRoutes(req, res, next) {
     if (!path) return res.status(400).json({ error: "path required" }); // nosemgrep: detect-non-literal-fs-filename — local-first: 使用者自選專案根目錄（localhost 單人工具）
     try {
       const rr = await createReleaseRequest(path, { title: body.title, baseline: body.baseline || "auto" });
+      // 2026-11-21 Fleming：建單後 AI 自動開工 — 實跳 unit+e2e + 證據快照 + AI 寫 release information（背景，不 await）
+      import("../lib/release-info-builder.mjs")
+        .then(({ startReleaseInfoBuild }) => startReleaseInfoBuild(path, rr.id, { by: "auto:on-create" }))
+        .catch((e) => console.warn(`[release-info] auto build failed (${rr.id}):`, e.message));
       return res.json(rr);
     } catch (e) {
       return res.status(e.status || 500).json({ error: e.message });
