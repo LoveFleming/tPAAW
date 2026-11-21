@@ -183,7 +183,7 @@ async function readSpecAiConversation(paaw) {
 const stripCodeFence = (c) => (c || "").replace(/^```(?:markdown)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
 
 /** 共用：單節生成 prompt（帶各節 schema 格式 — 2026-11-18 Fleming） */
-function buildSectionPrompt(index, transcript, facts, extra = "") {
+function buildSectionPrompt(index, transcript, facts, extra = "", existing = "") {
   const schema = SPEC_SECTION_SCHEMAS[index];
   const title = SPEC_SECTIONS[index];
   return `你是林曉薇（Product Spec 協作助理）。根據下方「與人的討論紀錄（含人貼上的內容）」和「專案事實」，寫出 Product Spec 的其中一節。
@@ -196,6 +196,7 @@ ${schema.format}
 嚴格規則：
 - 人貼的內容/決定最優先，原汁原味收錄（可整理排版，不得改意思）；其次專案事實（apiDetail/errorCodeDetail 是決定性證據，當完整範圍用，不得遺漏 API）
 - 你是唯一作者：人只訂 schema、不逐項確認 — 所有欄位由你依證據寫完；嚴禁出現「資料待補」「待人確認」「待討論」等字樣。證據没有的資訊：該行省略或寫「—」，不可留空待補
+- AI 更新必須參考現有內容（若有）：以現有內容為基礎增補與修正 — 保留仍正確的段落與 ID 編號，只補缺漏、修正與證據衝突處，不要整份重寫
 - 第 2 節：FR 從 apiDetail 的 bizLogic/processFlow 提煉，每支 API/feature 至少一條 FR，驗收條件從 validation 寫
 - 第 4 節：apiDetail 每支 API 都要出現（總表 + 逐一 API-XX）；Request/Response 依 validation/dataTouch/bizLogic 整理成 schema/範例；Error Codes 用 errorCodeDetail 全列（code/message/HTTP status/檔案；code=null 列 message+kind）
 - 不得捏造事實；專案事實沒有的 API/feature/error code 不要發明
@@ -205,6 +206,8 @@ ${schema.format}
 ${transcript ? `
 與人的討論紀錄（最新在後，可能含人貼上的規格內容）：
 ${transcript}` : "\n（尚無討論紀錄 — 完全依專案事實寫完，不留待補）"}
+
+${existing ? `\n這一節現有內容（最新已寫版本 — 以此為基礎更新，不要重寫掉正確內容）：\n${existing.slice(0, 6000)}` : ""}
 
 專案事實（JSON）：
 ${JSON.stringify(facts, null, 2)}`;
@@ -226,12 +229,13 @@ export async function generateSpecSection(root, index, opts = {}) {
   const [conversation, facts] = await Promise.all([readSpecAiConversation(paaw), collectFacts(root)]);
   const title = SPEC_SECTIONS[index];
   const transcript = conversation.map(m => `${m.role === "user" ? "人" : "曉薇"}: ${m.content}`).join("\n\n").slice(-24000);
-  const content = await callAndStrip(opts.callLLM, buildSectionPrompt(index, transcript, facts));
-  if (!content) return null;
-  // 寫入：只動這一節
+  // 2026-11-21 Fleming：AI 更新要參考現有內容（有就以此為基礎增補修正，不重寫掉）
   const existing = await paaw.readFile("PROJECT.md");
   const parsed = parseProjectMd(existing);
   const parts = splitSpecSections(parsed.specSection || "");
+  const content = await callAndStrip(opts.callLLM, buildSectionPrompt(index, transcript, facts, "", parts[index] || ""));
+  if (!content) return null;
+  // 寫入：只動這一節
   parts[index] = content;
   const specSection = joinSpecSections(parts);
   let name = facts.name || "Project";
@@ -251,19 +255,20 @@ export async function generateFullSpec(root, opts = {}) {
   const transcript = conversation.map(m => `${m.role === "user" ? "人" : "曉薇"}: ${m.content}`).join("\n\n").slice(-60000);
   const parts = new Array(8).fill("");
   const failed = [];
+  // 2026-11-21 Fleming：AI 更新參考現有內容（有就逐節帶入當基礎）
+  const existing = await paaw.readFile("PROJECT.md");
+  const parsed = parseProjectMd(existing);
+  const oldParts = splitSpecSections(parsed.specSection || "");
   for (let i = 0; i < 8; i++) {
     // 前一節結果帶入下一節 prompt，避免 ID 編號/内容重複（FR-01 起頭等）
     const prev = i > 0 && parts[i - 1] ? `\n\n（前一節 ${SPEC_SECTION_TITLES[i - 1]} 已寫内容，供參考保持一致、ID 不重號）：\n${parts[i - 1].slice(0, 2000)}` : "";
     try {
-      const c = await callAndStrip(opts.callLLM, buildSectionPrompt(i, transcript, facts, prev));
+      const c = await callAndStrip(opts.callLLM, buildSectionPrompt(i, transcript, facts, prev, oldParts[i] || ""));
       if (c) parts[i] = c; else failed.push(i + 1);
     } catch { failed.push(i + 1); }
   }
   if (failed.length === 8) return { written: false, reason: "all-failed", failed };
-  // 失敠的節保留原内容（原本空就維持空）
-  const existing = await paaw.readFile("PROJECT.md");
-  const parsed = parseProjectMd(existing);
-  const oldParts = splitSpecSections(parsed.specSection || "");
+  // 失敗的節保留原內容（原本空就維持空）
   for (let i = 0; i < 8; i++) if (!parts[i] && oldParts[i]) parts[i] = oldParts[i];
   let name = facts.name || root.split(/[\\/]/).pop() || "Project";
   await paaw.writeFile("PROJECT.md", buildProjectMd(name, null, null, joinSpecSections(parts)));
@@ -418,6 +423,9 @@ export async function generateSpecDraft(root, opts = {}) {
   if (!hasCode) return { generated: false, reason: "no-code", specSection: "" };
 
   const schemas = SPEC_SECTION_SCHEMAS;
+  // 2026-11-21 Fleming：AI 更新時參考現有內容（有就以此為基礎增補，不整份重寫）
+  let existingSpec = "";
+  try { existingSpec = parseProjectMd((await createPaawProject(root).readFile("PROJECT.md")) || "").specSection || ""; } catch {}
   let specSection = null;
   let source = "deterministic";
   if (opts.callLLM) {
@@ -432,6 +440,7 @@ export async function generateSpecDraft(root, opts = {}) {
 - 固定八個二級標題照抄，每節照各自的格式 schema 寫：
 ${schemaNote}
 - 不包 \`\`\` 圍籬、不加 # 一級標題、無前言結語
+${existingSpec ? `- 現有 spec 內容如下 — 以它為基礎更新：保留仍正確的內容與 ID，只補缺漏、修正與證據衝突處\n\n現有 spec 內容（最新版）：\n${existingSpec.slice(0, 12000)}` : ""}
 
 事實資料（JSON）：
 ${JSON.stringify(facts, null, 2)}`;

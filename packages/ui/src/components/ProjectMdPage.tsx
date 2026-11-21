@@ -109,7 +109,6 @@ export default function ProjectMdPage({ rootPath, theme }: Props) {
             </button>
           ))}
           <div className="flex-1" />
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">{t("projectMd.readOnly")}</span>
           <button
             onClick={fillAll}
             disabled={filling}
