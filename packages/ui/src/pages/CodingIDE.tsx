@@ -787,23 +787,8 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
   const [showDirExplorer, setShowDirExplorer] = useState(false);
   const [showRuClone, setShowRuClone] = useState(false);
   const [onboardingPath, setOnboardingPath] = useState<string | null>(null);
-  // 2026-09-06：wizard「開始 Scan」→ 開 CU modal（不直接跑）；遞增觸發 EMDashboard 開 modal
-  const [cuModalRequest, setCuModalRequest] = useState(0);
-  // 🎉 Onboarding 觸發補洞（2026-09-06 Fleming 回報）：wizard 原本只在 DirExplorer/Clone 觸發，
-  // 「刪 .paaw 後重開 RU」或「bootstrap 過但 CU 從沒跑」不會跳 → 與 spec 0.4「刪掉重跑=重建」預期不符。
-  // 開專案時檢 cu-status：CU 從未 done（doneCount=0）且有 source 檔 → 自動跳 onboarding。
-  useEffect(() => {
-    if (!rootPath) return;
-    let alive = true;
-    fetch(`${API_BASE}/api/coding-project/cu-status?path=${encodeURIComponent(rootPath)}`)
-      .then(r => r.json())
-      .then(d => {
-        if (!alive) return;
-        if ((d?.doneCount ?? 0) === 0 && (d?.sourceFiles ?? 0) > 0) setOnboardingPath(rootPath);
-      })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [rootPath]);
+  // 2026-11-22 Fleming：import 時不掃 CU — 拿掉「開專案時 CU 從未 done 就自動跳 onboarding」的觸發
+  // （首次 CU 改由 cu-background-watcher 定時自動跑），onboarding 只在明確 import/clone 時顯示（且已無 CU 步驟）
 
   // ── Derived: sync activeTab with activeMainTab ──
   // activeTabId is the sidebar tab; but the MAIN panel is driven by activeMainTab.
@@ -2261,18 +2246,12 @@ const sendChat = useCallback(async () => {
       />
     )}
 
-    {/* RU Onboarding Modal（import/clone 後：掃描 → Skill 建議 → CU）*/}
+    {/* RU Onboarding Modal（import/clone 後：掃描 → Skill 建議；2026-11-22 起 CU 不在此觸發 — 背景排程自動跑）*/}
     {onboardingPath && (
       <RuOnboardingModal
         rootPath={onboardingPath}
         theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, text: tk.text }}
         onClose={() => setOnboardingPath(null)}
-        onStartCu={() => {
-          // 2026-09-06 Fleming：wizard「開始 Scan」→ 開 CU modal 但不直接跑（可能要先綁 skill）— 使用者在 modal 裡綁完 skill 自己按執行
-          openMainTab(DASHBOARD_TAB);
-          setCuModalRequest(n => n + 1);
-          setOnboardingPath(null);
-        }}
       />
     )}
 
@@ -3438,7 +3417,7 @@ const sendChat = useCallback(async () => {
                 rootPath={rootPath}
                 theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text, accentBorder: tk.accentBorder }}
                 onStartCodeUnderstanding={startAiInitialize}
-                cuModalRequest={cuModalRequest}
+                cuModalRequest={0}
                 prefillMessage={emPrefillMessage}
                 codeUnderstanding={{ running: aiInitializing, steps: aiInitSteps }}
                 model={emModel}

@@ -10,10 +10,13 @@
  * 這裡零邏輯重複，只是把觸發條件從「UI 開專案」換成「時間到」。
  *
  * 安全設計：
- * - 只巡檢「已跑過 CU」的專案（.paaw/cu-status.json 存在）— 從沒跑過 CU 的不會被自動初始化
  * - timer unref() — 不阻擋 process 正常退出
  * - 逐專案 sequential + 失敗續跑 — 一個壞不掉整輪
  * - 無 stale 時只花 git diff 的成本（內容導向 staleness），零 token
+ *
+ * 2026-11-22 Fleming：import 時不再觸發 CU（onboarding 已無 CU 步驟）→ 從沒跑過 CU 的 RU
+ * （無 .paaw/cu-status.json）也納入巡檢：背景自呼 ai-initial 跑首次 CU，
+ * 每輪上限 CU_AUTO_NEW_PER_SWEEP（預設 1）避免一次對多個 RU 連發 LLM。
  *
  * 2026-11-21 同日加：同一輪順便做「文件自動保鮮」（doc-autorefresh）—
  * code 有動且 DFO/spec 落後才叫 LLM，人不用介入文件也不會過時。
@@ -50,8 +53,24 @@ function _collectProjectRoots() {
     const ws = JSON.parse(readFileSync(join(DATA_HOME, "workspaces.json"), "utf-8"));
     if (Array.isArray(ws?.directories)) for (const d of ws.directories) if (typeof d === "string" && d) paths.add(d);
   } catch {}
-  // 只保留「已跑過 CU」的（沒有 cu-status.json = 從沒做過 CU，不自動初始化）
-  return [...paths].filter((p) => existsSync(join(p, ".paaw", "cu-status.json")));
+  // 2026-11-22：從沒跑過 CU 的也納入（首次 CU 改由這裡背景跑）
+  return [...paths].filter((p) => existsSync(p));
+}
+
+/** 首次 CU（無 cu-status.json）背景自呼 ai-initial — 每輪限量 */
+async function _runFirstCu(root) {
+  const { Agent } = await import("undici");
+  const dispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
+  let model = null;
+  try { model = JSON.parse(readFileSync(join(root, ".paaw", "cu-model.json"), "utf-8"))?.model || null; } catch {}
+  const r = await fetch(`http://127.0.0.1:${PORT}/api/coding-project/ai-initial?path=${encodeURIComponent(root)}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: model || undefined }), dispatcher,
+  });
+  if (r.body) { const rd = r.body.getReader(); while (true) { const { done } = await rd.read(); if (done) break; } }
+  try {
+    const { importCodingDb } = await import("./coding-db/import.mjs");
+    importCodingDb(root);
+  } catch {}
 }
 
 /** 巡檢一輪：對每個 RU 自呼 cu-status — stale 的會被 route 內既有邏輯自動重掃/重跑 */
@@ -64,7 +83,22 @@ async function _runSweep() {
     console.log(`${WATCH_TAG} 🕐 巡檢 ${roots.length} 個 RU（stale 才會花 token，無變更零成本）`);
     const maxDocUpdates = parseInt(process.env.DOC_AUTO_MAX_PER_SWEEP || "", 10) || 2;
     let docUpdates = 0;
+    const maxNewCu = parseInt(process.env.CU_AUTO_NEW_PER_SWEEP || "", 10) || 1;
+    let newCu = 0;
     for (const root of roots) {
+      // 首次 CU：從沒跑過（無 cu-status.json）→ 背景自呼 ai-initial（每輪限量）
+      if (!existsSync(join(root, ".paaw", "cu-status.json"))) {
+        if (newCu < maxNewCu) {
+          newCu++;
+          try {
+            console.log(`${WATCH_TAG} 🧠 首次 CU（背景）：${root}`);
+            await _runFirstCu(root);
+            console.log(`${WATCH_TAG} 🧠 首次 CU 完成：${root}`);
+          } catch (e) { console.warn(`${WATCH_TAG} 首次 CU 失敗 (${root}):`, e.message); }
+        }
+        await new Promise((ok) => setTimeout(ok, PER_PROJECT_GAP_MS));
+        continue;
+      }
       try {
         const r = await fetch(
           `http://127.0.0.1:${PORT}/api/coding-project/cu-status?path=${encodeURIComponent(root)}`,
