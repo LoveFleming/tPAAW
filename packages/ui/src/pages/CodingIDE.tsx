@@ -787,8 +787,10 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
   const [showDirExplorer, setShowDirExplorer] = useState(false);
   const [showRuClone, setShowRuClone] = useState(false);
   const [onboardingPath, setOnboardingPath] = useState<string | null>(null);
-  // 2026-11-22 Fleming：import 時不掃 CU — 拿掉「開專案時 CU 從未 done 就自動跳 onboarding」的觸發
-  // （首次 CU 改由 cu-background-watcher 定時自動跑），onboarding 只在明確 import/clone 時顯示（且已無 CU 步驟）
+  // 2026-11-22 Fleming：import 時 CU 只在「全新 RU（無 .paaw）」的 onboarding 第三步觸發；
+  // 舊 RU 不跳 CU，首次/後續 CU 由 cu-background-watcher 定時自動跑。
+  // 「開專案時 CU 從未 done 就自動跳 onboarding」的觸發維持移除（不主動打撈 CU）。
+  const [cuModalRequest, setCuModalRequest] = useState(0);
 
   // ── Derived: sync activeTab with activeMainTab ──
   // activeTabId is the sidebar tab; but the MAIN panel is driven by activeMainTab.
@@ -2252,6 +2254,12 @@ const sendChat = useCallback(async () => {
         rootPath={onboardingPath}
         theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, text: tk.text }}
         onClose={() => setOnboardingPath(null)}
+        onStartCu={() => {
+          // wizard 第三步「開始 Scan」→ 開 CU modal 但不直接跑（可能要先綁 skill）— 使用者在 modal 裡綁完 skill 自己按執行
+          openMainTab(DASHBOARD_TAB);
+          setCuModalRequest(n => n + 1);
+          setOnboardingPath(null);
+        }}
       />
     )}
 
@@ -3417,7 +3425,7 @@ const sendChat = useCallback(async () => {
                 rootPath={rootPath}
                 theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text, accentBorder: tk.accentBorder }}
                 onStartCodeUnderstanding={startAiInitialize}
-                cuModalRequest={0}
+                cuModalRequest={cuModalRequest}
                 prefillMessage={emPrefillMessage}
                 codeUnderstanding={{ running: aiInitializing, steps: aiInitSteps }}
                 model={emModel}

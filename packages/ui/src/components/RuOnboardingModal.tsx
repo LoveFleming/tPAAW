@@ -1,12 +1,13 @@
 /**
- * RuOnboardingModal — 🎉 Release Unit onboarding 兩步 wizard
+ * RuOnboardingModal — 🎉 Release Unit onboarding wizard
  *
  * 2026-09-06 Fleming：改逐步 wizard（原本一次攤三區塊+完成鈕會讓人搞混）。
- * 2026-11-22 Fleming：import 時不掃 CU — 拿掉 CU 步驟（首次 CU 改由背景定時巡檢自動跑），
- * wizard 只留 Step 1 機器掃描 + Step 2 Skill 建議，主按鈕 = 完成。
+ * 2026-11-22 Fleming：import 時 CU 只有「全新 RU（無 .paaw）」才跳（第三步「開始 Scan」）；
+ * 已有 .paaw 的舊 RU 只剩兩步（掃描 + Skill 建議），CU 交給背景排程自動跑。
  *
- * 自動靜音：沒有新建議（舊 RU 重複 import）→ 不顯示直接關。
- * 事實來源：GET /api/coding-project/skill-suggest
+ * 自動靜音：已有 .paaw 且沒新建議（舊 RU 重複 import）→ 不顯示直接關；
+ * 全新 RU（無 .paaw）即使沒新建議也顯示（要引導跑首次 CU）。
+ * 事實來源：GET /api/coding-project/skill-suggest + GET /api/coding-project/cu-status（hasPaaw）
  */
 import React, { useState, useEffect } from "react";
 import API_BASE from "../api";
@@ -18,28 +19,39 @@ interface Props {
   rootPath: string;
   theme: { bg: string; bgMuted: string; borderLight: string; accent: string; text: string };
   onClose: () => void;
+  /** 第三步（僅全新 RU 無 .paaw）主按鈕「開始 Scan」— 呼叫端負責：切到 dashboard + 開 CU modal + 關 wizard */
+  onStartCu?: () => void;
 }
 
 const KIND_ICON: Record<string, string> = { language: "🔤", framework: "🧩", infra: "🏗️", test: "🧪" };
 
-export default function RuOnboardingModal({ rootPath, theme: t, onClose }: Props) {
+export default function RuOnboardingModal({ rootPath, theme: t, onClose, onStartCu }: Props) {
   const { t: i18n } = useI18n();
   const [phase, setPhase] = useState<"loading" | "show" | "skip">("loading");
   const [stacks, setStacks] = useState<StackInfo[]>([]);
   const [newCount, setNewCount] = useState(0);
   const [showSkills, setShowSkills] = useState(false);
-  const [wizardStep, setWizardStep] = useState<1 | 2>(1);
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+  // 全新 RU（無 .paaw）→ 三步（掃描/Skill/CU）；舊 RU（有 .paaw）→ 兩步，CU 交給背景排程
+  const [fresh, setFresh] = useState(true);
+  const maxStep = fresh ? 3 : 2;
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const ssRes = await fetch(`${API_BASE}/api/coding-project/skill-suggest?path=${encodeURIComponent(rootPath)}`);
+        const [ssRes, cuRes] = await Promise.all([
+          fetch(`${API_BASE}/api/coding-project/skill-suggest?path=${encodeURIComponent(rootPath)}`),
+          fetch(`${API_BASE}/api/coding-project/cu-status?path=${encodeURIComponent(rootPath)}`),
+        ]);
         const ss = await ssRes.json();
+        const cu = await cuRes.json().catch(() => ({}));
         if (!alive) return;
         const n = ss?.summary?.newCount ?? 0;
-        // 舊 RU（沒新建議）→ 靜音不打擾（CU 交給背景排程，不看 CU 狀態）
-        if (n === 0) { setPhase("skip"); return; }
+        const isFresh = cu?.hasPaaw !== true; // 2026-11-22 Fleming：無 .paaw → 要跳 CU 引導首次掃描
+        setFresh(isFresh);
+        // 舊 RU（有 .paaw）且沒新建議 → 靜音；全新 RU 一律顯示（要跑首次 CU）
+        if (!isFresh && n === 0) { setPhase("skip"); return; }
         setStacks(ss?.detection?.stacks || []);
         setNewCount(n);
         setPhase("show");
@@ -70,15 +82,15 @@ export default function RuOnboardingModal({ rootPath, theme: t, onClose }: Props
             <div className="text-[11px] text-stone-500 mt-0.5 font-mono truncate">{rootPath}</div>
           </div>
 
-          {/* Stepper：三步進度條 */}
+          {/* Stepper：進度條（全新 RU 三步 / 舊 RU 兩步） */}
           <div className="px-5 pt-4 pb-1 flex items-center gap-2">
-            {[1, 2].map(s => (
+            {[1, 2, 3].slice(0, maxStep).map(s => (
               <div key={s} className="flex-1 flex items-center gap-2">
                 <div className={`flex-1 h-1.5 rounded-full transition-colors ${wizardStep >= s ? "" : "bg-stone-200"}`} style={wizardStep >= s ? { background: t.accent } : undefined} />
               </div>
             ))}
           </div>
-          <div className="px-5 pb-2 text-[10px] text-stone-400">{i18n("ru.obWizardHint").replace("{n}", String(wizardStep))}</div>
+          <div className="px-5 pb-2 text-[10px] text-stone-400">{i18n("ru.obWizardHint").replace("{n}", `${wizardStep} / ${maxStep}`)}</div>
 
           <div className="px-5 py-3 min-h-[132px]">
             {/* ── Step 1：機器掃描 ── */}
@@ -122,21 +134,47 @@ export default function RuOnboardingModal({ rootPath, theme: t, onClose }: Props
               </div>
             )}
 
+            {/* ── Step 3：CU（僅全新 RU）—— 主按鈕「開始 Scan」── */}
+            {wizardStep === 3 && fresh && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 bg-stone-100 text-stone-400">3</span>
+                  <span className="text-xs font-bold text-stone-700">{i18n("ru.obCu")}</span>
+                </div>
+                <div className="ml-7 space-y-2">
+                  <div className="text-[10px] text-stone-400">{i18n("ru.obCuPending")}</div>
+                  <div className="rounded-lg bg-stone-50 border p-2.5 space-y-1.5" style={{ borderColor: t.borderLight }}>
+                    <div className="text-[10px] text-stone-600 leading-relaxed">🧠 {i18n("ru.obCuWhat")}</div>
+                    <div className="text-[10px] text-stone-500 leading-relaxed">💡 {i18n("ru.obCuWhy")}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
 
           <div className="px-5 py-3 border-t flex items-center justify-between" style={{ borderColor: t.borderLight, background: t.bgMuted }}>
-            <span className="text-[10px] text-stone-400">{i18n("ru.obFreshHint")}</span>
+            <span className="text-[10px] text-stone-400">{fresh ? i18n("ru.obFreshHint") : i18n("ru.obBgCuHint")}</span>
             <div className="flex items-center gap-2">
               {wizardStep > 1 && (
-                <button onClick={() => setWizardStep(1)} className="text-xs px-3 py-1.5 rounded-lg border bg-white hover:bg-stone-50 text-stone-600 whitespace-nowrap" style={{ borderColor: t.borderLight }}>
+                <button onClick={() => setWizardStep((wizardStep - 1) as 1 | 2)} className="text-xs px-3 py-1.5 rounded-lg border bg-white hover:bg-stone-50 text-stone-600 whitespace-nowrap" style={{ borderColor: t.borderLight }}>
                   {i18n("ru.obBack")}
                 </button>
               )}
-              {wizardStep < 2 ? (
-                <button onClick={() => setWizardStep(2)}
+              {wizardStep < maxStep ? (
+                <button onClick={() => setWizardStep((wizardStep + 1) as 2 | 3)}
                   className="text-xs px-4 py-1.5 rounded-lg text-white font-semibold whitespace-nowrap" style={{ background: t.accent }}>
                   {i18n("ru.obNext")} →
                 </button>
+              ) : fresh && wizardStep === 3 && onStartCu ? (
+                <>
+                  <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border bg-white hover:bg-stone-50 text-stone-600 whitespace-nowrap" style={{ borderColor: t.borderLight }}>
+                    {i18n("ru.obLater")}
+                  </button>
+                  <button onClick={onStartCu} className="text-xs px-4 py-1.5 rounded-lg text-white font-semibold whitespace-nowrap" style={{ background: t.accent }}>
+                    {i18n("ru.obStartScan")}
+                  </button>
+                </>
               ) : (
                 <button onClick={onClose} className="text-xs px-4 py-1.5 rounded-lg text-white font-semibold whitespace-nowrap" style={{ background: t.accent }}>
                   {i18n("ru.obDone")}
