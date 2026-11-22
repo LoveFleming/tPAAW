@@ -60,7 +60,7 @@ export function detectTestGroups(projectPath, { includeE2e = false } = {}) {
   const sigs = new Set(groups.map(g => `${g.runner}|${(g.cmd || []).slice(2).join(" ")}`));
   for (const [name, cmd] of Object.entries(scripts)) {
     if (used.has(name) || !/^test:./.test(name) || kindByName(name) === null) continue;
-    if (/watch|debug|open|update/i.test(name)) continue; // watch/互動模式不適合自動跑
+    if (/watch|debug|open|update|(^|:)ui$/i.test(name)) continue; // watch/互動模式不適合自動跑
     if (/^\s*npm\s+run\b/.test(cmd)) continue; // 繞跑其他 script 的組合鈕（如 test:all）— 會重複執行
     if (/no test specified|echo\s+error/i.test(cmd)) continue; // 空殼 script
     // jest/vitest script → 直接組 runner 指令（保留原 script 的路徑參數 + coverage/report 旗標），才有 per-test 數字和覆蓋率
@@ -95,13 +95,23 @@ export function detectTestGroups(projectPath, { includeE2e = false } = {}) {
   }
 
   // 5) Java — Maven / Gradle（surefire / JUnit XML 報告）
-  if (existsSync(join(projectPath, "pom.xml"))) {
+  // 2026-11-22：兩個 build 檔同時存在（如 spring-petclinic）→ 只選一個跑，不重複執行；
+  // 有 gradlew 優先 Gradle（petclinic 官方主構建），否則 Maven
+  const hasPom = existsSync(join(projectPath, "pom.xml"));
+  const hasGradle = existsSync(join(projectPath, "build.gradle")) || existsSync(join(projectPath, "build.gradle.kts"));
+  if (hasPom && !hasGradle) {
     groups.push({ kind: "unit", runner: "maven", cmd: ["mvn", "-B", "test"] });
-  }
-  if (existsSync(join(projectPath, "build.gradle")) || existsSync(join(projectPath, "build.gradle.kts"))) {
+  } else if (hasGradle) {
     const gradlew = existsSync(join(projectPath, "gradlew"));
     const gw = gradlew ? (process.platform === "win32" ? "gradlew.bat" : "./gradlew") : "gradle";
     groups.push({ kind: "unit", runner: "gradle", cmd: [gw, "test", "--console=plain"] });
+  }
+
+  // 6) Rust — cargo test（2026-11-22：actix-web / rust-api-demo 偵測不到的缺口）
+  //    摘要列 "test result: ok. 12 passed; 0 failed; 0 ignored" 加總；
+  //    覆蓋率需 cargo-llvm-cov（不安裝時誠實未量測，不偷估）
+  if (existsSync(join(projectPath, "Cargo.toml"))) {
+    groups.push({ kind: "unit", runner: "cargo", cmd: ["cargo", "test"] });
   }
 
   // 6) E2E（opt-in — 慢、可能需要 server）
@@ -317,6 +327,13 @@ async function runGroup(projectPath, group) {
       for (const t of parsed.tests) {
         g.files[t.name] = { kind: t.kind, passed: t.status === "passed" ? 1 : 0, failed: t.status === "failed" ? 1 : 0, skipped: t.status === "skipped" ? 1 : 0 };
       }
+    } else if (group.runner === "cargo") {
+      // 摘要列（每個 test binary 一行）：test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured
+      let p = 0, f = 0, s = 0;
+      for (const m of out.matchAll(/test result: \w+\.? (\d+) passed; (\d+) failed; (\d+) ignored/g)) {
+        p += +m[1]; f += +m[2]; s += +m[3];
+      }
+      g.passed = p; g.failed = f; g.skipped = s;
     } else if (group.runner === "maven" || group.runner === "gradle") {
       const xmls = findReportXmls(projectPath, group.runner);
       if (xmls.length) {
