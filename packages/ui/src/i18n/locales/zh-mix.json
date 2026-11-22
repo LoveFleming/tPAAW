@@ -1430,6 +1430,7 @@
   "rm.sug.whySafe": "為什麼可以上",
   "rm.sug.whySafePrompt": "用證據說明目前這版為什麼可以（或不可以）安全上線。",
   "rm.testing": "執行中…",
+  "rm.testRunBtn": "跑測試",
   "rm.testsLine": "Tests",
   "rm.title": "Release Manager",
   "rm.utLabel": "單元測試",

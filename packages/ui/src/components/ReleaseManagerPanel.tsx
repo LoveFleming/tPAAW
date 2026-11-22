@@ -672,6 +672,14 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                           return <span className={`px-1.5 py-0.5 rounded ${tr.status === "pass" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`} title={`${tr.id} @ ${String(tr.at || "").slice(0, 16)}`}>🧪 {tr.status} {sm.passed ?? "?"}✓/{sm.failed ?? "?"}✗</span>;
                         })()}
                         {selDetail?.buildStatus?.evidenceSnapshot && <span className="px-1.5 py-0.5 rounded bg-teal-50 text-teal-700" title={selDetail.buildStatus.evidenceSnapshot.id}>⚖️ evidence</span>}
+                        {/* 2026-11-22：▶ 跑測試鈕回歸（v5 改版時誤丢）— 跑完才有 🧪 實跑數字和 📈 覆蓋率 */}
+                        <button onClick={runTests} disabled={testing || !rootPath}
+                          className="px-2 py-0.5 rounded border bg-white hover:bg-stone-50 text-stone-600 disabled:opacity-60 flex items-center gap-1"
+                          style={{ borderColor: tk.borderLight }} data-testid="rm-test-run"
+                          title="真實執行測試（背景跑，跑完重抓現況；coverage 需 test runner 有裝對應套件）">
+                          {testing && <span className="animate-spin inline-block w-2.5 h-2.5 border-[1.5px] border-stone-500 border-t-transparent rounded-full" />}
+                          ▶ {testing ? t("rm.testing") : t("rm.testRunBtn")}
+                        </button>
                       </div>
                       {evApi && (
                         <div className="border-t px-3 py-2" style={{ borderColor: tk.borderLight }} data-testid="rm-evidence-matrix">

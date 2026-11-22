@@ -1430,6 +1430,7 @@
   "rm.sug.whySafe": "なぜ安全か",
   "rm.sug.whySafePrompt": "エビデンスでこのバージョンが安全にリリースできる（できない）理由を説明して。",
   "rm.testing": "実行中…",
+  "rm.testRunBtn": "テスト実行",
   "rm.testsLine": "テスト",
   "rm.title": "Release Manager",
   "rm.utLabel": "単体",
