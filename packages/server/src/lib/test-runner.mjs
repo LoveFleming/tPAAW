@@ -53,6 +53,36 @@ export function detectTestGroups(projectPath, { includeE2e = false } = {}) {
     }
   }
 
+  // 2b) 2026-11-22 Fleming：自訂 test:* script（如 portkey-gateway 的 test:gateway/test:plugins）
+  //     —— 沒有 "test" script 的專案會被誤判「無 runner」→ Evidence Matrix 🧪 永遠 —
+  const used = new Set(["test", "test:unit", "test:contract", "test:integration"]);
+  const kindByName = (n) => (/unit/i.test(n) ? "unit" : /integration/i.test(n) ? "integration" : /contract/i.test(n) ? "contract" : /e2e/i.test(n) ? null : "mixed");
+  const sigs = new Set(groups.map(g => `${g.runner}|${(g.cmd || []).slice(2).join(" ")}`));
+  for (const [name, cmd] of Object.entries(scripts)) {
+    if (used.has(name) || !/^test:./.test(name) || kindByName(name) === null) continue;
+    if (/watch|debug|open|update/i.test(name)) continue; // watch/互動模式不適合自動跑
+    if (/^\s*npm\s+run\b/.test(cmd)) continue; // 繞跑其他 script 的組合鈕（如 test:all）— 會重複執行
+    if (/no test specified|echo\s+error/i.test(cmd)) continue; // 空殼 script
+    // jest/vitest script → 直接組 runner 指令（保留原 script 的路徑參數 + coverage/report 旗標），才有 per-test 數字和覆蓋率
+    const after = (re) => { const i = cmd.search(re); return i >= 0 ? cmd.slice(i).replace(/^\S+\s*/, "").split(/\s+/).filter(Boolean) : null; };
+    if (/\bjest\b/.test(cmd) && devDeps.jest) {
+      const args = after(/\bjest\b/) || [];
+      const sig = `jest|${args.join(" ")}`;
+      if (sigs.has(sig)) continue; // 跟既有組重複（同 runner 同目標）不重跑
+      sigs.add(sig);
+      groups.push({ kind: kindByName(name), runner: "jest", cmd: ["npx", "jest", ...args, "--json", "--outputFile=.paaw/test-runs/.jest.json", "--coverage", "--coverageReporters=json-summary", "--coverageReporters=text", "--coverageDirectory=coverage"], scriptName: name });
+    } else if (/\bvitest\b/.test(cmd) && devDeps.vitest) {
+      const args = after(/\bvitest\b/) || [];
+      const sig = `vitest|${args.join(" ")}`;
+      if (sigs.has(sig)) continue;
+      sigs.add(sig);
+      const cov = devDeps["@vitest/coverage-v8"] ? ["--coverage", "--coverage.reporter=json-summary", "--coverage.reporter=text", "--coverage.reportsDirectory=coverage", "--coverage.reportOnFailure=true"] : [];
+      groups.push({ kind: kindByName(name), runner: "vitest", cmd: ["npx", "vitest", "run", ...args, "--reporter=json", "--outputFile=.paaw/test-runs/.vitest.json", ...cov], scriptName: name });
+    } else {
+      groups.push({ kind: kindByName(name), runner: "npm-script", cmd: ["npm", "run", name, "--silent"], scriptName: name });
+    }
+  }
+
   // 3) Python — pytest（JUnit XML 精準）
   const py = detectPytest(projectPath);
   if (py) groups.push(py);
