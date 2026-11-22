@@ -155,16 +155,14 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   const [docs, setDocs] = useState<any | null>(null);
   const [docBusy, setDocBusy] = useState<string | null>(null);
   const [matrixFrozen, setMatrixFrozen] = useState<number | null>(null);
-  // Release Info 版本下拉（2026-11-21 Fleming：可選哪一版，預設最新）
-  const [selInfoVersion, setSelInfoVersion] = useState<number | null>(null);
+  // 2026-11-22 Fleming：Release Info 只留最新一版（無版本下拉、不留歷史）— 永遠讓 server 回最新
 
-  const fetchSelDetail = useCallback(async (rrId: string, infoV?: number | null) => {
+  const fetchSelDetail = useCallback(async (rrId: string) => {
     if (!rootPath || !rrId) { setSelDetail(null); return; }
     try {
       const p = (e: string) => `${API_BASE}/api/coding-releases/release-info/${e}?path=${encodeURIComponent(rootPath)}`;
-      const vq = infoV ? `&v=${infoV}` : "";
       const [itemR, stR] = await Promise.all([
-        fetch(`${p("item")}&rr=${encodeURIComponent(rrId)}${vq}`).then(r => r.json()).catch(() => null),
+        fetch(`${p("item")}&rr=${encodeURIComponent(rrId)}`).then(r => r.json()).catch(() => null),
         fetch(`${p("status")}&rr=${encodeURIComponent(rrId)}`).then(r => r.json()).catch(() => null),
       ]);
       setSelDetail({
@@ -203,13 +201,13 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
         // Release Info 做完 → 直接載入同版號凍結的 Evidence Matrix（2026-11-21 Fleming：矩陣是 release info 的一部分）
         if (d?.docs?.releaseInfo?.status === "done") {
           try {
-            const m = await fetch(`${API_BASE}/api/coding-releases/release-info/matrix?rr=${encodeURIComponent(selRR)}&path=${encodeURIComponent(rootPath)}${selInfoVersion ? `&v=${selInfoVersion}` : ""}`).then(r => r.json());
+            const m = await fetch(`${API_BASE}/api/coding-releases/release-info/matrix?rr=${encodeURIComponent(selRR)}&path=${encodeURIComponent(rootPath)}`).then(r => r.json());
             if (m?.ok && m.matrix) { setEvApi(m.matrix); setMatrixFrozen(m.version); }
           } catch {}
         }
       }
     } catch { /* 不擋主頁 */ }
-  }, [rootPath, selRR, selInfoVersion]);
+  }, [rootPath, selRR]);
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
   // 有文件在跑 → 5s 輪詢
@@ -268,12 +266,11 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   };
 
   useEffect(() => { fetchRrOptions(); }, [fetchRrOptions]);
-  useEffect(() => { setSelInfoVersion(null); }, [selRR]);
-  useEffect(() => { if (selRR) fetchSelDetail(selRR, selInfoVersion); }, [selRR, selInfoVersion, fetchSelDetail]);
+  useEffect(() => { if (selRR) fetchSelDetail(selRR); }, [selRR, fetchSelDetail]);
   // build 進行中 → 輪詢（選中那張）
   useEffect(() => {
     if (!selDetail?.building || !selRR) return;
-    const id = setTimeout(() => { fetchSelDetail(selRR, selInfoVersion); fetchRrOptions(true); }, 3000);
+    const id = setTimeout(() => { fetchSelDetail(selRR); fetchRrOptions(true); }, 3000);
     return () => clearTimeout(id);
   }, [selDetail, selRR, fetchSelDetail, fetchRrOptions]);
 
@@ -291,7 +288,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}),
       }).then(r => r.json());
       if (r.error) { setToast({ ok: false, text: String(r.error) }); return; }
-      setToast({ ok: true, text: `🔄 開始重新產生 ${selRR} 的 Release Info（實蹓測試 + 證據 + AI 摘要 → 新版 v${(selDetail?.versions?.length ?? 0) + 1 || 1}）` });
+      setToast({ ok: true, text: `🔄 開始重新產生 ${selRR} 的 Release Info（實蹓測試 + 證據 + AI 摘要）` });
       fetchSelDetail(selRR);
     } catch (e: any) { setToast({ ok: false, text: e.message }); }
     finally { setRebuildBusy(false); }
@@ -626,27 +623,12 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                   };
                   return (
                     <div className="rounded-lg border bg-white" style={{ borderColor: tk.borderLight }} data-testid="rm-ri-content">
-                      <div className="px-3 py-2 flex items-baseline gap-2 flex-wrap border-b bg-stone-50/60" style={{ borderColor: tk.borderLight }}>
-                        {(selDetail?.infoVersions || []).length > 1 ? (
-                          <select
-                            value={String(selDetail?.infoVersion || "")}
-                            onChange={e => setSelInfoVersion(Number(e.target.value))}
-                            className="font-mono font-bold text-sm px-1 py-0.5 border rounded bg-white"
-                            style={{ borderColor: tk.borderLight }}
-                            title="選擇 Release Info 版本（預設最新版）"
-                          >
-                            {[...(selDetail?.infoVersions || [])].sort((a: number, b: number) => b - a).map((v: number) => (
-                              <option key={v} value={v}>v{v}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className="font-mono font-bold text-sm text-stone-800">v{ri.version}</span>
-                        )}
+                      <div className="px-3 py-2 flex items-baseline gap-2 flex-wrap border-b bg-stone-50/60" style={{ borderColor: tk.borderLight }} data-testid="rm-ri-version">
+                        <span className="font-mono font-bold text-sm text-stone-800">v{ri.version}</span>
                         <span className="text-[10px] text-stone-400 font-mono">{ri.release_date}</span>
-                                                <span className="flex-1" />
-                        <span className="text-[10px] font-mono text-stone-400" title={`commit ${ri.git?.commit || "—"} · prev_tag ${ri.git?.previous_tag || "null"} · tag ${ri.git?.tag || "null"}`}>
-                          {(ri as any).ai?.source === "fallback" ? "（系統列表，非 AI 摘要）" : ""}{ri.git?.previous_tag ? `${ri.git.previous_tag} → ` : ""}{ri.git?.tag || String(ri.git?.commit || "—").slice(0, 7)}
-                        </span>
+                        {/* 2026-11-22 Fleming：commit number 不顯示（系統有存，要問 AI 隨時查得到） */}
+                        <span className="flex-1" />
+                        {(ri as any).ai?.source === "fallback" && <span className="text-[10px] text-amber-600">（系統列表，非 AI 摘要）</span>}
                       </div>
                                             {(ri.features || []).length > 0 && (
                         <table className="w-full text-[11px]" data-testid="rm-ri-features">
@@ -690,8 +672,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                           return <span className={`px-1.5 py-0.5 rounded ${tr.status === "pass" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`} title={`${tr.id} @ ${String(tr.at || "").slice(0, 16)}`}>🧪 {tr.status} {sm.passed ?? "?"}✓/{sm.failed ?? "?"}✗</span>;
                         })()}
                         {selDetail?.buildStatus?.evidenceSnapshot && <span className="px-1.5 py-0.5 rounded bg-teal-50 text-teal-700" title={selDetail.buildStatus.evidenceSnapshot.id}>⚖️ evidence</span>}
-                        <span className="flex-1" />
-                        <span className="text-stone-300 font-mono font-normal">info v{selDetail.infoVersion}</span>
                       </div>
                       {evApi && (
                         <div className="border-t px-3 py-2" style={{ borderColor: tk.borderLight }} data-testid="rm-evidence-matrix">

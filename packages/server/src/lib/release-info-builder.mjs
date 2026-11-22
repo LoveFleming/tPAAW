@@ -32,7 +32,7 @@
  * 原則：No answer without evidence — AI 只拿到程式產生的 deterministic 數據做摘要。
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import { startTestRun, getRunState, readLastTestRun } from "./test-runner.mjs";
 import { generateEvidenceSnapshot } from "./release-evidence-snapshot.mjs";
@@ -501,6 +501,14 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
         target: freshRR?.target || rr.target,
         aiFallback: !!st.aiFallback,
       }, null, 2), "utf-8");
+      // 2026-11-22 Fleming：只留最新一版 — 舊的 info/matrix/bundle 快照直接刪（不留歷史、無版本下拉；
+      // 內容該有的 git/commit 都在 DB 與最新檔裡，AI 查得到，人不需要看到）
+      try {
+        for (const f of readdirSync(dir)) {
+          const m = /^(info|matrix|bundle)-v(\d+)\.json$/.exec(f);
+          if (m && Number(m[2]) !== v) { try { unlinkSync(join(dir, f)); } catch {} }
+        }
+      } catch {}
       st.lastVersion = v;
       st.lastReleaseInfo = { version: info.version, changes: info.changes.length };
       st.running = false;
