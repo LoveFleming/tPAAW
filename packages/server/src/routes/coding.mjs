@@ -101,7 +101,40 @@ const _smartRerunLast = new Map(); // root → last trigger ms（失敗 cooldown
 // 後到請求改訂閱既有 run 的事件流，主 run 真正 done 才轉發 complete（修「CU 視窗還沒做完就關」）
 const _cuBulkRuns = new Map(); // root -> { subs: Set<{ write, res }> }
 
+// v2（2026-10-31）起這些 step 的產出進 coding.db，不再只寫 .paaw 檔（2026-11-22 修：
+// 舊 CU_STEP_FILES 路徑停在 v1 → existsSync 永遠 false → 每次 import/巡檢都誤判 stale 重跑 CU）
+const CU_DB_OUTPUTS = { "feature-map": "features", "api-map": "api_features", "error-codes": "error_codes" };
+
 export async function computeCuStaleness(root, steps, codeLastModifiedMs) {
+  // DB-backed step 的產出存在性：先一次性查各表筆數（查不到 = -1，視為存在，不因 DB 基礎設施誤判 stale）
+  const dbCounts = {};
+  const dbStepIds = Object.keys(CU_DB_OUTPUTS).filter((id) => steps[id]?.status === "done");
+  if (dbStepIds.length > 0) {
+    // 沒有 coding.db = 明確沒有 DB 產出（不是 DB 壞掉）→ 0，讓後續檔案判斷決定
+    if (existsSync(join(root, ".paaw", "coding.db"))) {
+      try {
+        const { openCodingDb } = await import("../lib/coding-db/connection.mjs");
+        const db = openCodingDb(root);
+        for (const id of dbStepIds) {
+          try { dbCounts[id] = Number(db.prepare(`SELECT COUNT(*) c FROM ${CU_DB_OUTPUTS[id]}`).get()?.c ?? 0); }
+          catch { dbCounts[id] = -1; }
+        }
+      } catch { for (const id of dbStepIds) dbCounts[id] = -1; }
+    } else {
+      for (const id of dbStepIds) dbCounts[id] = 0;
+    }
+  }
+  // 產出存在性：舊 .paaw 檔 OR v2 coding.db 有資料；error-codes 的「no error signals」是合法空產出
+  const outputExists = (id, rel) => {
+    try { if (existsSync(join(root, ".paaw", rel))) return true; } catch {}
+    if (id in CU_DB_OUTPUTS) {
+      const c = dbCounts[id];
+      if (c > 0) return true;
+      if (c === -1) return true;
+      if (id === "error-codes" && /no error signals/i.test(String(steps[id]?.summary || ""))) return true;
+    }
+    return false;
+  };
   // 逐步驟 git watermark（codeCommit）：所有 done step 取最大共用一次 git diff 快取
   const gitSteps = Object.entries(CU_STEP_FILES).filter(([id]) => steps[id]?.status === "done" && steps[id]?.codeCommit)
     .map(([id]) => steps[id]); // 取 step 物件（entries 第二元素是産出路徑，不是 step）
@@ -124,26 +157,24 @@ export async function computeCuStaleness(root, steps, codeLastModifiedMs) {
       const changed = changedFilesByCommit.get(commit);
       if (changed !== null) {
         // 產出檔被刪 → 永遠過期（空產出要重建，增量重掃會 skip 它）
-        if (!existsSync(join(root, ".paaw", rel)) || changed.length > 0) flag();
+        if (!outputExists(id, rel) || changed.length > 0) flag();
         continue;
       }
       // changed === null → git 失敗/commit 消失，落入 mtime fallback
     }
     // ── fallback：mtime（非 git 專案 / 舊 cu-status 無 codeCommit 欄位）──
-    try {
-      const st = statSync(join(root, ".paaw", rel));
-      // ⚠️ content-addressed 寫入（diffWriteJson）：內容沒變 → skip → 檔案 mtime 不動。
-      // 純 mtime 比對會把「重掃確認無變更」誤判成永遠 stale（2026-08-30 Fleming 回報）
-      // → watermark：step 完成時記下當時 source 最新 mtime（codeMtime）存進 cu-status，
-      //   重掃無變更也會刷新 watermark = 「這版 code 我確認過」→ badge 正確消失
-      const watermark = Number(steps[id]?.codeMtime) || 0;
-      const basis = Math.max(st.mtimeMs, watermark);
-      if (codeLastModifiedMs > basis + STALE_TOLERANCE_MS) {
-        staleSteps.push({ id, mechanical: CU_MECHANICAL_STEPS.has(id), manual: CU_MANUAL_STEPS.has(id) });
-      }
-    } catch {
-      // 2026-09-06 review：產出檔不存在（.paaw 被部分清理/手動刪）但 status=done → 也算過期
-      // 否則增量重掃會 skip 它，空產出永遠不重建
+    // 2026-09-06 review：產出不存在（.paaw 被部分清理/手動刪）但 status=done → 也算過期
+    // 否則增量重掃會 skip 它，空產出永遠不重建
+    if (!outputExists(id, rel)) { flag(); continue; }
+    let stMtime = 0;
+    try { stMtime = statSync(join(root, ".paaw", rel)).mtimeMs; } catch { /* DB-backed 產出無實體檔 → 用 watermark */ }
+    // ⚠️ content-addressed 寫入（diffWriteJson）：內容沒變 → skip → 檔案 mtime 不動。
+    // 純 mtime 比對會把「重掃確認無變更」誤判成永遠 stale（2026-08-30 Fleming 回報）
+    // → watermark：step 完成時記下當時 source 最新 mtime（codeMtime）存進 cu-status，
+    //   重掃無變更也會刷新 watermark = 「這版 code 我確認過」→ badge 正確消失
+    const watermark = Number(steps[id]?.codeMtime) || 0;
+    const basis = Math.max(stMtime, watermark);
+    if (codeLastModifiedMs > basis + STALE_TOLERANCE_MS) {
       staleSteps.push({ id, mechanical: CU_MECHANICAL_STEPS.has(id), manual: CU_MANUAL_STEPS.has(id) });
     }
   }

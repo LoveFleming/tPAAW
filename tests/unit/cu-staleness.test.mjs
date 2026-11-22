@@ -110,6 +110,44 @@ describe("computeCuStaleness（git repo）", () => {
   });
 });
 
+describe("computeCuStaleness v2 DB-backed outputs（2026-11-22 修）", () => {
+  it("feature-map/api-map 產出在 coding.db、無 .paaw 實體檔 → 不 stale", async () => {
+    cleanTree();
+    const c0 = await getHeadCommit(root);
+    const { openCodingDb, closeCodingDb } = await import("../../packages/server/src/lib/coding-db/connection.mjs");
+    const db = openCodingDb(root);
+    db.prepare("INSERT OR REPLACE INTO features (id, ru, name) VALUES (?,?,?)").run("f1", "test", "Feature 1");
+    db.prepare("INSERT OR REPLACE INTO api_features (id, category, entry, name) VALUES (?,?,?,?)").run("a1", "general", "GET /x", "X");
+    const steps = {
+      "feature-map": { status: "done", codeCommit: c0, codeMtime: 0 },
+      "api-map": { status: "done", codeCommit: c0, codeMtime: 0 },
+    };
+    const stale = await computeCuStaleness(root, steps, 0);
+    expect(stale.map(s => s.id)).toEqual([]);
+    closeCodingDb(root);
+  });
+
+  it("error-codes 空產出 + summary=no error signals → 不 stale", async () => {
+    const c0 = await getHeadCommit(root);
+    const stale = await computeCuStaleness(root, {
+      "error-codes": { status: "done", codeCommit: c0, codeMtime: 0, summary: "no error signals" },
+    }, 0);
+    expect(stale.map(s => s.id)).toEqual([]);
+  });
+
+  it("DB 空且無實體檔 → 仍 stale（產出真的不見了）", async () => {
+    const c0 = await getHeadCommit(root);
+    const { openCodingDb, closeCodingDb } = await import("../../packages/server/src/lib/coding-db/connection.mjs");
+    const db = openCodingDb(root);
+    db.exec("DELETE FROM features");
+    const stale = await computeCuStaleness(root, {
+      "feature-map": { status: "done", codeCommit: c0, codeMtime: 0 },
+    }, 0);
+    expect(stale.map(s => s.id)).toContain("feature-map");
+    closeCodingDb(root);
+  });
+});
+
 describe("computeCuStaleness fallback（非 git / 無 codeCommit）", () => {
   it("無 codeCommit → 舊 mtime 行為：code 比 watermark 新才 stale", async () => {
     artifact();
