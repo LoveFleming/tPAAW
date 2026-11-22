@@ -222,9 +222,24 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
 
   const anyDocRunning = !!(docs && Object.values(docs.docs || {}).some((x: any) => x?.status === "running"));
 
+  // 2026-11-22 Fleming：自訂 confirm dialog（不用 browser 預設 window.confirm）— promise 化，await 拿結果
+  const [confirmDlg, setConfirmDlg] = useState<{
+    icon?: string; title: string; body: string; okLabel?: string; okColor?: string; resolve: (v: boolean) => void;
+  } | null>(null);
+  const confirmAsk = (o: { icon?: string; title: string; body: string; okLabel?: string; okColor?: string }) =>
+    new Promise<boolean>((resolve) => setConfirmDlg({ ...o, resolve }));
+  const closeConfirm = (v: boolean) => {
+    confirmDlg?.resolve(v);
+    setConfirmDlg(null);
+  };
+
   const buildAllDocs = async () => {
     if (!rootPath || !selRR || docBusy || anyDocRunning) return;
-    if (!window.confirm(`製作 ${selRR} 的 Release Info？\n\n會做：Prod Spec 更新 → DFO 更新 → Release Info（含 Evidence Matrix）\n需要數分鐘，完成後有問題會列出來讓你決定是否重做`)) return;
+    const ok = await confirmAsk({
+      icon: "🚀", title: `製作 ${selRR} 的 Release Info？`, okColor: "#0369a1", okLabel: t("common.confirm"),
+      body: `會做：Prod Spec 更新 → DFO 更新 → Release Info（含 Evidence Matrix）\n需要數分鐘，完成後有問題會列出來讓你決定是否重做`,
+    });
+    if (!ok) return;
     setDocBusy("all");
     try {
       const r = await fetch(`${API_BASE}/api/coding-releases/release-docs/build-all?path=${encodeURIComponent(rootPath)}`, {
@@ -290,7 +305,11 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     const warnTxt = errs.length
       ? `\n\n⚠️ 文件檢查有 ${errs.length} 個問題：\n- ${errs.slice(0, 5).map((f: any) => `[${f.doc}] ${f.message}`).join("\n- ")}\n（可先按重做，或照樣關閉）`
       : "";
-    if (!window.confirm(`把 ${selRR} 設為 close（release）？\n\n版本 v${ri?.version || "?"} — ${(ri?.summary || "").slice(0, 120)}${warnTxt}`)) return;
+    const ok = await confirmAsk({
+      icon: "✅", title: `把 ${selRR} 設為 close（release）？`, okColor: "#b45309", okLabel: t("common.confirm"),
+      body: `版本 v${ri?.version || "?"} — ${(ri?.summary || "").slice(0, 120)}${warnTxt}`,
+    });
+    if (!ok) return;
     setReleaseBusy(true);
     try {
       const c = await fetch(`${API_BASE}/api/coding-releases/requests/${encodeURIComponent(selRR)}/close?path=${encodeURIComponent(rootPath)}`, {
@@ -308,7 +327,11 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   // ↩ Reopen 最新一版：released → reviewing（可重做、可再加功能後重新 close）
   const reopenRR = async () => {
     if (!rootPath || !selRR || releaseBusy) return;
-    if (!window.confirm(`Reopen ${selRR}？\n\n會回到 reviewing，可重新產生文件、加功能後再 close（原 REL 記錄保留）`)) return;
+    const ok = await confirmAsk({
+      icon: "↩", title: `Reopen ${selRR}？`, okColor: "#7c3aed", okLabel: t("common.confirm"),
+      body: `會回到 reviewing，可重新產生文件、加功能後再 close（原 REL 記錄保留）`,
+    });
+    if (!ok) return;
     setReleaseBusy(true);
     try {
       const r = await fetch(`${API_BASE}/api/coding-releases/requests/${encodeURIComponent(selRR)}/reopen?path=${encodeURIComponent(rootPath)}`, {
@@ -426,6 +449,29 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
         {toast && (
           <div className={`mx-5 mt-3 px-3 py-2 rounded-lg text-xs ${toast.ok ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
             {toast.text}
+          </div>
+        )}
+
+        {/* 2026-11-22 Fleming：自訂 confirm dialog（取代 browser 預設 window.confirm） */}
+        {confirmDlg && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.35)" }} onClick={() => closeConfirm(false)} data-testid="rm-confirm-dialog">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" style={{ border: `1px solid ${tk.borderLight}` }} onClick={(e) => e.stopPropagation()}>
+              <div className="px-5 py-4 flex items-start gap-3">
+                <span className="text-2xl leading-none shrink-0 mt-0.5">{confirmDlg.icon || "❓"}</span>
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-stone-800">{confirmDlg.title}</div>
+                  <div className="text-xs text-stone-500 mt-1.5 whitespace-pre-line leading-relaxed">{confirmDlg.body}</div>
+                </div>
+              </div>
+              <div className="px-5 py-3 border-t flex justify-end gap-2" style={{ borderColor: tk.borderLight, background: tk.bgMuted }}>
+                <button onClick={() => closeConfirm(false)} className="text-xs px-3 py-1.5 rounded-lg border bg-white hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }} data-testid="rm-confirm-cancel">
+                  {t("common.cancel")}
+                </button>
+                <button onClick={() => closeConfirm(true)} className="text-xs px-4 py-1.5 rounded-lg text-white font-bold hover:opacity-90" style={{ backgroundColor: confirmDlg.okColor || tk.accent }} data-testid="rm-confirm-ok">
+                  {confirmDlg.okLabel || t("common.confirm")}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
