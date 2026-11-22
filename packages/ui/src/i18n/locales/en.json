@@ -1430,7 +1430,6 @@
   "rm.sug.whySafe": "Why it's safe",
   "rm.sug.whySafePrompt": "Use evidence to explain why this version is (or isn't) safe to release.",
   "rm.testing": "Running…",
-  "rm.testRunBtn": "Run Tests",
   "rm.testsLine": "Tests",
   "rm.title": "Release Manager",
   "rm.utLabel": "Unit",

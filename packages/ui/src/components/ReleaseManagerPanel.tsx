@@ -72,7 +72,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   // 2026-11-06 Fleming：產 report 前選 commit 時間
   const [selCommit, setSelCommit] = useState<string>("");
   const [showChat, setShowChat] = useState(true); // 2026-11-19 Fleming：side chat 顯示/隱藏開關（跟 Prod Spec 同款）
-  const [testing, setTesting] = useState(false);
   // 2026-11-03 Fleming：API 現況一鍵清點（前後端 + 測試 + baseline 變更）+ AI 摘要
   const [apiStatus, setApiStatus] = useState<any | null>(null);
   const [apiBusy, setApiBusy] = useState(false);
@@ -81,7 +80,6 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   // 2026-11-07 Fleming v3：Evidence Matrix API-first、按鈕才載入（不随 readiness 自動出現）
   const [evApi, setEvApi] = useState<any | null>(null);
   const [evApiBusy, setEvApiBusy] = useState(false);
-  const [includeE2e, setIncludeE2e] = useState(false);
   const chatRef = useRef<AgentSideChatHandle>(null);
   // 2026-10-09 Fleming：RM side chat 左右 splitter + 對話持久化 + model selector（跟 QA browser 同款）
   const rmPane = useColResize(520, 300, 760); // 2026-10-09：與 Handover/Troubleshooting 統一
@@ -403,22 +401,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
     finally { setApiSummaryBusy(false); }
   };
 
-  const runTests = async () => {
-    if (!rootPath || testing) return;
-    setTesting(true);
-    try {
-      await fetch(`${API_BASE}/api/coding-releases/test-run?path=${encodeURIComponent(rootPath)}`, {
-        method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ includeE2e }),
-      });
-      for (let i = 0; i < 600; i++) { // 最長 20 分鐘
-        await new Promise(r => setTimeout(r, 2000));
-        const st = await fetch(`${API_BASE}/api/coding-releases/test-run?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).catch(() => null);
-        if (!st?.running) break;
-      }
-      fetchReadiness();
-    } finally { setTesting(false); }
-  }
+  // 2026-11-22 Fleming：拿掉 UI 跑測試鈕 — 測試由「製作 Release Info」第一步自動真跑（release-info-builder step 1 startTestRun）
 
   // ── Readiness 證據注入（No answer without evidence）──
   // 2026-11-03：老闆五問快捷鈕移除（Fleming：過度設計）— generateReport 已涵蓋同內容
@@ -672,14 +655,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                           return <span className={`px-1.5 py-0.5 rounded ${tr.status === "pass" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`} title={`${tr.id} @ ${String(tr.at || "").slice(0, 16)}`}>🧪 {tr.status} {sm.passed ?? "?"}✓/{sm.failed ?? "?"}✗</span>;
                         })()}
                         {selDetail?.buildStatus?.evidenceSnapshot && <span className="px-1.5 py-0.5 rounded bg-teal-50 text-teal-700" title={selDetail.buildStatus.evidenceSnapshot.id}>⚖️ evidence</span>}
-                        {/* 2026-11-22：▶ 跑測試鈕回歸（v5 改版時誤丢）— 跑完才有 🧪 實跑數字和 📈 覆蓋率 */}
-                        <button onClick={runTests} disabled={testing || !rootPath}
-                          className="px-2 py-0.5 rounded border bg-white hover:bg-stone-50 text-stone-600 disabled:opacity-60 flex items-center gap-1"
-                          style={{ borderColor: tk.borderLight }} data-testid="rm-test-run"
-                          title="真實執行測試（背景跑，跑完重抓現況；coverage 需 test runner 有裝對應套件）">
-                          {testing && <span className="animate-spin inline-block w-2.5 h-2.5 border-[1.5px] border-stone-500 border-t-transparent rounded-full" />}
-                          ▶ {testing ? t("rm.testing") : t("rm.testRunBtn")}
-                        </button>
+                        {/* 2026-11-22 Fleming：不放「跑測試」鈕 — 製作 Release Info 第一步就自動真跑測試（release-info-builder step 1 startTestRun），人不需要手動觸發 */}
                       </div>
                       {evApi && (
                         <div className="border-t px-3 py-2" style={{ borderColor: tk.borderLight }} data-testid="rm-evidence-matrix">
