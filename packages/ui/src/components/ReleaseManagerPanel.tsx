@@ -80,6 +80,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
   // 2026-11-07 Fleming v3：Evidence Matrix API-first、按鈕才載入（不随 readiness 自動出現）
   const [evApi, setEvApi] = useState<any | null>(null);
   const [evApiBusy, setEvApiBusy] = useState(false);
+  const [evDiff, setEvDiff] = useState<any | null>(null);
   const chatRef = useRef<AgentSideChatHandle>(null);
   // 2026-10-09 Fleming：RM side chat 左右 splitter + 對話持久化 + model selector（跟 QA browser 同款）
   const rmPane = useColResize(520, 300, 760); // 2026-10-09：與 Handover/Troubleshooting 統一
@@ -203,6 +204,11 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
             if (m?.ok && m.matrix) { setEvApi(m.matrix); setMatrixFrozen(m.version); }
           } catch {}
         }
+        // 📊 與前一版的差異摘要（2026-11-22；無前版可白動 skip → null 不顯示）
+        try {
+          const x = await fetch(`${API_BASE}/api/coding-releases/release-info/diff?rr=${encodeURIComponent(selRR)}&path=${encodeURIComponent(rootPath)}`).then(r => r.json());
+          setEvDiff(x?.diff || null);
+        } catch {}
       }
     } catch { /* 不擋主頁 */ }
   }, [rootPath, selRR]);
@@ -543,9 +549,10 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                     </thead>
                     <tbody>
                       {[
-                        { kind: "spec", label: "📄 Prod Spec" },
-                        { kind: "dfo", label: "🛠 DFO" },
-                        { kind: "releaseInfo", label: "🚀 Release Info + ⚖️ Matrix" },
+                        { kind: "spec", label: t("rm.docSpec") },
+                        { kind: "dfo", label: t("rm.docDfo") },
+                        { kind: "releaseInfo", label: t("rm.docInfo") },
+                        { kind: "diff", label: t("rm.docDiff") },
                       ].map((row) => {
                         const st = docs?.docs?.[row.kind];
                         const fs = (docs?.verify?.findings || []).filter((f: any) => f.doc === row.kind);
@@ -606,6 +613,33 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                   };
                   return (
                     <div className="rounded-lg border bg-white" style={{ borderColor: tk.borderLight }} data-testid="rm-ri-content">
+                      {evDiff && (
+                        <div className="px-3 py-2.5 border-b bg-violet-50/40" style={{ borderColor: tk.borderLight }} data-testid="rm-ri-diff">
+                          <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                            <span className="text-[11px] font-bold text-stone-700">📊 {t("rm.diff.title")}</span>
+                            <span className="text-[9px] font-mono text-stone-400">{evDiff.previous?.rr} v{evDiff.previous?.version} → v{evDiff.current?.version}</span>
+                            {evDiff.gitStat && <span className="text-[9px] font-mono text-stone-400 truncate max-w-[16rem]" title={evDiff.gitStat}>{evDiff.gitStat}</span>}
+                            {evDiff.aiFallback && <span className="text-[9px] text-amber-600">（決定性數字表，AI 摘要失敗）</span>}
+                          </div>
+                          <div className="text-[11px] text-stone-700 leading-relaxed mb-1.5">{evDiff.summary}</div>
+                          <table className="w-full text-[10px]">
+                            <tbody>
+                              {(evDiff.rows || []).map((r: any, i: number) => (
+                                <tr key={i} className="align-top hover:bg-white/60">
+                                  <td className="py-1 pr-2 font-bold text-stone-600 whitespace-nowrap w-32">{r.area}</td>
+                                  <td className="py-1 text-stone-600 whitespace-pre-line">{r.diff}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {((evDiff.newApis || []).length > 0 || (evDiff.removedApis || []).length > 0) && (
+                            <div className="mt-1.5 text-[10px] text-stone-500 space-y-0.5">
+                              {(evDiff.newApis || []).length > 0 && <div>🆕 {t("rm.diff.newApis")}：{evDiff.newApis.join("、")}</div>}
+                              {(evDiff.removedApis || []).length > 0 && <div>🗑 {t("rm.diff.removedApis")}：{evDiff.removedApis.join("、")}</div>}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div className="px-3 py-2 flex items-baseline gap-2 flex-wrap border-b bg-stone-50/60" style={{ borderColor: tk.borderLight }} data-testid="rm-ri-version">
                         <span className="font-mono font-bold text-sm text-stone-800">v{ri.version}</span>
                         <span className="text-[10px] text-stone-400 font-mono">{ri.release_date}</span>

@@ -2199,5 +2199,12 @@
   "projectMd.versionTitle": "版本（預設最新）",
   "projectMd.versionCurrent": "現行版",
   "projectMd.sugg5Label": "補充背景／取捨",
-  "projectMd.sugg5Prompt": "我要補充需求背景／設計取捨／限制（內容我接著貼）— 請對照 code、tasks、ADR 後收斂，必要時用 spec_write 寫入，並把架構決策追加成 ADR："
+  "projectMd.sugg5Prompt": "我要補充需求背景／設計取捨／限制（內容我接著貼）— 請對照 code、tasks、ADR 後收斂，必要時用 spec_write 寫入，並把架構決策追加成 ADR：",
+  "rm.docSpec": "📄 Prod Spec",
+  "rm.docDfo": "🛠 DFO",
+  "rm.docInfo": "🚀 Release Info + ⚖️ Matrix",
+  "rm.docDiff": "📊 與前一版的差異摘要",
+  "rm.diff.title": "與前一版的差異摘要",
+  "rm.diff.newApis": "新增 API",
+  "rm.diff.removedApis": "移除 API"
 }

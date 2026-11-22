@@ -426,6 +426,17 @@ export default async function releaseRoutes(req, res, next) {
     }
   }
 
+  // GET /release-info/diff — 📊 與前一版的差異摘要（2026-11-22；無 → null，UI 不顯示區塊）
+  if (url === "/api/coding-releases/release-info/diff" && method === "GET") {
+    if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });
+    const rrId = q.get("rr");
+    if (!rrId) return res.status(400).json({ error: "rr required" });
+    try {
+      const { readDiffSummary } = await import("../lib/release-diff.mjs");
+      return res.json({ diff: readDiffSummary(resolve(projectPath), rrId) });
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+  }
+
   // GET /release-info/latest — 進場卡：最新 RR + 最新版 info + 最新 shipped release
   if (url === "/api/coding-releases/release-info/latest" && method === "GET") {
     if (!projectPath || !existsSync(projectPath)) return res.status(400).json({ error: "path required" });

@@ -2199,5 +2199,12 @@
   "projectMd.versionTitle": "Version (latest by default)",
   "projectMd.versionCurrent": "Current",
   "projectMd.sugg5Label": "Add background / trade-offs",
-  "projectMd.sugg5Prompt": "I'll add requirement background / design trade-offs / constraints below — reconcile them against code, tasks and ADRs, then write with spec_write and record architecture decisions as ADRs:"
+  "projectMd.sugg5Prompt": "I'll add requirement background / design trade-offs / constraints below — reconcile them against code, tasks and ADRs, then write with spec_write and record architecture decisions as ADRs:",
+  "rm.docSpec": "📄 Prod Spec",
+  "rm.docDfo": "🛠 DFO",
+  "rm.docInfo": "🚀 Release Info + ⚖️ Matrix",
+  "rm.docDiff": "📊 Diff vs previous release",
+  "rm.diff.title": "Diff vs previous release",
+  "rm.diff.newApis": "New APIs",
+  "rm.diff.removedApis": "Removed APIs"
 }

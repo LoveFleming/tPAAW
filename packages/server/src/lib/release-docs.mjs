@@ -17,7 +17,7 @@ import { PORT } from "../routes/shared.mjs";
 import { getReleaseRequest } from "./release-requests.mjs";
 
 const BASE = () => `http://127.0.0.1:${PORT}`;
-const DOC_KINDS = ["spec", "dfo", "releaseInfo"];
+const DOC_KINDS = ["spec", "dfo", "releaseInfo", "diff"]; // 2026-11-22 Fleming：多一個「與前一版的差異摘要」（第一版無前版可白動 skip）
 
 export function docsStatusPath(projectPath, rrId) {
   return join(projectPath, ".paaw", "release-info", rrId, "docs.json");
@@ -76,6 +76,20 @@ export async function triggerDoc(projectPath, rrId, kind) {
         }
         if (st?.error) throw new Error(st.error);
         setDoc(projectPath, rrId, kind, { status: "done", error: null, detail: st?.aiFallback ? "AI 摘要失敗（系統列表）" : `info v${Math.max(0, ...listInfoVersions(projectPath, rrId)) || "?"}`, aiFallback: !!st?.aiFallback });
+      } else if (kind === "diff") {
+        // 2026-11-22 Fleming：📊 與前一版的差異摘要（決定性證據 + AI 條列；第一版自動 skip）
+        // 先等 releaseInfo build（並行觸發時）跑完再比，免得拿舊版比
+        const { getBuildStatus } = await import("./release-info-builder.mjs");
+        const t0 = Date.now();
+        let stx = getBuildStatus(projectPath, rrId);
+        while (stx?.running && Date.now() - t0 < 15 * 60_000) {
+          await new Promise((ok) => setTimeout(ok, 4000));
+          stx = getBuildStatus(projectPath, rrId);
+        }
+        const { buildDiffSummary } = await import("./release-diff.mjs");
+        const d = await buildDiffSummary(projectPath, rrId);
+        if (d?.skipped) { setDoc(projectPath, rrId, kind, { status: "done", error: null, detail: `（${d.reason || "第一版，無前版可比"}）`, skipped: true }); }
+        else setDoc(projectPath, rrId, kind, { status: "done", error: null, detail: d.aiFallback ? "決定性數字表（AI 摘要失敗 fallback）" : `vs ${d.previous.rr} v${d.previous.version}`, aiFallback: !!d.aiFallback });
       } else {
         throw new Error(`unknown doc kind: ${kind}`);
       }

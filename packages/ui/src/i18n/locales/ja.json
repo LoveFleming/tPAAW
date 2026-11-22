@@ -2199,5 +2199,12 @@
   "projectMd.versionTitle": "バージョン（既定は最新）",
   "projectMd.versionCurrent": "現行版",
   "projectMd.sugg5Label": "背景・トレードオフを補足",
-  "projectMd.sugg5Prompt": "要件の背景／設計上のトレードオフ／制約を追記します（下に貼ります）— code・tasks・ADR と突き合わせて整理し、必要なら spec_write で書き込み、アーキテクチャ決定は ADR に追記してください："
+  "projectMd.sugg5Prompt": "要件の背景／設計上のトレードオフ／制約を追記します（下に貼ります）— code・tasks・ADR と突き合わせて整理し、必要なら spec_write で書き込み、アーキテクチャ決定は ADR に追記してください：",
+  "rm.docSpec": "📄 Prod Spec",
+  "rm.docDfo": "🛠 DFO",
+  "rm.docInfo": "🚀 Release Info + ⚖️ Matrix",
+  "rm.docDiff": "📊 前バージョンとの差分サマリ",
+  "rm.diff.title": "前バージョンとの差分サマリ",
+  "rm.diff.newApis": "追加 API",
+  "rm.diff.removedApis": "削除 API"
 }
