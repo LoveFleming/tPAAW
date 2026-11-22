@@ -125,27 +125,50 @@ export default async function dfoRoutes(req, res) {
         ctxParts.push(`--- 檔案樹（完整）---\n${String(tree)}`);
       } catch {}
 
-      const prompt = `${loadDfoPrompt(genRoot)}\n\n${ctxParts.join("\n\n")}`;
-      const result = await callProjectLLM({
-        model: modelOverride || undefined,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0,
-        thinking: { type: "disabled" },
-      }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 2 });
+      const basePrompt = `${loadDfoPrompt(genRoot)}\n\n${ctxParts.join("\n\n")}`;
+      // 2026-11-22 Fleming：JSON 解析失敗要自動 retry（換 prompt 糾正重叫 LLM），不要直接回 500 叫人手按
+      const DFO_GEN_ATTEMPTS = 3; // 1 次生 + 最多 2 次糾正重試
+      let parsed = null, lastParseErr = null;
+      let prompt = basePrompt;
+      for (let attempt = 1; attempt <= DFO_GEN_ATTEMPTS && !parsed; attempt++) {
+        const result = await callProjectLLM({
+          model: modelOverride || undefined,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0,
+          thinking: { type: "disabled" },
+        }, { ...CU_LLM_OPTS, timeoutMs: 600_000, maxRetries: 2 });
 
-      const content = (result.content || "").trim();
-      if (!content) return json(res, 500, { error: "AI 回應為空，DFO 未更新" });
-      // 解析 JSON（容錯 code fence）
-      let parsed;
-      const cleaned = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
-      try {
-        parsed = JSON.parse(cleaned);
-      } catch {
-        const m = cleaned.match(/\{[\s\S]*\}/);
-        if (!m) return json(res, 500, { error: "AI 回應不是合法 JSON，DFO 未更新（可重試）" });
-        try { parsed = JSON.parse(m[0]); } catch { return json(res, 500, { error: "AI 回應 JSON 解析失敗，DFO 未更新（可重試）" }); }
+        const content = (result.content || "").trim();
+        if (!content) { lastParseErr = "AI 回應為空"; }
+        else {
+          // 解析 JSON（容錯 code fence）
+          const cleaned = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+          try {
+            const p = JSON.parse(cleaned);
+            if (Array.isArray(p.sections)) { parsed = p; lastParseErr = null; break; }
+            lastParseErr = "AI 回應缺少 sections 陣列";
+          } catch {
+            const m = cleaned.match(/\{[\s\S]*\}/);
+            if (!m) { lastParseErr = "AI 回應不是合法 JSON"; }
+            else {
+              try {
+                const p = JSON.parse(m[0]);
+                if (Array.isArray(p.sections)) { parsed = p; lastParseErr = null; break; }
+                lastParseErr = "AI 回應缺少 sections 陣列";
+              } catch { lastParseErr = "JSON 解析失敗"; }
+            }
+          }
+        }
+        if (attempt < DFO_GEN_ATTEMPTS) {
+          console.warn(`[dfo] generate 第 ${attempt} 次失敗（${lastParseErr}）— 換糾正 prompt 重試`);
+          prompt = `${basePrompt}\n\n⚠️ 你上一次的回應無法解析（${lastParseErr}）。這次必須：只輸出一個合法 JSON 物件（{"sections": [...]}），不要 code fence、不要任何 JSON 以外的文字或註解。`;
+        }
       }
-      if (!Array.isArray(parsed.sections)) return json(res, 500, { error: "AI 回應缺少 sections 陣列" });
+      if (!parsed) {
+        if (lastParseErr === "AI 回應為空") return json(res, 500, { error: `AI 回應為空（重試 ${DFO_GEN_ATTEMPTS} 次），DFO 未更新` });
+        if (lastParseErr === "AI 回應缺少 sections 陣列") return json(res, 500, { error: `AI 回應缺少 sections 陣列（重試 ${DFO_GEN_ATTEMPTS} 次），DFO 未更新` });
+        return json(res, 500, { error: `AI 回應 JSON 解析失敗（重試 ${DFO_GEN_ATTEMPTS} 次），DFO 未更新（可重試）` });
+      }
       // 寫入（writeDfo 內部：schema 驗證 + SKIP 區塊機械保留 + 版本快照）
       try {
         const dfo = writeDfo(genRoot, parsed.sections, "greta:generate", rrLabel);
