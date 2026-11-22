@@ -168,6 +168,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
         releaseInfo: itemR?.release_info || null,
         infoVersion: itemR?.version_of_info || null,
         infoVersions: Array.isArray(itemR?.available_versions) ? itemR.available_versions : [],
+        rrStatus: itemR?.rrStatus || null,
         buildStatus: stR?.status || null,
         building: !!stR?.running,
       });
@@ -617,7 +618,7 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                         <div className="px-3 py-2.5 border-b bg-violet-50/40" style={{ borderColor: tk.borderLight }} data-testid="rm-ri-diff">
                           <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
                             <span className="text-[11px] font-bold text-stone-700">📊 {t("rm.diff.title")}</span>
-                            <span className="text-[9px] font-mono text-stone-400">{evDiff.previous?.rr} v{evDiff.previous?.version} → v{evDiff.current?.version}</span>
+                            <span className="text-[9px] font-mono text-stone-400">{evDiff.previous?.rr}（{String(evDiff.previous?.date || "").slice(0, 10)}）→ 本版（{String(evDiff.current?.date || "").slice(0, 10)}）</span>
                             {evDiff.gitStat && <span className="text-[9px] font-mono text-stone-400 truncate max-w-[16rem]" title={evDiff.gitStat}>{evDiff.gitStat}</span>}
                             {evDiff.aiFallback && <span className="text-[9px] text-amber-600">（決定性數字表，AI 摘要失敗）</span>}
                           </div>
@@ -641,7 +642,12 @@ export default function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashb
                         </div>
                       )}
                       <div className="px-3 py-2 flex items-baseline gap-2 flex-wrap border-b bg-stone-50/60" style={{ borderColor: tk.borderLight }} data-testid="rm-ri-version">
-                        <span className="font-mono font-bold text-sm text-stone-800">v{ri.version}</span>
+                        {selDetail?.rrStatus === "released" ? (
+                          <span className="font-mono font-bold text-sm text-stone-800">v{ri.version}</span>
+                        ) : (
+                          /* 2026-11-22 Fleming：RR 未 close 不是 release — 顯 draft 不顯預估版號（內部有存，問 AI 查得到） */
+                          <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-bold text-[11px]">draft</span>
+                        )}
                         <span className="text-[10px] text-stone-400 font-mono">{ri.release_date}</span>
                         {/* 2026-11-22 Fleming：commit number 不顯示（系統有存，要問 AI 隨時查得到） */}
                         <span className="flex-1" />

@@ -75,7 +75,8 @@ export async function triggerDoc(projectPath, rrId, kind) {
           st = getBuildStatus(projectPath, rrId);
         }
         if (st?.error) throw new Error(st.error);
-        setDoc(projectPath, rrId, kind, { status: "done", error: null, detail: st?.aiFallback ? "AI 摘要失敗（系統列表）" : `info v${Math.max(0, ...listInfoVersions(projectPath, rrId)) || "?"}`, aiFallback: !!st?.aiFallback });
+        // 2026-11-22 Fleming：未 close 前不顯示版號（誤導：v18 是預估下一版，不是真的 release 過 18 次）
+        setDoc(projectPath, rrId, kind, { status: "done", error: null, detail: st?.aiFallback ? "AI 摘要失敗（系統列表）" : `生成於 ${new Date().toISOString().slice(0, 16).replace("T", " ")}`, aiFallback: !!st?.aiFallback });
       } else if (kind === "diff") {
         // 2026-11-22 Fleming：📊 與前一版的差異摘要（決定性證據 + AI 條列；第一版自動 skip）
         // 先等 releaseInfo build（並行觸發時）跑完再比，免得拿舊版比

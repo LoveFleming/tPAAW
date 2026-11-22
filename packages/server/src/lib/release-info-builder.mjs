@@ -464,8 +464,13 @@ export async function startReleaseInfoBuild(projectPath, rrId, { by = "human", i
           if (extra.length === _baseGroups.length) aiFeatures = extra;
         } catch { /* 保留 deterministic 命名 */ }
       }
+      // 2026-11-22 Fleming：RR 未 close 前不是 release — info 明確標 draft；
+      // version 字段是「預估下一版」（shipped+1），標 draft 免得 AI/人誤讀成真的 release 過 N 次
+      let rrStatusForDraft = null;
+      try { rrStatusForDraft = (await getReleaseRequest(projectPath, rrId))?.status || null; } catch {}
       const info = {
         schema: SCHEMA_VERSION,
+        status: rrStatusForDraft === "released" ? "released" : "draft",
         version: det.version,
         release_date: new Date().toISOString().slice(0, 10),
         summary: ai.summary,

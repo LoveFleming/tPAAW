@@ -351,7 +351,14 @@ export default async function releaseRoutes(req, res, next) {
     const v = parseInt(q.get("v") || "", 10) || Math.max(...versions);
     const info = readInfoVersion(projectPath, rrId, v);
     if (!info) return res.status(404).json({ error: `info-v${v} not found` });
-    return res.json({ ok: true, version_of_info: v, available_versions: versions, release_info: info });
+    // 2026-11-22 Fleming：RR 未 close 不是 release — UI 據此顯示 draft、不顯版號
+    let rrStatus = null;
+    try {
+      const { listReleaseRequests } = await import("../lib/release-requests.mjs");
+      const rr = (await listReleaseRequests(projectPath)).find((r) => r.id === rrId);
+      rrStatus = rr?.status || null;
+    } catch {}
+    return res.json({ ok: true, version_of_info: v, available_versions: versions, rrStatus, release_info: info });
   }
 
   // GET /release-info/db?rr= — 從 coding.db 讀 Release Info（sqlite 版控查詢）
