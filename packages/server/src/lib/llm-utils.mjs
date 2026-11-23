@@ -394,6 +394,26 @@ export async function fetchWithRetry(url, options = {}, opts = {}) {
       }
 
       // Log result before returning
+      // 2026-11-23 fix：readBodyJson — body 讀取留在 timeout 窗内，避免 headers 回来后
+      // clearTimeout + bodyTimeout:0 → resp.json() 挂死永远（z.ai body 停滞时无任何 abort）
+      if (opts.readBodyJson) {
+        try {
+          const data = await resp.json();
+          clearTimeout(timer);
+          return { status: resp.status, ok: resp.ok, headers: resp.headers, json: async () => data, text: async () => JSON.stringify(data) };
+        } catch (bodyErr) {
+          clearTimeout(timer);
+          if (userSignal?.aborted) { cleanup(); throw _userAbortError(); }
+          lastError = bodyErr.name === 'AbortError' ? Object.assign(new Error(`Request timeout after ${timeoutMs}ms (body)`), { code: 'TIMEOUT' }) : bodyErr;
+          if (attempt < maxRetries && isRetryableError(lastError)) {
+            const delay = calcBackoff(attempt, baseDelayMs, maxDelayMs);
+            console.warn(`[LLM-Utils] Retry ${attempt + 1}/${maxRetries} in ${delay}ms (body read: ${lastError.message})`);
+            await sleep(delay);
+            continue;
+          }
+          throw lastError;
+        }
+      }
       return resp;
 
     } catch (err) {
@@ -512,6 +532,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
         maxRetries: 0, // 內層不 retry，由外層統一控制
         timeoutMs,
         signal: opts.signal || null,
+        readBodyJson: true, // 2026-11-23：body 讀取也在 timeout 窗内（防 resp.json() 挂死）
       });
 
       if (!resp.ok) {
