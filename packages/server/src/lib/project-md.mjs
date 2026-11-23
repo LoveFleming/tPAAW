@@ -99,36 +99,32 @@ export const SPEC_SECTION_SCHEMAS = [
   },
   {
     n: 5, title: "Architecture Design",
-    format: `四塊：
-- **Components**：表格（Component | 職責）
-- **Sequence**：mermaid sequenceDiagram（關鍵流程一張）
-- **Integrations**：表格（From | To | Protocol/Format）
-- **Data Flow**：條列或 mermaid flowchart`,
+    format: `簡明為主（2026-11-23 Fleming：不要過度設計）：
+- **Components**：條列，每個 component 一行職責（不用表格）
+- **Sequence**：mermaid sequenceDiagram 只畫「最關鍵的一條流程」（其他用文字帶過，不畫多張）
+- **Integrations / Data Flow**：合併成條列，重點就好`,
   },
   {
     n: 6, title: "Technical Design",
-    format: `四塊：
-- **技術選型**：表格（項目 | 選擇）
-- **Modules**：表格（Module | 職責）
-- **核心邏輯**：說明或 mermaid
-- **關鍵決策**：表格（主題 | 決定 | 原因）`,
+    format: `簡明為主：
+- **技術選型**：一行一項（語言/框架/DB/部署，點到為止）
+- **Modules**：條列，一個 module 一行職責
+- **關鍵決策**：只有真的值得記的才寫（ADR 一兩句話），没有就省略整塊`,
   },
   {
     n: 7, title: "Testing Strategy",
-    format: `先一句測試目標，再一張測試案例表：
+    format: `先一句測試目標，再一張測試案例表（只列關鍵案例，不用涵蓋全部）：
 
 | ID | 類型 | 情境 | 預期結果 |
 
-類型 = Unit / Integration / E2E / Failure / Load。`,
+類型 = Unit / Integration / E2E / Failure。`,
   },
   {
     n: 8, title: "Operations & Observability",
-    format: `五塊：
-- **Metrics**：表格（Metric | 用途）
-- **Logging**：條列規則（含「不記什麼」）
-- **Tracing**：一句話策略（可「暫不」）
-- **Deployment**：部署方式條列
-- **Alerting**：表格（Alert | 觸發條件）`,
+    format: `簡明為主（没有的整塊省略，不硬造）：
+- **Logging**：條列重點規則
+- **Deployment**：部署方式幾行條列
+- **Metrics / Alerting**：有實際機制才寫，没有就省略`,
   },
 ];
 
@@ -250,7 +246,8 @@ ${schema.format}
 - 除了 code 證據，也要參考 facts.docEvidence：TASKS（做過什麼、為什麼）、ADR / 技術決策（已定調的架構與取捨）、CHANGELOG / KNOWN ISSUES（近期變動與坑）、人的備註（最優先）。優先序：人的備註 > ADR > code 現況；三者衝突時以人/ADR 為準並在必要處註明現況差異
 - 不得捏造事實；專案事實沒有的 API/feature/error code 不要發明
 - ID 編號（FR-01 等）延續遞增，不要重號
-- 流程/架構/互動盡量附 mermaid 圖（mermaid 圍籬：flowchart / sequenceDiagram / stateDiagram-v2）
+- 流程/架構/互動盡量附 mermaid 圖（mermaid 圍籬：flowchart / sequenceDiagram / stateDiagram-v2）— 但第 5-8 節只畫最關鍵一張，不重複畫多張
+- 2026-11-23 Fleming：內容簡明 — 不湊篇幅、不過度設計；能用一行講清楚的不要展開成表格；没有實質機制的整塊省略，不硬造
 - 只輸出這一節的 markdown 本體：不加 ## 標題（外層會加）、不包 \`\`\` 圍籬、無前言結語${extra}
 ${transcript ? `
 與人的討論紀錄（最新在後，可能含人貼上的規格內容）：
