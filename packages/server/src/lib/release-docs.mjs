@@ -17,6 +17,11 @@ import { PORT } from "../routes/shared.mjs";
 import { getReleaseRequest } from "./release-requests.mjs";
 
 const BASE = () => `http://127.0.0.1:${PORT}`;
+// 2026-11-23 fix：spec-fill 跑 8 節可超過 5 分鐘，global fetch 預設 headersTimeout=300s 會把外層 fetch 掓死
+// （「fetch failed」但內層其實成功）— 改用同份 undici 的 fetch+Agent（關 timeout）
+import { Agent as _DocAgent, fetch as _docFetch } from "undici";
+const _docDispatcher = new _DocAgent({ headersTimeout: 0, bodyTimeout: 0 });
+const docFetch = (url, opts) => _docFetch(url, { ...opts, dispatcher: _docDispatcher });
 const DOC_KINDS = ["spec", "dfo", "releaseInfo", "diff"]; // 2026-11-22 Fleming：多一個「與前一版的差異摘要」（第一版無前版可白動 skip）
 
 export function docsStatusPath(projectPath, rrId) {
@@ -50,7 +55,7 @@ export async function triggerDoc(projectPath, rrId, kind) {
   const run = async () => {
     try {
       if (kind === "spec") {
-        const r = await fetch(`${BASE()}/api/coding-project/project-md/spec-fill?path=${encodeURIComponent(projectPath)}`, {
+        const r = await docFetch(`${BASE()}/api/coding-project/project-md/spec-fill?path=${encodeURIComponent(projectPath)}`, {
           method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ rr: rrId }),
         });
         const d = await r.json().catch(() => ({}));
@@ -58,7 +63,7 @@ export async function triggerDoc(projectPath, rrId, kind) {
         if (!d?.written) throw new Error(d?.reason || "spec 未寫入");
         setDoc(projectPath, rrId, kind, { status: "done", error: null, detail: `spec ${d.version || ""} · ${(d.sections || []).length} 節` });
       } else if (kind === "dfo") {
-        const r = await fetch(`${BASE()}/api/coding-dfo/generate?path=${encodeURIComponent(projectPath)}`, {
+        const r = await docFetch(`${BASE()}/api/coding-dfo/generate?path=${encodeURIComponent(projectPath)}`, {
           method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ cwd: projectPath, rr: rrId }),
         });
         const d = await r.json().catch(() => ({}));
