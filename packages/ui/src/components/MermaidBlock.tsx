@@ -62,8 +62,14 @@ function loadMermaid(): Promise<any> {
 
 // 2026-11-15：mermaid 12.2.0 的 parse-error 路徑會把 #d<id> 暫存 div 遺留在 document.body
 // （throw 發生在 removeTempElements 之前）→ 錯誤文字直接渲染在頁面尾端，最外層多一條捲軸。
-// 防禦性掃除：清掉所有歷史殘留（含 suppressErrorRendering 之前留下的）。
-function sweepStrayMermaidDivs() {
+// 2026-11-23 fix：只清「自己這塊」的暫存 div — 之前掃除所有 dmmd-*，
+// 同頁多圖並發渲染時會把別張圖正在用的暫存 div 刷掉 → "Cannot read properties of null (reading 'getAttribute')"
+// （症狀：某張圖 parse 失敗後，隔壁正常圖也跟著掛）。
+function sweepStrayMermaidDivs(ownId?: string) {
+  if (ownId) {
+    document.querySelectorAll(`body > [id="dmmd-${ownId}"], body > [id="dmmd-${ownId}-fix"], body > [id="d${ownId}"]`).forEach((el) => el.remove());
+    return;
+  }
   document.querySelectorAll('body > [id^="dmmd-"]').forEach((el) => el.remove());
 }
 
@@ -80,6 +86,22 @@ function mermaidQuoteFixup(code: string): string {
     let out = line.replace(/\|([^"|\n]+)\|/g, (_m, s: string) => `|"${esc(s)}"|`); // edge label
     out = out.replace(/([\w-]+)\[([^\]"]*)\]/g, (m, id: string, s: string) =>
       (s.startsWith("/") && s.endsWith("/")) ? m : `${id}["${esc(s)}"]`); // node text（保留 [/.../] 平行四邊形）
+    // 2026-11-23：sequenceDiagram 地雷 — participant 別名叫到保留字（Loop/alt/...）
+// 會被 langium 當 keyword → parse error（got 'loop'）。品修版只改「actor 位置」的保留字：
+// ① participant/actor 宣告的第 2 個 token（ID，非 alias）② signal 線的箭頭兩端 ③ activate/deactivate 對象。
+// 冒號後訊息文字、as alias 一律不動。
+    const SEQ_RESERVED = /^(loop|alt|opt|par|and|else|critical|option|break|rect|box|autonumber|end|loop)$/i;
+    const renameReserved = (w: string) => SEQ_RESERVED.test(w) ? `${w}_` : w;
+    if (/^\s*(participant|actor)\s+\S/.test(out)) {
+      out = out.replace(/^([ \t]*(?:participant|actor)[ \t]+)(\S+)/, (_m, pre, id) => pre + renameReserved(id));
+    } else if (/^\s*(activate|deactivate)\s+\S/.test(out)) {
+      out = out.replace(/^([ \t]*(?:activate|deactivate)[ \t]+)(\S+)/, (_m, pre, id) => pre + renameReserved(id));
+    } else if (/->>|-->>/.test(out)) {
+      const colonIdx = out.indexOf(":");
+      const head = colonIdx >= 0 ? out.slice(0, colonIdx) : out;
+      const tail = colonIdx >= 0 ? out.slice(colonIdx) : "";
+      out = head.replace(/[A-Za-z][\w-]*/g, renameReserved) + tail;
+    }
     return out;
   }).join("\n");
 }
@@ -94,14 +116,14 @@ export const MermaidBlock = memo(function MermaidBlock({ code }: { code: string 
     let alive = true;
     setSvg(null);
     setErr(null);
-    sweepStrayMermaidDivs();
+    sweepStrayMermaidDivs(idRef.current); // 2026-11-23：只清自己 — 全清會誤殺同頁並發渲染中的其他圖
     loadMermaid().then(async (mermaid) => {
       // 2026-11-19：漸進 fallback — 原文先試；parse error 再用品修版（label 加引號）重試，都失敗才退原始碼
       let out: string;
       try {
         out = (await mermaid.render(idRef.current, code)).svg;
       } catch {
-        sweepStrayMermaidDivs();
+        sweepStrayMermaidDivs(idRef.current);
         out = (await mermaid.render(`${idRef.current}-fix`, mermaidQuoteFixup(code))).svg;
       }
       if (alive) setSvg(out);
@@ -109,7 +131,7 @@ export const MermaidBlock = memo(function MermaidBlock({ code }: { code: string 
       if (alive) setErr(String(e?.message || e));
     }).finally(() => {
       // 成功或失敗都掃一次：mermaid 用同一 id 重渲染時 removeExistingElements 只認 svg 座標，保險起見手動清
-      sweepStrayMermaidDivs();
+      sweepStrayMermaidDivs(idRef.current);
     });
     return () => { alive = false; };
   }, [code]);
