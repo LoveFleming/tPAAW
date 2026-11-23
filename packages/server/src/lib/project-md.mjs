@@ -99,32 +99,26 @@ export const SPEC_SECTION_SCHEMAS = [
   },
   {
     n: 5, title: "Architecture Design",
-    format: `簡明為主（2026-11-23 Fleming：不要過度設計）：
-- **Components**：條列，每個 component 一行職責（不用表格）
-- **Sequence**：mermaid sequenceDiagram 只畫「最關鍵的一條流程」（其他用文字帶過，不畫多張）
-- **Integrations / Data Flow**：合併成條列，重點就好`,
+    // 2026-11-23 Fleming 二次定調：5-8 節很少改 — 寫策略方向就好，不展開細節；功能需求（第 2 節）才是重點
+    format: `只寫策略方向，幾條短句即可（這節很少改，不展開細節）：
+- 架構組成：一句話描述（幾個大塊、怎麼分工）
+- 關鍵流程：mermaid sequenceDiagram 最多一張（真正核心的那條），或一句話帶過
+- 對外整合：有外部系統才點名（谁對谁、什麼協議），没有就省略`,
   },
   {
     n: 6, title: "Technical Design",
-    format: `簡明為主：
-- **技術選型**：一行一項（語言/框架/DB/部署，點到為止）
-- **Modules**：條列，一個 module 一行職責
-- **關鍵決策**：只有真的值得記的才寫（ADR 一兩句話），没有就省略整塊`,
+    format: `只寫策略方向，幾條短句即可：
+- 技術棧：一行講完（語言/框架/DB/部署）
+- 模組切分：一句話描述切分原則
+- 已定調的決策：有才寫（一決策一句話），没有就省略`,
   },
   {
     n: 7, title: "Testing Strategy",
-    format: `先一句測試目標，再一張測試案例表（只列關鍵案例，不用涵蓋全部）：
-
-| ID | 類型 | 情境 | 預期結果 |
-
-類型 = Unit / Integration / E2E / Failure。`,
+    format: `一段話講完：測試分幾層、各層重點是什麼、目前涵蓋概況。不列逐案例表。`,
   },
   {
     n: 8, title: "Operations & Observability",
-    format: `簡明為主（没有的整塊省略，不硬造）：
-- **Logging**：條列重點規則
-- **Deployment**：部署方式幾行條列
-- **Metrics / Alerting**：有實際機制才寫，没有就省略`,
+    format: `一段話講完：怎麼部署、log 放哪/怎麼看、有没有監控告警（没有就說沒有）。有實際機制才展開。`,
   },
 ];
 
@@ -247,7 +241,7 @@ ${schema.format}
 - 不得捏造事實；專案事實沒有的 API/feature/error code 不要發明
 - ID 編號（FR-01 等）延續遞增，不要重號
 - 流程/架構/互動盡量附 mermaid 圖（mermaid 圍籬：flowchart / sequenceDiagram / stateDiagram-v2）— 但第 5-8 節只畫最關鍵一張，不重複畫多張
-- 2026-11-23 Fleming：內容簡明 — 不湊篇幅、不過度設計；能用一行講清楚的不要展開成表格；没有實質機制的整塊省略，不硬造
+- 2026-11-23 Fleming：八節輕重有别 — 第 2 節 FR 是重點，寫具體完整；第 5-8 節很少改，只寫策略方向幾條短句，不展開細節；不湊篇幅；能用一行講清楚的不要展開成表格；没有實質機制的整塊省略，不硬造
 - 只輸出這一節的 markdown 本體：不加 ## 標題（外層會加）、不包 \`\`\` 圍籬、無前言結語${extra}
 ${transcript ? `
 與人的討論紀錄（最新在後，可能含人貼上的規格內容）：
