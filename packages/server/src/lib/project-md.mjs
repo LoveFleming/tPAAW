@@ -63,14 +63,14 @@ export const SPEC_SECTION_SCHEMAS = [
 
 一小段需求描述。
 
+**Business Rule**
+
+- 業務規則（有才寫，没有就整塊省略，不硬造）
+
 **Acceptance Criteria**
 
 - 驗收條件 1
-- 驗收條件 2
-
-**Business Rule**
-
-- 業務規則（沒有可省略整塊）`,
+- 驗收條件 2`,
   },
   {
     n: 3, title: "Non-Functional Requirements",
