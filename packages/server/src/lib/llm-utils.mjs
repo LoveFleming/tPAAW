@@ -18,8 +18,12 @@
 // undici 預設 headersTimeout=300s：非串流 LLM 呼叫（大 prompt + 深思考）常超過 5 分鐘才回 headers，
 // 會在整 300s 被 TypeError: fetch failed 掐死（2026-08-28 Code Understanding 實測兩次 301s 死亡）。
 // 解除 undici 內建 timeout，改由各呼叫端的 AbortController（timeoutMs）全權管理。
-import { Agent as _UndiciAgent } from "undici";
+// 2026-11-23 fix：homebrew node 升 26 後，global fetch（node 內建 undici v7）收到 standalone
+// undici(6.x) 的 Agent dispatcher 會直接 UND_ERR_INVALID_ARG → "fetch failed"（2ms 內死）。
+// 解法：dispatcher 跟 fetch 必須同一份 undici — 一律用套件自己的 undiciFetch。
+import { Agent as _UndiciAgent, fetch as _undiciFetch } from "undici";
 const _llmDispatcher = new _UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 });
+const _llmFetch = (...args) => _undiciFetch(...args);
 
 const DEFAULT_MAX_RETRIES = 2;           // reduced from 5 — most providers handle 429 internally now, no need to retry 5 times
 const DEFAULT_BASE_DELAY_MS = 1000;     // first retry wait 1s (was 2s — most providers don't need long waits)
@@ -355,7 +359,7 @@ export async function fetchWithRetry(url, options = {}, opts = {}) {
     const { controller, timer, cleanup } = createTimeoutController(timeoutMs, userSignal);
 
     try {
-      const resp = await fetch(url, {
+      const resp = await _llmFetch(url, {
         ...options,
         signal: controller.signal,
         dispatcher: _llmDispatcher,

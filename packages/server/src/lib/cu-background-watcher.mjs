@@ -59,11 +59,11 @@ function _collectProjectRoots() {
 
 /** 首次 CU（無 cu-status.json）背景自呼 ai-initial — 每輪限量 */
 async function _runFirstCu(root) {
-  const { Agent } = await import("undici");
+  const { Agent, fetch: uFetch } = await import("undici");
   const dispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
   let model = null;
   try { model = JSON.parse(readFileSync(join(root, ".paaw", "cu-model.json"), "utf-8"))?.model || null; } catch {}
-  const r = await fetch(`http://127.0.0.1:${PORT}/api/coding-project/ai-initial?path=${encodeURIComponent(root)}`, {
+  const r = await uFetch(`http://127.0.0.1:${PORT}/api/coding-project/ai-initial?path=${encodeURIComponent(root)}`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: model || undefined }), dispatcher,
   });
   if (r.body) { const rd = r.body.getReader(); while (true) { const { done } = await rd.read(); if (done) break; } }

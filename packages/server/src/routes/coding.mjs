@@ -2224,9 +2224,9 @@ export default async function projectRoute(req, res) {
               let _bgModel = null;
               try { _bgModel = JSON.parse(readSync(join(root, ".paaw", "cu-model.json"), "utf-8"))?.model || null; } catch {}
               console.log(`[cu] 🧠 智慧層自動增量重跑（背景）：${root} stale=${staleSmartNow} model=${_bgModel || "(default)"}`);
-              const { Agent } = await import("undici");
+              const { Agent, fetch: uFetch } = await import("undici");
               const dispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
-              const r = await fetch(`http://127.0.0.1:${PORT}/api/coding-project/ai-initial?path=${encodeURIComponent(root)}`, {
+              const r = await uFetch(`http://127.0.0.1:${PORT}/api/coding-project/ai-initial?path=${encodeURIComponent(root)}`, {
                 method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: _bgModel || undefined }), dispatcher,
               });
               if (r.body) { const rd = r.body.getReader(); while (true) { const { done } = await rd.read(); if (done) break; } }

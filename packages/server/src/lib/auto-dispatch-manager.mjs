@@ -70,7 +70,7 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
     try {
       const controller = new AbortController();
       const timer = timeout > 0 ? setTimeout(() => controller.abort(), timeout) : null;
-      const res = await fetch(url, {
+      const res = await (_a2aFetch || fetch)(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -103,12 +103,14 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
 // 2026-08-16 教訓：message/send 是同步 HTTP，agent 跑超過 5 分鐘時 undici
 // 預設 headersTimeout=300s 會把 client 斷線（"fetch failed"），但 server 端
 // 工作照樣完成 → plan 誤記 fail、task 狀態不同步。拉長任務一律不得被這個砍。
-let _a2aDispatcher; // undefined=未初始化, null=不可用
+let _a2aDispatcher; // undefined=未初始化, null=不可用；配套 fetch 也必須同份 undici（node 26 dispatcher 相容性）
+let _a2aFetch = null;
 async function _getA2ADispatcher() {
   if (_a2aDispatcher !== undefined) return _a2aDispatcher;
   try {
-    const { Agent } = await import("undici");
+    const { Agent, fetch: uFetch } = await import("undici");
     _a2aDispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
+    _a2aFetch = uFetch;
   } catch {
     _a2aDispatcher = null; // fallback: global fetch 預設行為
   }
