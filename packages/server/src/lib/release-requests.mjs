@@ -9,7 +9,9 @@
  * 狀態機：draft → reviewing → released / cancelled
  *   - draft：可改 title / baseline
  *   - reviewing：baseline 鎖定；checklist 逐項審查（pass / fail / waive，waive 必留 note）
- *   - released：結案（不可逆）— 快照 REL 到 .paaw/releases/ + 批次放行範圍內 pending tasks
+ *   - released：結案（不可逆，唯一終態）— 快照 REL 到 .paaw/releases/ + 批次放行範圍內 pending tasks
+ *   - cancelled：2026-11-24 Fleming 定調「沒有 cancelled 這回事」— 非終態，只要沒 close 都可一直重做
+ *     （cancel 只留事件記錄，reopen/改單/建議/審查全部照常，DFO 不凍結）
  *
  * checklist（2026-09-17 定四項，後續演進）：
  *   tests / gates / qa-records / security / review-board（2026-10-08）/ risk / dfo（2026-11-20，ops+handover 合併）
@@ -144,7 +146,7 @@ async function saveRR(projectPath, rr) {
  *  已released/cancelled 的單也補（顯示完整七項），verdict 保持原樣。 */
 function normalizeChecklist(rr) {
   const existing = new Map((rr.checklist || []).map(c => [c.id, c]));
-  const closedAlready = rr.status === "released" || rr.status === "cancelled";
+  const closedAlready = rr.status === "released"; // 2026-11-24：唯一終態是 released（cancelled 可重做）
   rr.checklist = CHECKLIST_DEFS.map(def => existing.get(def.id) || {
     id: def.id, label: def.label,
     auto: { status: "unknown", detail: "此單建立時尚無此檢查項 — 重新整理（open/checklist/close 會重跑 auto）", checkedAt: null },
@@ -697,7 +699,7 @@ export async function createReleaseRequest(projectPath, { title, baseline = "aut
 export async function updateReleaseRequest(projectPath, id, { title, baseline } = {}) {
   const rr = await getReleaseRequest(projectPath, id);
   if (!rr) { const e = new Error("release request not found"); e.status = 404; throw e; }
-  if (rr.status === "released" || rr.status === "cancelled") {
+  if (rr.status === "released") { // 2026-11-24：只有 released（已 close）不可改；cancelled 可重做
     const e = new Error(`已 ${rr.status}，不可修改`); e.status = 400; throw e;
   }
   if (baseline && rr.status !== "draft") {
@@ -770,7 +772,7 @@ export async function reviewChecklistItem(projectPath, id, itemId, verdict, note
 export async function refreshReleaseRequest(projectPath, id) {
   const rr = await getReleaseRequest(projectPath, id);
   if (!rr) return null;
-  if (rr.status === "released" || rr.status === "cancelled") return rr;
+  if (rr.status === "released") return rr; // 2026-11-24：cancelled 不是終態，照常 refresh（target 可前進、auto 重跑）
   const headSha = await gitOne(projectPath, "rev-parse HEAD");
   if (headSha && headSha !== rr.target?.sha) {
     const headShort = headSha.slice(0, 8);
@@ -808,6 +810,8 @@ export async function closeReleaseRequest(projectPath, id, { note, force = false
   if (!rr) { const e = new Error("release request not found"); e.status = 404; throw e; }
   // 2026-11-21 Fleming：Set RR to Close = 只改 status，不卡關（draft 自動 open，checklist 不擋）
   if (rr.status === "draft") rr = (await openReleaseRequest(projectPath, id)) || rr;
+  // 2026-11-24：cancelled 非終態 — Set RR to Close 直接自動 reopen 再結案
+  if (rr.status === "cancelled") rr = (await reopenReleaseRequest(projectPath, id, { reason: "close 前自動 reopen（cancelled 非終態）" })) || rr;
   if (rr.status !== "reviewing") { const e = new Error(`狀態是 ${rr.status}，只有 reviewing 可以結案`); e.status = 400; throw e; }
 
   if (!force) {
@@ -892,11 +896,12 @@ export async function closeReleaseRequest(projectPath, id, { note, force = false
 }
 
 /** 2026-11-21 Fleming：最新一版可 reopen 重做（臨時要加功能，保留 release 彈性）
- * released → reviewing；清掉本次 releaseId（REL 記錄保留在 .paaw/releases，歷史不消失），可再 close 出新 REL。 */
+ * 2026-11-24 Fleming 定調「沒有 cancelled 這回事」：released 和 cancelled 都可 reopen。
+ * → reviewing；released reopen 清掉本次 releaseId（REL 記錄保留在 .paaw/releases，歷史不消失），可再 close 出新 REL。 */
 export async function reopenReleaseRequest(projectPath, id, { reason } = {}) {
   const rr = await getReleaseRequest(projectPath, id);
   if (!rr) { const e = new Error("release request not found"); e.status = 404; throw e; }
-  if (rr.status !== "released") { const e = new Error(`只有已 release 的 RR 可以 reopen（目前 ${rr.status}）`); e.status = 400; throw e; }
+  if (rr.status !== "released" && rr.status !== "cancelled") { const e = new Error(`此單狀態是 ${rr.status}（進行中），不需 reopen`); e.status = 400; throw e; }
   const prevRel = rr.releaseId || null;
   rr.status = "reviewing";
   rr.releaseId = null;
@@ -910,8 +915,8 @@ export async function reopenReleaseRequest(projectPath, id, { reason } = {}) {
 export async function cancelReleaseRequest(projectPath, id, { reason } = {}) {
   const rr = await getReleaseRequest(projectPath, id);
   if (!rr) { const e = new Error("release request not found"); e.status = 404; throw e; }
-  if (rr.status === "released") { const e = new Error("已結案，不可取消"); e.status = 400; throw e; }
-  if (rr.status === "cancelled") return rr;
+  if (rr.status === "released") { const e = new Error("已結案（close），不可取消"); e.status = 400; throw e; }
+  if (rr.status === "cancelled") return rr; // 冪等；2026-11-24：cancelled 非終態，隨時可 reopen 重做
   rr.status = "cancelled";
   hist(rr, "human", "cancelled", reason || null);
   await saveRR(projectPath, rr);
@@ -922,7 +927,7 @@ export async function cancelReleaseRequest(projectPath, id, { reason } = {}) {
 export async function setTargetLock(projectPath, id, locked) {
   const rr = await getReleaseRequest(projectPath, id);
   if (!rr) { const e = new Error("release request not found"); e.status = 404; throw e; }
-  if (rr.status === "released" || rr.status === "cancelled") {
+  if (rr.status === "released") { // 2026-11-24：只有 released 無需鎖定；cancelled 可重做照常鎖/解鎖
     const e = new Error(`已 ${rr.status}，無需鎖定`); e.status = 400; throw e;
   }
   if (!!rr.targetLocked === !!locked) return rr; // 冪等
@@ -936,7 +941,7 @@ export async function setTargetLock(projectPath, id, locked) {
 
 /**
  * 寫入 AI 建議（不動 verdict）：rr.suggested[itemId] = { verdict, reason, by, at }
- * draft / reviewing 都可建議（建議不鎖任何東西）；released/cancelled 拒絕。
+ * draft / reviewing 都可建議（建議不鎖任何東西）；released 拒絕（cancelled 非終態照收 — 2026-11-24）。
  * 2026-10-22 lineage 制：suggest 前先系統刷新（target 前進 + auto 重跑）—
  * 刷新是 deterministic 記帳不是 verdict，agent 仍然只建議不決策；
  * 從此不再有「對舊靶心建議」（RR-20261018-6f2e 教訓：建議落在凍結 target 上等於白建議）。
@@ -945,7 +950,7 @@ export async function suggestVerdicts(projectPath, id, items, by = "rm-agent") {
   await refreshReleaseRequest(projectPath, id);
   const rr = await getReleaseRequest(projectPath, id);
   if (!rr) { const e = new Error("release request not found"); e.status = 404; throw e; }
-  if (rr.status === "released" || rr.status === "cancelled") {
+  if (rr.status === "released") {
     const e = new Error(`已 ${rr.status}，不接受新建議`); e.status = 400; throw e;
   }
   if (!Array.isArray(items) || items.length === 0) {

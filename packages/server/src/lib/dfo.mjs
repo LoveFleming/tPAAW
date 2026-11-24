@@ -154,7 +154,8 @@ export function writeDfo(root, partialSections, updatedBy, label) {
 
 /**
  * 凍結檢查（2026-11-21 Fleming：rr 單關了就不能改）
- * 現行版代號是 RR id 且該 RR 已 released/cancelled → 凍結，回原因字串；可改 → null
+ * 現行版代號是 RR id 且該 RR 已 released → 凍結，回原因字串；可改 → null
+ * 2026-11-24 Fleming：「沒有 cancelled 這回事」— cancelled 非終態不凍結（隨時重做）
  */
 export async function dfoFrozenReason(root) {
   let prev; try { prev = readDfo(root); } catch { return null; }
@@ -163,8 +164,8 @@ export async function dfoFrozenReason(root) {
   try {
     const { getReleaseRequest } = await import("./release-requests.mjs");
     const rr = await getReleaseRequest(root, label);
-    if (rr && (rr.status === "released" || rr.status === "cancelled")) {
-      return `此 DFO 屬於已${rr.status === "released" ? "定案" : "取消"}的 ${label} — 已凍結不可修改；請建立新的 Release Request 再更新`;
+    if (rr && rr.status === "released") {
+      return `此 DFO 屬於已定案的 ${label} — 已凍結不可修改；請建立新的 Release Request 再更新`;
     }
   } catch {}
   return null;
