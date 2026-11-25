@@ -118,7 +118,11 @@ export const SPEC_SECTION_SCHEMAS = [
   },
   {
     n: 8, title: "Operations & Observability",
-    format: `一段話講完：怎麼部署、log 放哪/怎麼看、有没有監控告警（没有就說沒有）。有實際機制才展開。`,
+    // 2026-11-26 Fleming：維運節要提環境變數怎麼使用（有在用的逐一列，沒有就省略）
+    format: `一段話講完：怎麼部署、log 放哪/怎麼看、有没有監控告警（没有就說没有）。有實際機制才展開。
+
+環境變數（程式有在讀的才列，没有就整塊省略）：
+- \`VAR_NAME\`：用途、預設值（没設會怎样）、在哪設（.env / shell export / 啟動參數），各一行`,
   },
 ];
 
@@ -241,7 +245,7 @@ ${schema.format}
 - 不得捏造事實；專案事實沒有的 API/feature/error code 不要發明
 - ID 編號（FR-01 等）延續遞增，不要重號
 - 流程/架構/互動盡量附 mermaid 圖（mermaid 圍籬：flowchart / sequenceDiagram / stateDiagram-v2）— 但第 5-8 節只畫最關鍵一張，不重複畫多張
-- 2026-11-23 Fleming：八節輕重有别 — 第 2 節 FR 是重點，寫具體完整；第 5-8 節很少改，只寫策略方向幾條短句，不展開細節；不湊篇幅；能用一行講清楚的不要展開成表格；没有實質機制的整塊省略，不硬造
+- 2026-11-23 Fleming：八節輕重有别 — 第 2 節 FR 是重點，寫具體完整；第 5-8 節很少改，只寫策略方向幾條短句，不展開細節；不湊篇幅；能用一行講清楚的不要展開成表格；没有實質機制的整塊省略，不硬造。但環境變數是維運硬事實（2026-11-26 Fleming）：第 8 節的環境變數照 facts.envVars 逐一列出，不適用「只寫策略方向」短句規則；envVars 没有的環境變數不得發明
 - 只輸出這一節的 markdown 本體：不加 ## 標題（外層會加）、不包 \`\`\` 圍籬、無前言結語${extra}
 ${transcript ? `
 與人的討論紀錄（最新在後，可能含人貼上的規格內容）：
@@ -446,6 +450,35 @@ async function collectFacts(root) {
     docEvidence = collectDocEvidence(root);
   } catch {}
 
+  // 2026-11-26 Fleming：維運節要提環境變數怎麼使用 — 掃 code 的 process.env / import.meta.env 當證據（No answer without evidence）
+  let envVars = [];
+  try {
+    const { walkSourceFiles } = await import("./cu-source-scan.mjs");
+    const { files } = walkSourceFiles(root, { maxFiles: 800 });
+    const seen = new Map(); // name -> { files:Set, usage }
+    const RE = /(?:process\.env|import\.meta\.env)\.([A-Za-z_][A-Za-z0-9_]*)/g;
+    for (const f of files.slice(0, 800)) {
+      if (!/\.(mjs|js|cjs|ts|tsx|mts|cts)$/.test(f)) continue;
+      let content;
+      try { content = readFileSync(f, "utf-8"); } catch { continue; }
+      if (!content.includes(".env.")) continue;
+      for (const line of content.split("\n")) {
+        if (line.includes(".env.")) {
+          RE.lastIndex = 0;
+          let m;
+          while ((m = RE.exec(line)) !== null) {
+            const name = m[1];
+            const rel = f.split(/[\\/]/).slice(-3).join("/"); // 最後三段即可定位
+            if (!seen.has(name)) seen.set(name, { name, files: new Set(), usage: line.trim().slice(0, 160) });
+            seen.get(name).files.add(rel);
+          }
+        }
+      }
+    }
+    envVars = [...seen.values()].sort((a, b) => a.name.localeCompare(b.name)).slice(0, 60)
+      .map(e => ({ name: e.name, usage: e.usage, files: [...e.files].slice(0, 3) }));
+  } catch {}
+
   return {
     docEvidence,
     name: pkg?.name || root.split(/[\\/]/).pop() || "Project",
@@ -458,6 +491,7 @@ async function collectFacts(root) {
     tests: ti?.stats ? { files: ti.stats.totalTestFiles, byType: ti.stats.byType || {}, coverage: ti.stats.coverageRate } : null,
     errorCodes: ec?.stats?.uniqueCodes ?? null,
     codeIntel: ciSum ? { functions: ciSum.callGraph?.totalFunctions, symbols: ciSum.symbolIndex?.total } : null,
+    envVars,
     adrTitles,
   };
 }
