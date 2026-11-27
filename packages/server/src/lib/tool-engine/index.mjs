@@ -144,6 +144,7 @@ export class ToolEngine {
     this.agentId = options.agentId || 'default'
     this.security = options.security ? new SecurityKernel(options.security) : null
     this.cwd = options.cwd || process.cwd()
+    this.onLlmRound = options.onLlmRound || null // 2026-11-27：每輪 LLM 完成回報 {round, model, usage, finishReason, toolCallCount} — Agent Usage Report 議據接入
     this.registry.registerAll(options.executors || [])
   }
 
@@ -174,6 +175,8 @@ export class ToolEngine {
         let roundText = ''
         const toolCalls = []
         let finishReason = null
+        let roundUsage = null
+        let roundModel = model
         const roundStart = Date.now()
 
         console.log(`[ToolEngine] Round ${round + 1}/${this.maxToolRounds} calling provider... msgs=${messages.length} tools=${tools.length}`)
@@ -196,6 +199,8 @@ export class ToolEngine {
             case 'done':
               finishReason = chunk.finishReason
               toolCalls.push(...chunk.toolCalls)
+              roundUsage = chunk.usage || null
+              roundModel = chunk.model || model
               break
             case 'error':
               yield { type: 'error', message: chunk.message }
@@ -204,6 +209,11 @@ export class ToolEngine {
         }
 
         console.log(`[ToolEngine] Round ${round + 1}: finish=${finishReason} tools=${toolCalls.length} text=${roundText.length} elapsed=${Date.now() - roundStart}ms`)
+
+        // 2026-11-27：每輪 LLM 完成回報（含 usage/實際 model）— Agent Usage Report 的 chat 資料源
+        if (this.onLlmRound) {
+          try { this.onLlmRound({ round: round + 1, model: roundModel, usage: roundUsage, finishReason, toolCallCount: toolCalls.length }) } catch (cbErr) { console.warn('[ToolEngine] onLlmRound callback failed:', cbErr.message) }
+        }
 
         // Append assistant response
         const assistantMsg = { role: 'assistant', content: roundText || null }

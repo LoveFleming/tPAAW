@@ -284,3 +284,60 @@ describe("provider.chat — error paths", () => {
     expect(events.at(-1).message).toContain("ETIMEDOUT");
   });
 });
+
+// ── 2026-11-27：usage 證據鏈（chat Agent Usage Report）──
+describe("provider.chat — usage 捕獲（Agent Usage Report 資料源）", () => {
+  it("body 帶 stream_options.include_usage；usage-only chunk（choices 空）被抓進 done.usage", async () => {
+    mockFetchStream.mockResolvedValue(sseResponse(
+      textDelta("hi") + finish("stop") + sse({ choices: [], usage: { prompt_tokens: 11, completion_tokens: 7, total_tokens: 18 } }) + "data: [DONE]\n\n"
+    ));
+    const a = adapter();
+    const events = await collect(a.chat([{ role: "user", content: "q" }], [], undefined));
+    // request body 驗證
+    const body = JSON.parse(mockFetchStream.mock.calls[0][1].body);
+    expect(body.stream_options).toEqual({ include_usage: true });
+    const done = events.find((e) => e.type === "done");
+    expect(done.usage).toEqual({ prompt_tokens: 11, completion_tokens: 7, total_tokens: 18 });
+    expect(done.model).toBe("test-model");
+  });
+
+  it("tool_calls finish 也帶 usage；provider 不回 usage 時 done.usage = null（不發明證據）", async () => {
+    mockFetchStream.mockResolvedValue(sseResponse(
+      tcDelta(0, "call_1", "get_time", "{}") + finish("tool_calls")
+    ));
+    const a = adapter();
+    const events = await collect(a.chat([{ role: "user", content: "q" }], [], undefined));
+    const done = events.find((e) => e.type === "done");
+    expect(done.finishReason).toBe("tool_calls");
+    expect(done.usage).toBeNull();
+  });
+
+  it("stream 中途的 usage 被保留（usage chunk 在 finish 之前）", async () => {
+    mockFetchStream.mockResolvedValue(sseResponse(
+      sse({ choices: [], usage: { prompt_tokens: 5, completion_tokens: 2, total_tokens: 7 } }) + textDelta("ok") + finish("stop")
+    ));
+    const a = adapter();
+    const events = await collect(a.chat([{ role: "user", content: "q" }], [], undefined));
+    expect(events.find((e) => e.type === "done").usage.prompt_tokens).toBe(5);
+  });
+
+  it("400 拒絕 stream_options 的嚴格 proxy → 拔掉重試一次（第二次成功照常串流）", async () => {
+    mockFetchStream
+      .mockResolvedValueOnce(new Response('{"error":{"message":"Unknown parameter: stream_options"}}', { status: 400 }))
+      .mockResolvedValueOnce(sseResponse(textDelta("ok") + finish("stop")));
+    const a = adapter();
+    const events = await collect(a.chat([{ role: "user", content: "q" }], [], undefined));
+    expect(mockFetchStream).toHaveBeenCalledTimes(2);
+    const retryBody = JSON.parse(mockFetchStream.mock.calls[1][1].body);
+    expect(retryBody.stream_options).toBeUndefined();
+    expect(events.find((e) => e.type === "done").finishReason).toBe("stop");
+  });
+
+  it("其他 400（非 stream_options）不重試，直接 error", async () => {
+    mockFetchStream.mockResolvedValue(new Response('{"error":{"message":"bad model"}}', { status: 400 }));
+    const a = adapter();
+    const events = await collect(a.chat([{ role: "user", content: "q" }], [], undefined));
+    expect(mockFetchStream).toHaveBeenCalledTimes(1);
+    expect(events.at(-1).type).toBe("error");
+  });
+});

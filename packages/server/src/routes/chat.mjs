@@ -6,6 +6,7 @@ import { resolve } from "path";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 import { DATA_HOME } from "../data-home.mjs";
+import { startAgentLog } from "../lib/agent-exec-logger.mjs"; // 2026-11-27：chat 用量入 agent-logs（Agent Usage Report 資料源）
 import { hasImages } from "../lib/vision-content.mjs";
 import { uploadsDir } from "./uploads.mjs";
 import { readFile as _readFile } from "fs/promises";
@@ -452,12 +453,26 @@ export default async function chatRoutes(req, res) {
 
       console.log(`[${chatReqId}] ToolEngine.run() starting...`);
 
+      // ── 2026-11-27：chat 用量記錄進 agent-logs（Agent Usage Report 只讀 agent-logs，之前 chat 完全沒記 →
+      //    公司用很多模型但報表不顯示。每輪 LLM 帶 model/usage 議據，LLM 只推理、事實靠程式）──
+      const _chatLogger = startAgentLog({ agentId: 'assistant', model, cwd: PAAW_ROOT });
+      let _llmRounds = 0;
+      let _taskStatus = 'completed';
+      let _taskError = null;
+      // 每輪 LLM 完成回報 → 記一步 llm step（model + usage）
+      engine.onLlmRound = (info) => {
+        _llmRounds = Math.max(_llmRounds, info.round);
+        const _ll = _chatLogger.llmCall({ turn: info.round, model: info.model, messageCount: 0 });
+        _ll.done({ model: info.model, finishReason: info.finishReason, toolCallCount: info.toolCallCount, usage: info.usage });
+      };
+
       let sseEnded = false;
 
       // ── Client 斷線偵測（2026-08-19：按「停止」後 server 必須停止思考，不能繼續燒 token）──
       let clientGone = false;
       res.on('close', () => { clientGone = true; });
 
+      try {
       for await (const chunk of engine.run(ctx.systemPrompt, messages || [], model)) {
         if (sseEnded) break; // 防止 done/error 之後又收到 chunk
         if (clientGone) {
@@ -496,6 +511,8 @@ export default async function chatRoutes(req, res) {
             break
 
           case 'error':
+            _taskStatus = 'failed';
+            _taskError = chunk.message;
             res.write(`data: ${JSON.stringify({ error: true, message: chunk.message })}\n\n`) // nosemgrep: missing-template-string-indicator
             if (typeof res.flush === 'function') res.flush()
             res.end()
@@ -511,6 +528,14 @@ export default async function chatRoutes(req, res) {
       clearInterval(heartbeatTimer);
 
       // 2026-10-09 Fleming：AI 蒸餾功能移除 — 不再記錄互動（省 token）
+      } catch (_streamErr) {
+        _taskStatus = 'failed';
+        _taskError = _streamErr?.message || String(_streamErr);
+        throw _streamErr;
+      } finally {
+        if (clientGone && _taskStatus === 'completed') _taskStatus = 'interrupted';
+        try { await _chatLogger.end({ turns: _llmRounds, status: _taskStatus, error: _taskError }); } catch (e) { console.warn(`[${chatReqId}] agent log end failed: ${e.message}`) }
+      }
     } catch (err) {
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       console.error("[chat] Error:", err.message, "\nStack:", err.stack);

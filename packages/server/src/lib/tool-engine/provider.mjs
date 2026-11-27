@@ -63,6 +63,9 @@ export class OpenAICompatibleAdapter {
       messages: messagesForModel(messages, isVisionModel(modelName)), // 👁 非 vision model 收含圖歷史 → 佔位保護（2026-08-30）
       stream: true,
       max_tokens: 4096,
+      // 2026-11-27：要求 OpenAI-compatible server 在最後一個 chunk 附 usage（token 統計）。
+      // 標準欄位（OpenAI/vLLM/one-api/new-api 都支援）；不支援的嚴格 proxy 走下方 400 fallback 拔掉重試
+      stream_options: { include_usage: true },
       ...(this.config.extraBody || {}), // Vision 路由等場景的 body 覆写（thinking off / 額度）
     }
 
@@ -129,9 +132,37 @@ export class OpenAICompatibleAdapter {
 
     if (!response.ok) {
       const errText = await response.text()
-      console.log(`[Provider] Error body: ${errText.slice(0, 500)}`)
-      yield { type: 'error', message: `API error ${response.status}: ${errText.slice(0, 300)}` }
-      return
+      // 2026-11-27：stream_options.include_usage 相容性 fallback — 嚴格 proxy 400 拒絕此欄位 → 拔掉重試一次（不影響原本流程）
+      if (response.status === 400 && /stream_options|include_usage/i.test(errText)) {
+        console.log('[Provider] 400 on stream_options — retrying without include_usage')
+        const retryBody = { ...body }
+        delete retryBody.stream_options
+        try {
+          response = await fetchStreamWithRetry(url, {
+            method: 'POST',
+            headers,
+            body: jsonStringifySafe(retryBody),
+          }, {
+            maxRetries: 3,
+            timeoutMs: 300_000,
+            readTimeoutMs: 600_000,
+          })
+        } catch (fetchErr) {
+          try { fs.unlinkSync(payloadPath) } catch {}
+          yield { type: 'error', message: `連線錯誤（已 retry）: ${fetchErr.message}` }
+          return
+        }
+        if (!response.ok) {
+          const errText2 = await response.text()
+          console.log(`[Provider] Error body: ${errText2.slice(0, 500)}`)
+          yield { type: 'error', message: `API error ${response.status}: ${errText2.slice(0, 300)}` }
+          return
+        }
+      } else {
+        console.log(`[Provider] Error body: ${errText.slice(0, 500)}`)
+        yield { type: 'error', message: `API error ${response.status}: ${errText.slice(0, 300)}` }
+        return
+      }
     }
 
     if (!response.body) {
@@ -147,6 +178,7 @@ export class OpenAICompatibleAdapter {
     const pendingTools = new Map()
     let doneEmitted = false
     let lastFinishReason = null
+    let lastUsage = null // 2026-11-27：串流最後 chunk 的 usage（include_usage）— chat Agent Usage Report 的 token 證據
     let accumulatedContentLen = 0
     let accumulatedToolCalls = []
 
@@ -183,6 +215,7 @@ export class OpenAICompatibleAdapter {
           try {
             const parsed = JSON.parse(data)
             logStream(`PARSED: ${JSON.stringify(parsed).slice(0, 300)}`)
+            if (parsed.usage) lastUsage = parsed.usage // usage-only chunk（choices 空）也帶得進來
             const choice = parsed.choices?.[0]
             if (!choice) {
               logStream(`NO CHOICE: ${JSON.stringify(parsed).slice(0, 200)}`)
@@ -226,34 +259,16 @@ export class OpenAICompatibleAdapter {
               }
             }
 
-            // Finish
+            // Finish — 2026-11-27：只記錄、不立即 yield done；OpenAI 串流的 usage chunk 在 finish_reason 之後才到
+            // （choices: [] + usage），等到 [DONE]/stream 結束才發 done（帶齊 usage）。
             if (finishReason === 'tool_calls') {
               logStream(`FINISH: tool_calls, count=${pendingTools.size}`)
               console.log(`[Provider] finishReason=tool_calls, count=${pendingTools.size}`)
-              const toolCalls = []
-              for (const [, call] of pendingTools) {
-                console.log(`[Provider]   tool: ${call.name}, argsLen=${call.args.length}`)
-                toolCalls.push({
-                  id: call.id,
-                  type: 'function',
-                  function: { name: call.name, arguments: call.args },
-                })
-              }
-              yield { type: 'done', finishReason, toolCalls }
               lastFinishReason = finishReason
-              accumulatedToolCalls = toolCalls.map(tc => ({ name: tc.function?.name, argsLen: (tc.function?.arguments || '').length }))
-              doneEmitted = true
-              pendingTools.clear()
-              break
-            }
-
-            if (finishReason === 'stop') {
+            } else if (finishReason === 'stop') {
               logStream(`FINISH: stop`)
               console.log(`[Provider] finishReason=stop`)
-              yield { type: 'done', finishReason, toolCalls: [] }
               lastFinishReason = finishReason
-              doneEmitted = true
-              break
             }
           } catch (parseErr) {
             logStream(`PARSE ERROR: ${parseErr.message} data=${data.slice(0, 200)}`)
@@ -261,21 +276,20 @@ export class OpenAICompatibleAdapter {
         }
       }
 
-      // Stream ended naturally without finish_reason
+      // Stream ended（[DONE] 或 reader done）— 統一在這裡發 done（帶齊 usage：usage chunk 在 finish 之後才到）
       if (!doneEmitted) {
-        if (pendingTools.size > 0) {
-          const toolCalls = []
-          for (const [, call] of pendingTools) {
-            toolCalls.push({
-              id: call.id,
-              type: 'function',
-              function: { name: call.name, arguments: call.args },
-            })
-          }
-          yield { type: 'done', finishReason: 'tool_calls', toolCalls }
-        } else {
-          yield { type: 'done', finishReason: 'stop', toolCalls: [] }
+        const reason = lastFinishReason || (pendingTools.size > 0 ? 'tool_calls' : 'stop')
+        const toolCalls = []
+        for (const [, call] of pendingTools) {
+          toolCalls.push({
+            id: call.id,
+            type: 'function',
+            function: { name: call.name, arguments: call.args },
+          })
         }
+        accumulatedToolCalls = toolCalls.map(tc => ({ name: tc.function?.name, argsLen: (tc.function?.arguments || '').length }))
+        yield { type: 'done', finishReason: reason, toolCalls: reason === 'tool_calls' ? toolCalls : [], usage: lastUsage, model: modelName }
+        doneEmitted = true
       }
     } finally {
       // ── LLM Response Log + clean up temp files ──
@@ -292,6 +306,7 @@ export class OpenAICompatibleAdapter {
           finishReason: lastFinishReason || 'stop',
           contentLen: accumulatedContentLen,
           toolCalls: accumulatedToolCalls,
+          usage: lastUsage || null, // 2026-11-27：usage 進 llm-log（report/成本歸集來源）
           caller: this.config.caller || 'tool-engine',
         })
         console.log(`[Provider] Stream log: ${streamLogPath}`)

@@ -422,3 +422,36 @@ describe("ToolEngine — loop exhaustion & provider errors", () => {
     expect(events.some((e) => e.type === "done")).toBe(false);
   });
 });
+
+// ── 2026-11-27：onLlmRound 回報（chat Agent Usage Report 證據接入）──
+describe("ToolEngine — onLlmRound 每輪 LLM 回報", () => {
+  it("每輪回報 round/model/usage/finishReason/toolCallCount；callback throw 不影響主流程", async () => {
+    const adapter = fakeProvider([
+      [{ type: "done", finishReason: "tool_calls", toolCalls: [tc("c1", "pocket_list", {})], usage: { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14 }, model: "glm-5.1" }],
+      [{ type: "done", finishReason: "stop", toolCalls: [], usage: { prompt_tokens: 30, completion_tokens: 2, total_tokens: 32 }, model: "glm-5.1" }],
+    ]);
+    const rounds = [];
+    const engine = new ToolEngine({
+      provider: { __adapter: adapter },
+      executors: [exec("pocket_list", () => ({ ok: true, items: [] }))],
+      onLlmRound: (info) => rounds.push(info),
+    });
+    const events = [];
+    for await (const c of engine.run("sys", [{ role: "user", content: "q" }], "glm-5.1")) events.push(c);
+    expect(rounds).toEqual([
+      { round: 1, model: "glm-5.1", usage: { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14 }, finishReason: "tool_calls", toolCallCount: 1 },
+      { round: 2, model: "glm-5.1", usage: { prompt_tokens: 30, completion_tokens: 2, total_tokens: 32 }, finishReason: "stop", toolCallCount: 0 },
+    ]);
+    expect(events.some((e) => e.type === "done")).toBe(true);
+
+    // callback throw 不影響主流程
+    const engine2 = new ToolEngine({
+      provider: { __adapter: fakeProvider([[{ type: "done", finishReason: "stop", toolCalls: [], usage: null, model: "m" }]]) },
+      executors: [],
+      onLlmRound: () => { throw new Error("boom"); },
+    });
+    const events2 = [];
+    for await (const c of engine2.run("sys", [{ role: "user", content: "q" }], "m")) events2.push(c);
+    expect(events2.some((e) => e.type === "done")).toBe(true);
+  });
+});
