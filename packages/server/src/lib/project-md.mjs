@@ -126,10 +126,37 @@ export const SPEC_SECTION_SCHEMAS = [
   },
 ];
 
+/**
+ * 2026-11-28：AI 寫 spec 常漏 ```mermaid 圖欄（裸 mermaid/flowchart 行）→ UI 永遠不畫圖。
+ * 讀取時自動補圍欄（幂等：已在圍欄內的不動）— 不必重新產生內容。
+ */
+const _MERMAID_DIAG_START = /^(flowchart|graph|sequenceDiagram|stateDiagram-v2|classDiagram|erDiagram|mindmap|timeline|gantt)\b/;
+export function fenceBareMermaid(md) {
+  if (!md || !/^(flowchart|graph|sequenceDiagram|stateDiagram-v2|classDiagram|erDiagram|mindmap|timeline|gantt)\b/m.test(md)) return md;
+  const lines = md.split("\n");
+  const isTerm = (l) => l.trim() === "" || l.trim() === "---" || l.startsWith("#") || l.startsWith("**") || l.startsWith("- ") || l.trim().startsWith("```");
+  const out = [];
+  let inFence = false; // 追蹤既有 ``` code fence（含 ```mermaid）— 已圍欄的不動
+  let i = 0;
+  while (i < lines.length) {
+    const t = lines[i].trim();
+    if (t.startsWith("```")) { inFence = !inFence; out.push(lines[i]); i++; continue; }
+    if (!inFence && _MERMAID_DIAG_START.test(t)) {
+      out.push("```mermaid", lines[i]); i++;
+      while (i < lines.length && !isTerm(lines[i])) { out.push(lines[i]); i++; }
+      out.push("```");
+      continue;
+    }
+    out.push(lines[i]); i++;
+  }
+  return out.join("\n");
+}
+
 /** 把 spec markdown 切成 8 節內容（無標題的空字串）— tab sheet 用（2026-11-16 Fleming） */
 export function splitSpecSections(specMd) {
   const parts = new Array(8).fill("");
   if (!specMd) return parts;
+  specMd = fenceBareMermaid(specMd); // 2026-11-28：裸 mermaid 自動補圍欄 — UI 才畫得出圖
   const lines = specMd.split("\n");
   let idx = -1;
   for (const line of lines) {
