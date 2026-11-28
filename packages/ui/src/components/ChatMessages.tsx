@@ -310,6 +310,17 @@ const MessageRow = React.memo(function MessageRow({
                 {formatTime(msg.ts, msg.timestamp)}
               </span>
             )}
+            {/* 2026-11-28：實際使用 model 徽章 — 切換過多個 model 時顯示 +N */}
+            {msg.role === "assistant" && !msg._thinking && msg._model && (
+              <span
+                className="text-[10px] font-mono px-1 py-px rounded border max-w-[180px] truncate"
+                title={[...(msg._models || []), msg._model].filter((v, i, a) => v && a.indexOf(v) === i).join(" → ")}
+                style={{ borderColor: "#e7e5e4", color: "#a8a29e" }}
+              >
+                {String(msg._model).split("/").pop()}
+                {(msg._models || []).filter((m: string) => m && m !== msg._model).length > 0 ? ` +${new Set(msg._models as string[]).size - 1}` : ""}
+              </span>
+            )}
           </div>
           {/* Content */}
           <div

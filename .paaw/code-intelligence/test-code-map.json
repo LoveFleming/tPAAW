@@ -907,7 +907,7 @@
       "productionFile": "packages/server/src/lib/shell-exec.mjs",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 21
+      "testCount": 22
     },
     {
       "testFile": "packages/server/src/lib/test-signals.mjs",
@@ -925,7 +925,7 @@
     }
   ],
   "stats": {
-    "totalTestFiles": 114,
+    "totalTestFiles": 115,
     "matchedTests": 121,
     "totalTestedFunctions": 1
   }

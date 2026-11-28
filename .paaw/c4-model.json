@@ -1,91 +1,95 @@
 {
-  "scannedAt": "2026-11-09T10:59:10.140Z",
+  "scannedAt": "2026-11-27T17:30:54.853Z",
   "method": "llm-v1",
   "system": {
-    "name": "tPAAW",
-    "description": "一個以 WebSocket 為核心的 PAAW 服務平台，包含主應用（paaw）、Node bridge 服務與資料容器，並提供 Vite 前端。"
+    "name": "PAAW",
+    "description": "PAAW 是一個具有自有程式碼的 Node.js 應用系統（monorepo，含 server、bridge、UI），提供 HTTP API 與 WebSocket 服務，並透過 bridge 容器對外橋接。"
   },
   "containers": [
     {
-      "name": "paaw",
+      "name": "paaw-app",
       "type": "app",
-      "technology": "Node.js / ws 8.20",
-      "description": "主應用服務，對外監聽 4097（HTTP）與 4098（WebSocket），並透過 PAAW_ES_URL 連線外部事件來源。",
+      "technology": "Node.js (ws ^8.20, npm monorepo; 103 mjs / 32 ts / 3 tsx source files)",
+      "description": "主要應用，同時監聽 HTTP（PAAW_PORT / 4097）與 WebSocket（PAAW_WS_PORT / 4098），含 migrate 與完整 test scripts，為此 RU 的核心自有程式碼。",
       "evidence": [
-        "compose service: paaw (ports 4097, 4098)",
-        "packages/server EXPOSE 4097",
-        "deps: ws@^8.20.0 (packages/server/package.json)",
-        "env: PAAW_PORT, PAAW_WS_PORT, PAAW_ES_URL"
+        "compose: service paaw, ports 4097/4098",
+        "env: PAAW_PORT, PAAW_WS_PORT (.env)",
+        "exposedPorts: 4097",
+        "deps: ws ^8.20.0 (packages/server/package.json)",
+        "scripts: dev / dev:server / migrate / test:e2e"
+      ]
+    },
+    {
+      "name": "paaw-ui",
+      "type": "frontend",
+      "technology": "Vite + React (tsx)",
+      "description": "前端 UI（dev:ui script、VITE_PORT env），以 Vite 開發伺服器提供。",
+      "evidence": [
+        "env: VITE_PORT (.env/.env.example)",
+        "scripts: dev:ui",
+        "self: 3 tsx files"
       ]
     },
     {
       "name": "bridge",
-      "type": "api",
-      "technology": "Node 22-slim",
-      "description": "Bridge 服務，監聽 4100，供 paaw 透過 host.docker.internal:4100 呼叫。",
+      "type": "worker",
+      "technology": "node:22-slim",
+      "description": "橋接服務，監聽 4100（BRIDGE_PORT），由 paaw-app 透過 host.docker.internal 連入。",
       "evidence": [
-        "compose service: bridge (image node:22-slim, port 4100)",
-        "env: BRIDGE_PORT",
-        "uri: http://host.docker.internal:4100 (docker-compose.yml:28)"
+        "compose: service bridge, image node:22-slim, port 4100",
+        "env: BRIDGE_PORT (.env)",
+        "uris: http://host.docker.internal:4100 (docker-compose.yml:28)",
+        "scripts: dev:bridge"
       ]
     },
     {
       "name": "paaw-data",
-      "type": "db",
-      "technology": "未指定（compose 內建資料容器）",
-      "description": "paaw 的資料容器，於 docker-compose 中定義但未暴露 port，僅供內部服務使用。",
+      "type": "storage",
+      "technology": "docker volume/data container",
+      "description": "資料儲存（compose 中的 paaw-data service，無 port、無 image，應為 volume 或 data 容器）。",
       "evidence": [
-        "compose service: paaw-data (no ports)"
-      ]
-    },
-    {
-      "name": "vite-frontend",
-      "type": "frontend",
-      "technology": "Vite",
-      "description": "前端開發/建置服務，透過 VITE_PORT 設定監聽埠。",
-      "evidence": [
-        "env: VITE_PORT"
+        "compose: service paaw-data (no image/ports)"
       ]
     }
   ],
   "externalSystems": [
     {
-      "name": "PAAW Event Source",
-      "type": "api",
-      "technology": "未指定（由 PAAW_ES_URL 指向）",
-      "description": "paaw 透過 PAAW_ES_URL 連線的外部事件來源服務，實際協定與主機未在證據中揭露。",
+      "name": "Elasticsearch (env PAAW_ES_URL)",
+      "type": "other",
+      "technology": "unknown (僅 env key，URI 未收錄)",
+      "description": "由 PAAW_ES_URL 命名推斷為 Elasticsearch 服務端點，用途不明（可能為搜尋/日誌索引）；未在 repo 內 compose 定義，視為外部系統，證據薄弱僅列於此供確認。",
       "evidence": [
-        "env: PAAW_ES_URL"
+        "env key PAAW_ES_URL 存在（值未收集）"
       ]
     }
   ],
   "relationships": [
     {
-      "from": "paaw",
+      "from": "paaw-app",
+      "to": "paaw-ui",
+      "protocol": "http (dev server / reverse proxy)",
+      "description": "開發/生產環境由 app 提供 UI（VITE_PORT 僅 dev 用）。"
+    },
+    {
+      "from": "paaw-app",
       "to": "bridge",
       "protocol": "http",
-      "description": "paaw 透過 host.docker.internal:4100 呼叫 bridge 服務"
+      "description": "paaw 容器內連 host.docker.internal:4100 呼叫 bridge 服務。"
     },
     {
-      "from": "paaw",
+      "from": "paaw-app",
       "to": "paaw-data",
-      "protocol": "未指定",
-      "description": "paaw 使用 compose 內定義的資料容器"
+      "protocol": "filesystem/volume",
+      "description": "資料持久化儲存。"
     },
     {
-      "from": "paaw",
-      "to": "PAAW Event Source",
-      "protocol": "未指定",
-      "description": "透過 PAAW_ES_URL 連線外部事件來源"
-    },
-    {
-      "from": "vite-frontend",
-      "to": "paaw",
-      "protocol": "http/ws",
-      "description": "前端透過 paaw 的 4097/4098 埠存取應用與 WebSocket"
+      "from": "paaw-app",
+      "to": "Elasticsearch (env PAAW_ES_URL)",
+      "protocol": "http (推斷)",
+      "description": "依 PAAW_ES_URL env key 推斷的外部連線，用途待確認。"
     }
   ],
-  "notes": "compose 內 paaw 與 bridge 的 image 欄位為空，可能使用 build context；paaw-data 未指定 image 與 port，用途需人工確認。PAAW_ES_URL 的 scheme/host 未在 uris 中出現，無法判定是 Elasticsearch 或自訂事件服務。deps 僅有 ws，無 DB/cache/queue 客戶端依賴，資料存取可能經由 paaw-data 容器或 bridge 代理。",
+  "notes": "1) 此 RU 有大量自有程式碼（141 個 source files，主要為 .mjs/.ts），是真正的應用系統而非純部署 repo。2) 沒有任何 db/cache/queue 依賴（deps 僅 ws framework），資料儲存靠 paaw-data compose service，migrate script 的目標亦不明，值得後續確認（可能是自寫檔案型 storage）。3) PAAW_ES_URL 的 'ES' 極可能指 Elasticsearch，但無 URI host 證據，已標為低信心推斷。4) topDirs 含 installed-apps、backups 等本地運行痕跡，非部署產物。",
   "stats": {
     "containers": 4,
     "external": 1,

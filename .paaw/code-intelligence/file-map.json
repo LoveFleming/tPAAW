@@ -2970,6 +2970,62 @@
       "components": []
     },
     {
+      "file": "tests/unit/project-md-spec.test.mjs",
+      "language": "javascript",
+      "exports": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "names": []
+        },
+        {
+          "source": "node:fs",
+          "names": []
+        },
+        {
+          "source": "node:path",
+          "names": []
+        },
+        {
+          "source": "node:os",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "fakeLLM",
+          "kind": "arrow",
+          "async": true,
+          "params": "({ messages })",
+          "callCount": 1,
+          "calls": [
+            "messages[0].content.match"
+          ]
+        },
+        {
+          "name": "flaky",
+          "kind": "arrow",
+          "async": true,
+          "params": "({ messages })",
+          "callCount": 1,
+          "calls": [
+            "messages[0].content.match"
+          ]
+        },
+        {
+          "name": "rec",
+          "kind": "arrow",
+          "async": true,
+          "params": "({ messages })",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "routes": [],
+      "components": []
+    },
+    {
       "file": "tests/unit/providers.test.mjs",
       "language": "javascript",
       "exports": [],
@@ -7977,7 +8033,7 @@
           "names": []
         },
         {
-          "source": "../components/TroubleshootingPanel",
+          "source": "../components/DfoPanel",
           "names": []
         },
         {
@@ -9996,6 +10052,43 @@
             "t",
             "setSaving"
           ]
+        },
+        {
+          "name": "sideLabel",
+          "kind": "arrow",
+          "async": false,
+          "params": "(k: string)",
+          "callCount": 4,
+          "calls": [
+            "k.startsWith",
+            "k.slice",
+            "k.startsWith",
+            "k.slice"
+          ]
+        },
+        {
+          "name": "savePref",
+          "kind": "arrow",
+          "async": true,
+          "params": "(key: string, value: string)",
+          "callCount": 3,
+          "calls": [
+            "setUserPrefs",
+            "fetch",
+            "JSON.stringify"
+          ]
+        },
+        {
+          "name": "PrefRow",
+          "kind": "arrow",
+          "async": false,
+          "params": "({ k, label }: { k: string; label: string })",
+          "callCount": 3,
+          "calls": [
+            "allModels.some",
+            "savePref",
+            "allModels.map"
+          ]
         }
       ],
       "classes": [],
@@ -10004,6 +10097,10 @@
         {
           "name": "SettingsPage",
           "kind": "function"
+        },
+        {
+          "name": "PrefRow",
+          "kind": "arrow"
         }
       ]
     },
@@ -11094,10 +11191,6 @@
           "names": []
         },
         {
-          "source": "../components/TroubleshootingPanel",
-          "names": []
-        },
-        {
           "source": "../components/TabErrorBoundary",
           "names": []
         },
@@ -12045,20 +12138,6 @@
           "params": "({\n  rootPath, onPick, onOpenFile, onAskAi, onLoadPayload,\n  apiHistory, onClearHistory, refreshHistory,\n  borderLight = \"#f0f0f0\", borderInput = \"#e5e5e5\", refreshSignal }: Props)",
           "callCount": 0,
           "calls": []
-        },
-        {
-          "name": "sendAiAddPayload",
-          "kind": "arrow",
-          "async": false,
-          "params": "()",
-          "callCount": 5,
-          "calls": [
-            "aiPayloadName.trim",
-            "aiColName.trim",
-            "onAskAi",
-            "setAiPayloadName",
-            "setAiColName"
-          ]
         },
         {
           "name": "loadPayloadDetail",
@@ -13226,6 +13305,66 @@
       "components": [
         {
           "name": "DecisionLog",
+          "kind": "function"
+        }
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/DfoPanel.tsx",
+      "language": "tsx",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "DfoPanel",
+          "isDefault": true
+        }
+      ],
+      "imports": [
+        {
+          "source": "react",
+          "names": []
+        },
+        {
+          "source": "../api",
+          "names": []
+        },
+        {
+          "source": "./AgentSideChat",
+          "names": []
+        },
+        {
+          "source": "./ColResizer",
+          "names": []
+        },
+        {
+          "source": "./MarkdownText",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "DfoPanel",
+          "kind": "function",
+          "async": false,
+          "params": "({ rootPath, active, theme: tk }: { rootPath: string; active?: boolean; theme: { borderLight: string; accent: string; accentHover?: string } })",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "DfoErrorBoundary",
+          "methods": [
+            "state",
+            "getDerivedStateFromError",
+            "render"
+          ]
+        }
+      ],
+      "routes": [],
+      "components": [
+        {
+          "name": "DfoPanel",
           "kind": "function"
         }
       ]
@@ -14841,6 +14980,43 @@
           "calls": []
         },
         {
+          "name": "sweepStrayMermaidDivs",
+          "kind": "function",
+          "async": false,
+          "params": "(ownId?: string)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "mermaidQuoteFixup",
+          "kind": "function",
+          "async": false,
+          "params": "(code: string)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "esc",
+          "kind": "arrow",
+          "async": false,
+          "params": "(s: string)",
+          "callCount": 2,
+          "calls": [
+            "s.replace(/\"/g, \"#quot;\").replace",
+            "s.replace"
+          ]
+        },
+        {
+          "name": "renameReserved",
+          "kind": "arrow",
+          "async": false,
+          "params": "(w: string)",
+          "callCount": 1,
+          "calls": [
+            "SEQ_RESERVED.test"
+          ]
+        },
+        {
           "name": "mdPreWithMermaid",
           "kind": "function",
           "async": false,
@@ -15119,11 +15295,15 @@
           "names": []
         },
         {
+          "source": "./AgentSideChat",
+          "names": []
+        },
+        {
           "source": "./MarkdownText",
           "names": []
         },
         {
-          "source": "./ui/uiFeedback",
+          "source": "./ColResizer",
           "names": []
         }
       ],
@@ -15137,44 +15317,49 @@
           "calls": []
         },
         {
-          "name": "save",
+          "name": "onFocus",
           "kind": "arrow",
-          "async": true,
+          "async": false,
           "params": "()",
-          "callCount": 12,
+          "callCount": 1,
           "calls": [
-            "setSaving",
-            "fetch",
-            "encodeURIComponent",
-            "JSON.stringify",
-            "r.text",
-            "uiAlert",
-            "t",
-            "setDirty",
-            "load",
-            "uiAlert",
-            "t",
-            "setSaving"
+            "load"
           ]
         },
         {
-          "name": "regenerate",
+          "name": "refresh",
           "kind": "arrow",
           "async": true,
           "params": "()",
-          "callCount": 11,
+          "callCount": 3,
           "calls": [
-            "setRegen",
+            "setRefreshing",
+            "load",
+            "setRefreshing"
+          ]
+        },
+        {
+          "name": "fillAll",
+          "kind": "arrow",
+          "async": true,
+          "params": "()",
+          "callCount": 15,
+          "calls": [
+            "window.confirm",
+            "t",
+            "setFilling",
             "fetch",
             "encodeURIComponent",
-            "JSON.stringify",
             "r.json",
-            "uiAlert",
-            "t",
             "load",
-            "uiAlert",
+            "window.alert",
+            "t(\"projectMd.fillAllDone\").replace",
             "t",
-            "setRegen"
+            "String",
+            "d.failed.join",
+            "window.alert",
+            "window.alert",
+            "setFilling"
           ]
         }
       ],
@@ -15401,6 +15586,197 @@
           ]
         },
         {
+          "name": "p",
+          "kind": "arrow",
+          "async": false,
+          "params": "(e: string)",
+          "callCount": 1,
+          "calls": [
+            "encodeURIComponent"
+          ]
+        },
+        {
+          "name": "confirmAsk",
+          "kind": "arrow",
+          "async": false,
+          "params": "(o: { icon?: string; title: string; body: string; okLabel?: string; okColor?: string })",
+          "callCount": 1,
+          "calls": [
+            "setConfirmDlg"
+          ]
+        },
+        {
+          "name": "closeConfirm",
+          "kind": "arrow",
+          "async": false,
+          "params": "(v: boolean)",
+          "callCount": 2,
+          "calls": [
+            "confirmDlg.resolve",
+            "setConfirmDlg"
+          ]
+        },
+        {
+          "name": "buildAllDocs",
+          "kind": "arrow",
+          "async": true,
+          "params": "()",
+          "callCount": 14,
+          "calls": [
+            "confirmAsk",
+            "t",
+            "setDocBusy",
+            "fetch(`${API_BASE}/api/coding-releases/release-docs/build-all?path=${encodeURIComponent(rootPath)}`, {\n        method: \"POST\", headers: { \"content-type\": \"application/json\" }, body: JSON.stringify({ rr: selRR }),\n      }).then",
+            "fetch",
+            "encodeURIComponent",
+            "JSON.stringify",
+            "r.json",
+            "setToast",
+            "String",
+            "setToast",
+            "fetchDocs",
+            "setToast",
+            "setDocBusy"
+          ]
+        },
+        {
+          "name": "rebuildDoc",
+          "kind": "arrow",
+          "async": true,
+          "params": "(kind: \"spec\" | \"dfo\" | \"releaseInfo\")",
+          "callCount": 12,
+          "calls": [
+            "setDocBusy",
+            "fetch(`${API_BASE}/api/coding-releases/release-docs/rebuild?path=${encodeURIComponent(rootPath)}`, {\n        method: \"POST\", headers: { \"content-type\": \"application/json\" },\n        body: JSON.stringify({ rr: selRR, kind }),\n      }).then",
+            "fetch",
+            "encodeURIComponent",
+            "JSON.stringify",
+            "r.json",
+            "setToast",
+            "String",
+            "setToast",
+            "fetchDocs",
+            "setToast",
+            "setDocBusy"
+          ]
+        },
+        {
+          "name": "refreshReleaseInfo",
+          "kind": "arrow",
+          "async": true,
+          "params": "()",
+          "callCount": 5,
+          "calls": [
+            "setRiRefreshing",
+            "Promise.all",
+            "fetchRrOptions",
+            "fetchSelDetail",
+            "setRiRefreshing"
+          ]
+        },
+        {
+          "name": "rebuildInfo",
+          "kind": "arrow",
+          "async": true,
+          "params": "()",
+          "callCount": 13,
+          "calls": [
+            "setRebuildBusy",
+            "fetch(`${API_BASE}/api/coding-releases/requests/${encodeURIComponent(selRR)}/build?path=${encodeURIComponent(rootPath)}`, {\n        method: \"POST\", headers: { \"content-type\": \"application/json\" }, body: JSON.stringify({}),\n      }).then",
+            "fetch",
+            "encodeURIComponent",
+            "encodeURIComponent",
+            "JSON.stringify",
+            "r.json",
+            "setToast",
+            "String",
+            "setToast",
+            "fetchSelDetail",
+            "setToast",
+            "setRebuildBusy"
+          ]
+        },
+        {
+          "name": "confirmRelease",
+          "kind": "arrow",
+          "async": true,
+          "params": "()",
+          "callCount": 23,
+          "calls": [
+            "(docs?.verify?.findings || []).filter",
+            "errs.slice(0, 5).map((f: any) => `[${f.doc}] ${f.message}`).join",
+            "errs.slice(0, 5).map",
+            "errs.slice",
+            "confirmAsk",
+            "t",
+            "(ri?.summary || \"\").slice",
+            "setReleaseBusy",
+            "fetch(`${API_BASE}/api/coding-releases/requests/${encodeURIComponent(selRR)}/close?path=${encodeURIComponent(rootPath)}`, {\n        method: \"POST\", headers: { \"content-type\": \"application/json\" },\n        body: JSON.stringify({ force: true, note: `Set to close by human — v${ri?.version || \"\"}` }),\n      }).then",
+            "fetch",
+            "encodeURIComponent",
+            "encodeURIComponent",
+            "JSON.stringify",
+            "r.json",
+            "setToast",
+            "String(c.error).slice",
+            "String",
+            "fetchRrOptions",
+            "setToast",
+            "fetchRrOptions",
+            "fetchDocs",
+            "setToast",
+            "setReleaseBusy"
+          ]
+        },
+        {
+          "name": "reopenRR",
+          "kind": "arrow",
+          "async": true,
+          "params": "()",
+          "callCount": 17,
+          "calls": [
+            "confirmAsk",
+            "t",
+            "setReleaseBusy",
+            "fetch(`${API_BASE}/api/coding-releases/requests/${encodeURIComponent(selRR)}/reopen?path=${encodeURIComponent(rootPath)}`, {\n        method: \"POST\", headers: { \"content-type\": \"application/json\" }, body: JSON.stringify({ reason: \"human reopen\" }),\n      }).then",
+            "fetch",
+            "encodeURIComponent",
+            "encodeURIComponent",
+            "JSON.stringify",
+            "r.json",
+            "setToast",
+            "String",
+            "setToast",
+            "fetchRrOptions",
+            "fetchSelDetail",
+            "fetchDocs",
+            "setToast",
+            "setReleaseBusy"
+          ]
+        },
+        {
+          "name": "createNewRR",
+          "kind": "arrow",
+          "async": true,
+          "params": "()",
+          "callCount": 13,
+          "calls": [
+            "setNewRrBusy",
+            "fetch(`${API_BASE}/api/coding-releases/request?path=${encodeURIComponent(rootPath)}`, {\n        method: \"POST\", headers: { \"content-type\": \"application/json\" }, body: JSON.stringify({}),\n      }).then",
+            "fetch",
+            "encodeURIComponent",
+            "JSON.stringify",
+            "r.json",
+            "setToast",
+            "String",
+            "setToast",
+            "fetchRrOptions",
+            "setSelRR",
+            "setToast",
+            "setNewRrBusy"
+          ]
+        },
+        {
           "name": "loadE2eInv",
           "kind": "arrow",
           "async": true,
@@ -15477,107 +15853,6 @@
             "String",
             "setToast",
             "setApiSummaryBusy"
-          ]
-        },
-        {
-          "name": "runTests",
-          "kind": "arrow",
-          "async": true,
-          "params": "()",
-          "callCount": 12,
-          "calls": [
-            "setTesting",
-            "fetch",
-            "encodeURIComponent",
-            "JSON.stringify",
-            "setTimeout",
-            "fetch(`${API_BASE}/api/coding-releases/test-run?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).catch",
-            "fetch(`${API_BASE}/api/coding-releases/test-run?path=${encodeURIComponent(rootPath)}`).then",
-            "fetch",
-            "encodeURIComponent",
-            "r.json",
-            "fetchReadiness",
-            "setTesting"
-          ]
-        },
-        {
-          "name": "readinessEvidence",
-          "kind": "arrow",
-          "async": false,
-          "params": "()",
-          "callCount": 18,
-          "calls": [
-            "readiness.changedFeatures.map(f =>\n      `● ${f.id} ${f.name}\\n  files: ${f.changedFiles.length}\\n  change: ${f.recentSubjects[0] || \"(commits)\"}\\n  risk-signal: ${f.hasTests ? \"tests ✓\" : \"NO TESTS\"}${f.apiImpact ? \" · API impact\" : \"\"}`\n    ).join",
-            "readiness.changedFeatures.map",
-            "(readiness.gates?.gates || []).map(g => `${g.gate}: ${g.status}`).join",
-            "(readiness.gates?.gates || []).map",
-            "[\n      `Readiness Report #${readiness.releaseId}`,\n      `Baseline: ${readiness.firstRelease ? \"首次發布（first commit 起）\" : `${readiness.sinceRelease?.id} @ ${readiness.sinceRelease?.releasedAt?.slice(0, 16)}`}`,\n      `Ready: ${readiness.ready ? \"READY\" : \"NOT READY\"} · Risk: ${readiness.risk}（${readiness.riskReasons.join(\"; \") || \"clean\"}）`,\n      `Commits since baseline: ${readiness.commits.count}（${readiness.commits.authors.join(\", \")}）`,\n      `Changed: ${readiness.changedFeatures.length} features / ${readiness.changedApis.length} APIs / ${readiness.changedFiles.length} files / open items ${readiness.openItems}`,\n      `Tests: changed features with tests ${readiness.tests.changedFeaturesWithTests}/${readiness.tests.changedFeaturesTotal}`,\n      ...(readiness.lastTestRun\n        ? [`Last test run (${readiness.lastTestRun.finishedAt.slice(0, 16).replace(\"T\", \" \")}${readiness.lastTestRun.stale ? ` ⚠ STALE ${readiness.lastTestRun.staleCommits} commits since` : \"\"}): ${readiness.lastTestRun.summary.passed} passed / ${readiness.lastTestRun.summary.failed} failed / ${readiness.lastTestRun.summary.skipped} skipped（${Object.entries(readiness.lastTestRun.byKind).map(([k, v]) => `${k} ${v.passed}✓${v.failed ? ` ${v.failed}✗` : \"\"}`).join(\", \") || \"no per-kind\"}）`]\n        : [`Tests: 尚未執行過測試（數字待跑）`]),\n      `Gates: ${gates}`,\n      \"\",\n      \"Changed Features:\",\n      feats,\n      \"\",\n      \"Changed APIs:\",\n      readiness.changedApis.slice(0, 20).map(a => `${a.method} ${a.path} (${a.file})`).join(\"\\n\") || \"(none)\",\n      \"\",\n      \"Recent commits:\",\n      readiness.commits.subjects.slice(0, 10).join(\"\\n\"),\n    ].join",
-            "readiness.sinceRelease?.releasedAt.slice",
-            "readiness.riskReasons.join",
-            "readiness.commits.authors.join",
-            "readiness.lastTestRun.finishedAt.slice(0, 16).replace",
-            "readiness.lastTestRun.finishedAt.slice",
-            "Object.entries(readiness.lastTestRun.byKind).map(([k, v]) => `${k} ${v.passed}✓${v.failed ? ` ${v.failed}✗` : \"\"}`).join",
-            "Object.entries(readiness.lastTestRun.byKind).map",
-            "Object.entries",
-            "readiness.changedApis.slice(0, 20).map(a => `${a.method} ${a.path} (${a.file})`).join",
-            "readiness.changedApis.slice(0, 20).map",
-            "readiness.changedApis.slice",
-            "readiness.commits.subjects.slice(0, 10).join",
-            "readiness.commits.subjects.slice"
-          ]
-        },
-        {
-          "name": "matrixEvidenceText",
-          "kind": "arrow",
-          "async": false,
-          "params": "()",
-          "callCount": 8,
-          "calls": [
-            "evApi.apis.map((a: any) =>\n      `● ${a.entry}｜${a.name || \"\"}｜Tests ${a.tests.length ? `✓${a.tests.length}（${a.tests.join(\", \")}）` : \"✗ 無\"}｜E2E ${a.e2eCovered ? \"✓\" : \"—\"}｜SG ${a.sg.ok ? `✓（${a.sg.total} findings）` : `✗${a.sg.high}hi`}｜Review ${a.reviewCount ? `✓${a.reviewCount}（最新 ${String(a.latestReviewAt || \"\").slice(0, 10)}）` : \"✗ 未審\"}｜QA ${a.qa?.count ? `${a.qa.latestVerdict === \"pass\" ? \"✓\" : a.qa.latestVerdict === \"fail\" ? \"✗fail\" : \"⚠\"}${a.qa.count}（最新 ${String(a.qa.latestAt || \"\").slice(0, 10)}）` : \"✗ 無記錄\"}｜檔案 ${a.files.join(\", \")}`\n    ).join",
-            "evApi.apis.map",
-            "a.tests.join",
-            "String(a.latestReviewAt || \"\").slice",
-            "String",
-            "String(a.qa.latestAt || \"\").slice",
-            "String",
-            "a.files.join"
-          ]
-        },
-        {
-          "name": "generateReport",
-          "kind": "arrow",
-          "async": true,
-          "params": "()",
-          "callCount": 16,
-          "calls": [
-            "readinessEvidence",
-            "matrixEvidenceText",
-            "baselines.find",
-            "setReviewBusy",
-            "setReviewReport",
-            "fetch(`${API_BASE}/api/coding-releases/review-report?path=${encodeURIComponent(rootPath)}`, {\n        method: \"POST\", headers: { \"content-type\": \"application/json\" }, body: JSON.stringify({ evidence }),\n      }).then",
-            "fetch",
-            "encodeURIComponent",
-            "JSON.stringify",
-            "r.json",
-            "setReviewReport",
-            "String",
-            "setToast",
-            "String",
-            "setToast",
-            "setReviewBusy"
-          ]
-        },
-        {
-          "name": "askAiVerify",
-          "kind": "arrow",
-          "async": false,
-          "params": "()",
-          "callCount": 2,
-          "calls": [
-            "matrixEvidenceText",
-            "chatRef.current.send"
           ]
         },
         {
@@ -16753,57 +17028,6 @@
       "components": [
         {
           "name": "TestsPageInner",
-          "kind": "function"
-        }
-      ]
-    },
-    {
-      "file": "packages/ui/src/components/TroubleshootingPanel.tsx",
-      "language": "tsx",
-      "exports": [
-        {
-          "kind": "function",
-          "name": "TroubleshootingPanel",
-          "isDefault": true
-        }
-      ],
-      "imports": [
-        {
-          "source": "react",
-          "names": []
-        },
-        {
-          "source": "../api",
-          "names": []
-        },
-        {
-          "source": "../i18n",
-          "names": []
-        },
-        {
-          "source": "./AgentSideChat",
-          "names": []
-        },
-        {
-          "source": "./ColResizer",
-          "names": []
-        }
-      ],
-      "functions": [
-        {
-          "name": "TroubleshootingPanel",
-          "kind": "function",
-          "async": false,
-          "params": "({ rootPath, theme: tk }: Props)",
-          "callCount": 0,
-          "calls": []
-        }
-      ],
-      "classes": [],
-      "routes": [],
-      "components": [
-        {
-          "name": "TroubleshootingPanel",
           "kind": "function"
         }
       ]
@@ -21621,6 +21845,10 @@
           "names": []
         },
         {
+          "source": "../lib/agent-exec-logger.mjs",
+          "names": []
+        },
+        {
           "source": "../lib/vision-content.mjs",
           "names": []
         },
@@ -22566,6 +22794,113 @@
         {
           "method": "GET",
           "path": "/api/coding-db/status/*",
+          "handler": ""
+        }
+      ],
+      "components": []
+    },
+    {
+      "file": "packages/server/src/routes/coding-dfo.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "dfoRoutes",
+          "isDefault": true
+        }
+      ],
+      "imports": [
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "url",
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "names": []
+        },
+        {
+          "source": "util",
+          "names": []
+        },
+        {
+          "source": "../lib/dfo.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "./coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "./coding-health.mjs",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "readBody",
+          "kind": "function",
+          "async": false,
+          "params": "(req)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "json",
+          "kind": "function",
+          "async": false,
+          "params": "(res, code, data)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "loadDfoPrompt",
+          "kind": "function",
+          "async": false,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "dfoRoutes",
+          "kind": "function",
+          "async": true,
+          "params": "(req, res)",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/coding-dfo",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-dfo/versions",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-dfo/generate",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-dfo/section",
           "handler": ""
         }
       ],
@@ -24210,6 +24545,10 @@
           "names": []
         },
         {
+          "source": "../lib/evidence-by-api.mjs",
+          "names": []
+        },
+        {
           "source": "../lib/cu-source-scan.mjs",
           "names": []
         },
@@ -24251,100 +24590,6 @@
         }
       ],
       "functions": [
-        {
-          "name": "_apiE2eCoverageChecker",
-          "kind": "function",
-          "async": false,
-          "params": "(root)",
-          "callCount": 0,
-          "calls": []
-        },
-        {
-          "name": "build",
-          "kind": "arrow",
-          "async": false,
-          "params": "()",
-          "callCount": 15,
-          "calls": [
-            "isTestFileNameM",
-            "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
-            "/^test[-_]/.test",
-            "readdirSync",
-            "e.name.startsWith",
-            "SKIP.has",
-            "join",
-            "e.isDirectory",
-            "walk",
-            "isTestFile",
-            "dir.split(/[\\\\/]/).some",
-            "dir.split",
-            "TEST_DIR.has",
-            "readFileSync",
-            "walk"
-          ]
-        },
-        {
-          "name": "isTestFile",
-          "kind": "arrow",
-          "async": false,
-          "params": "(n)",
-          "callCount": 3,
-          "calls": [
-            "isTestFileNameM",
-            "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
-            "/^test[-_]/.test"
-          ]
-        },
-        {
-          "name": "walk",
-          "kind": "arrow",
-          "async": false,
-          "params": "(dir, depth)",
-          "callCount": 11,
-          "calls": [
-            "readdirSync",
-            "e.name.startsWith",
-            "SKIP.has",
-            "join",
-            "e.isDirectory",
-            "walk",
-            "isTestFile",
-            "dir.split(/[\\\\/]/).some",
-            "dir.split",
-            "TEST_DIR.has",
-            "readFileSync"
-          ]
-        },
-        {
-          "name": "segPattern",
-          "kind": "arrow",
-          "async": false,
-          "params": "(seg)",
-          "callCount": 4,
-          "calls": [
-            "seg.startsWith",
-            "/^\\{[^}/]+\\}$/.test",
-            "/^<[^/>]+>$/.test",
-            "seg.replace"
-          ]
-        },
-        {
-          "name": "tryMatch",
-          "kind": "arrow",
-          "async": false,
-          "params": "(k)",
-          "callCount": 8,
-          "calls": [
-            "segs.slice",
-            "suffix.some",
-            "s.startsWith",
-            "/^\\{[^}/]+\\}$/.test",
-            "/^<[^/>]+>$/.test",
-            "suffix.map(segPattern).join",
-            "suffix.map",
-            "re.test"
-          ]
-        },
         {
           "name": "readTasksFile",
           "kind": "function",
@@ -24546,33 +24791,6 @@
           ]
         },
         {
-          "name": "_pathOf",
-          "kind": "arrow",
-          "async": false,
-          "params": "(entry)",
-          "callCount": 6,
-          "calls": [
-            "String(entry).trim().split(/\\s+/).pop",
-            "String(entry).trim().split",
-            "String(entry).trim",
-            "String",
-            "String(entry).trim",
-            "String"
-          ]
-        },
-        {
-          "name": "_normLower",
-          "kind": "arrow",
-          "async": false,
-          "params": "(s)",
-          "callCount": 3,
-          "calls": [
-            "String(s).replace(/\\\\/g, \"/\").toLowerCase",
-            "String(s).replace",
-            "String"
-          ]
-        },
-        {
           "name": "readFileStream",
           "kind": "function",
           "async": false,
@@ -24644,6 +24862,56 @@
         {
           "method": "POST",
           "path": "/api/coding-releases/reject",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-releases/release-info/status",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-releases/release-info/list",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-releases/release-info/item",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-releases/release-info/db",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-releases/release-info/matrix",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-releases/docs",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-releases/release-docs/rebuild",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-releases/release-docs/build-all",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-releases/release-info/diff",
+          "handler": ""
+        },
+        {
+          "method": "GET",
+          "path": "/api/coding-releases/release-info/latest",
           "handler": ""
         },
         {
@@ -25671,6 +25939,19 @@
           "calls": []
         },
         {
+          "name": "outputExists",
+          "kind": "arrow",
+          "async": false,
+          "params": "(id, rel)",
+          "callCount": 4,
+          "calls": [
+            "existsSync",
+            "join",
+            "/no error signals/i.test",
+            "String"
+          ]
+        },
+        {
           "name": "flag",
           "kind": "arrow",
           "async": false,
@@ -25920,7 +26201,27 @@
         },
         {
           "method": "GET",
+          "path": "/api/coding-project/project-md/spec-versions/*",
+          "handler": ""
+        },
+        {
+          "method": "GET",
           "path": "/api/coding-project/project-md/*",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-project/project-md/spec-fill/*",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-project/project-md/spec-section/*",
+          "handler": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/coding-project/project-md/spec-draft/*",
           "handler": ""
         },
         {
@@ -31471,6 +31772,24 @@
           ]
         },
         {
+          "name": "walk",
+          "kind": "arrow",
+          "async": false,
+          "params": "(dir, depth)",
+          "callCount": 9,
+          "calls": [
+            "readdirSync",
+            "e.isDirectory",
+            "SKIP_DIRS.has",
+            "walk",
+            "join",
+            "(extname(e.name).slice(1) || \"\").toLowerCase",
+            "extname(e.name).slice",
+            "extname",
+            "CODE_EXT.has"
+          ]
+        },
+        {
           "name": "_loadTemplate",
           "kind": "function",
           "async": false,
@@ -32898,6 +33217,86 @@
       "components": []
     },
     {
+      "file": "packages/server/src/lib/cu-background-watcher.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "startCuBackgroundWatcher",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "../data-home.mjs",
+          "names": []
+        },
+        {
+          "source": "../routes/shared.mjs",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "_collectProjectRoots",
+          "kind": "function",
+          "async": false,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "readList",
+          "kind": "arrow",
+          "async": false,
+          "params": "(p, pick)",
+          "callCount": 5,
+          "calls": [
+            "JSON.parse",
+            "readFileSync",
+            "Array.isArray",
+            "pick",
+            "paths.add"
+          ]
+        },
+        {
+          "name": "_runFirstCu",
+          "kind": "function",
+          "async": true,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_runSweep",
+          "kind": "function",
+          "async": true,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "startCuBackgroundWatcher",
+          "kind": "function",
+          "async": false,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "routes": [],
+      "components": []
+    },
+    {
       "file": "packages/server/src/lib/cu-mechanical.mjs",
       "language": "javascript",
       "exports": [
@@ -33449,6 +33848,175 @@
       "components": []
     },
     {
+      "file": "packages/server/src/lib/dfo.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "variable",
+          "name": "DFO_SECTIONS",
+          "isDefault": false
+        },
+        {
+          "kind": "variable",
+          "name": "DFO_SCHEMA_VERSION",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "dfoDir",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "dfoPath",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "dfoVersionsDir",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "validateDfo",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "readDfo",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "listDfoVersions",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "readDfoVersion",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "extractSkipBlocks",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "writeDfo",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "dfoFrozenReason",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "crypto",
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "dfoDir",
+          "kind": "function",
+          "async": false,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "dfoPath",
+          "kind": "function",
+          "async": false,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "dfoVersionsDir",
+          "kind": "function",
+          "async": false,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "validateDfo",
+          "kind": "function",
+          "async": false,
+          "params": "(dfo)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "readDfo",
+          "kind": "function",
+          "async": false,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "listDfoVersions",
+          "kind": "function",
+          "async": false,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "readDfoVersion",
+          "kind": "function",
+          "async": false,
+          "params": "(root, version)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "extractSkipBlocks",
+          "kind": "function",
+          "async": false,
+          "params": "(markdown)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "writeDfo",
+          "kind": "function",
+          "async": false,
+          "params": "(root, partialSections, updatedBy, label)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "dfoFrozenReason",
+          "kind": "function",
+          "async": true,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "routes": [],
+      "components": []
+    },
+    {
       "file": "packages/server/src/lib/dispatch-catalog.mjs",
       "language": "javascript",
       "exports": [
@@ -33578,6 +34146,80 @@
       "components": []
     },
     {
+      "file": "packages/server/src/lib/doc-autorefresh.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "autoRefreshDocs",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "names": []
+        },
+        {
+          "source": "../routes/shared.mjs",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "_readJson",
+          "kind": "function",
+          "async": false,
+          "params": "(p)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_writeJson",
+          "kind": "function",
+          "async": false,
+          "params": "(p, o)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_head",
+          "kind": "function",
+          "async": false,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_post",
+          "kind": "function",
+          "async": true,
+          "params": "(url, body)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "autoRefreshDocs",
+          "kind": "function",
+          "async": true,
+          "params": "(root, opts = {})",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "routes": [],
+      "components": []
+    },
+    {
       "file": "packages/server/src/lib/doc-coverage.mjs",
       "language": "javascript",
       "exports": [
@@ -33646,6 +34288,77 @@
           "kind": "function",
           "async": true,
           "params": "(projectDir, runGit)",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "routes": [],
+      "components": []
+    },
+    {
+      "file": "packages/server/src/lib/doc-evidence.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "collectDocEvidence",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "docEvidenceBlock",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "node:fs",
+          "names": []
+        },
+        {
+          "source": "node:path",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "readText",
+          "kind": "function",
+          "async": false,
+          "params": "(p)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "collectAdr",
+          "kind": "function",
+          "async": false,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "collectTasks",
+          "kind": "function",
+          "async": false,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "collectDocEvidence",
+          "kind": "function",
+          "async": false,
+          "params": "(root, opts = {})",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "docEvidenceBlock",
+          "kind": "function",
+          "async": false,
+          "params": "(root, opts = {})",
           "callCount": 0,
           "calls": []
         }
@@ -35140,6 +35853,174 @@
           "params": "(doc)",
           "callCount": 0,
           "calls": []
+        }
+      ],
+      "classes": [],
+      "routes": [],
+      "components": []
+    },
+    {
+      "file": "packages/server/src/lib/evidence-by-api.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "apiE2eCoverageChecker",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "buildEvidenceByApi",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "./change-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "./cu-source-scan.mjs",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "apiE2eCoverageChecker",
+          "kind": "function",
+          "async": false,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "build",
+          "kind": "arrow",
+          "async": false,
+          "params": "()",
+          "callCount": 15,
+          "calls": [
+            "isTestFileNameM",
+            "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+            "/^test[-_]/.test",
+            "readdirSync",
+            "e.name.startsWith",
+            "SKIP.has",
+            "join",
+            "e.isDirectory",
+            "walk",
+            "isTestFile",
+            "dir.split(/[\\\\/]/).some",
+            "dir.split",
+            "TEST_DIR.has",
+            "readFileSync",
+            "walk"
+          ]
+        },
+        {
+          "name": "isTestFile",
+          "kind": "arrow",
+          "async": false,
+          "params": "(n)",
+          "callCount": 3,
+          "calls": [
+            "isTestFileNameM",
+            "/\\.(test|spec)\\.[cm]?[jt]sx?$/.test",
+            "/^test[-_]/.test"
+          ]
+        },
+        {
+          "name": "walk",
+          "kind": "arrow",
+          "async": false,
+          "params": "(dir, depth)",
+          "callCount": 11,
+          "calls": [
+            "readdirSync",
+            "e.name.startsWith",
+            "SKIP.has",
+            "join",
+            "e.isDirectory",
+            "walk",
+            "isTestFile",
+            "dir.split(/[\\\\/]/).some",
+            "dir.split",
+            "TEST_DIR.has",
+            "readFileSync"
+          ]
+        },
+        {
+          "name": "segPattern",
+          "kind": "arrow",
+          "async": false,
+          "params": "(seg)",
+          "callCount": 4,
+          "calls": [
+            "seg.startsWith",
+            "/^\\{[^}/]+\\}$/.test",
+            "/^<[^/>]+>$/.test",
+            "seg.replace"
+          ]
+        },
+        {
+          "name": "tryMatch",
+          "kind": "arrow",
+          "async": false,
+          "params": "(k)",
+          "callCount": 8,
+          "calls": [
+            "segs.slice",
+            "suffix.some",
+            "s.startsWith",
+            "/^\\{[^}/]+\\}$/.test",
+            "/^<[^/>]+>$/.test",
+            "suffix.map(segPattern).join",
+            "suffix.map",
+            "re.test"
+          ]
+        },
+        {
+          "name": "buildEvidenceByApi",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath, { sinceSha = null } = {})",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_pathOf",
+          "kind": "arrow",
+          "async": false,
+          "params": "(entry)",
+          "callCount": 6,
+          "calls": [
+            "String(entry).trim().split(/\\s+/).pop",
+            "String(entry).trim().split",
+            "String(entry).trim",
+            "String",
+            "String(entry).trim",
+            "String"
+          ]
+        },
+        {
+          "name": "_normLower",
+          "kind": "arrow",
+          "async": false,
+          "params": "(s)",
+          "callCount": 3,
+          "calls": [
+            "String(s).replace(/\\\\/g, \"/\").toLowerCase",
+            "String(s).replace",
+            "String"
+          ]
         }
       ],
       "classes": [],
@@ -36996,6 +37877,16 @@
         }
       ],
       "functions": [
+        {
+          "name": "_llmFetch",
+          "kind": "arrow",
+          "async": false,
+          "params": "(...args)",
+          "callCount": 1,
+          "calls": [
+            "_undiciFetch"
+          ]
+        },
         {
           "name": "dateTimeContextBlock",
           "kind": "function",
@@ -40158,12 +41049,77 @@
         },
         {
           "kind": "variable",
+          "name": "SPEC_START",
+          "isDefault": false
+        },
+        {
+          "kind": "variable",
+          "name": "SPEC_END",
+          "isDefault": false
+        },
+        {
+          "kind": "variable",
           "name": "AI_START",
           "isDefault": false
         },
         {
           "kind": "variable",
           "name": "AI_END",
+          "isDefault": false
+        },
+        {
+          "kind": "variable",
+          "name": "SPEC_SECTIONS",
+          "isDefault": false
+        },
+        {
+          "kind": "variable",
+          "name": "SPEC_SECTION_TITLES",
+          "isDefault": false
+        },
+        {
+          "kind": "variable",
+          "name": "SPEC_SECTION_SCHEMAS",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "splitSpecSections",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "joinSpecSections",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "specVersionsDir",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "listSpecVersions",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "readSpecVersion",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "snapshotSpec",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "generateSpecSection",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "generateFullSpec",
           "isDefault": false
         },
         {
@@ -40174,6 +41130,11 @@
         {
           "kind": "function",
           "name": "buildProjectMd",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "generateSpecDraft",
           "isDefault": false
         },
         {
@@ -40192,6 +41153,10 @@
           "names": []
         },
         {
+          "source": "node:child_process",
+          "names": []
+        },
+        {
           "source": "./paaw-project.mjs",
           "names": []
         },
@@ -40201,6 +41166,117 @@
         }
       ],
       "functions": [
+        {
+          "name": "splitSpecSections",
+          "kind": "function",
+          "async": false,
+          "params": "(specMd)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "joinSpecSections",
+          "kind": "function",
+          "async": false,
+          "params": "(parts)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "specVersionsDir",
+          "kind": "function",
+          "async": false,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "listSpecVersions",
+          "kind": "function",
+          "async": false,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "readSpecVersion",
+          "kind": "function",
+          "async": false,
+          "params": "(root, version)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "snapshotSpec",
+          "kind": "function",
+          "async": false,
+          "params": "(root, label, by)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "readSpecAiConversation",
+          "kind": "function",
+          "async": true,
+          "params": "(paaw)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "readJson",
+          "kind": "arrow",
+          "async": true,
+          "params": "(rel)",
+          "callCount": 2,
+          "calls": [
+            "JSON.parse",
+            "paaw.readFile"
+          ]
+        },
+        {
+          "name": "stripCodeFence",
+          "kind": "arrow",
+          "async": false,
+          "params": "(c)",
+          "callCount": 3,
+          "calls": [
+            "(c || \"\").replace(/^```(?:markdown)?\\s*\\n?/m, \"\").replace(/\\n?```\\s*$/m, \"\").trim",
+            "(c || \"\").replace(/^```(?:markdown)?\\s*\\n?/m, \"\").replace",
+            "(c || \"\").replace"
+          ]
+        },
+        {
+          "name": "buildSectionPrompt",
+          "kind": "function",
+          "async": false,
+          "params": "(index, transcript, facts, extra = \"\", existing = \"\")",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "callAndStrip",
+          "kind": "function",
+          "async": true,
+          "params": "(callLLM, prompt)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "generateSpecSection",
+          "kind": "function",
+          "async": true,
+          "params": "(root, index, opts = {})",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "generateFullSpec",
+          "kind": "function",
+          "async": true,
+          "params": "(root, opts = {})",
+          "callCount": 0,
+          "calls": []
+        },
         {
           "name": "sliceBetween",
           "kind": "function",
@@ -40214,18 +41290,20 @@
           "kind": "arrow",
           "async": false,
           "params": "(s)",
-          "callCount": 10,
+          "callCount": 12,
           "calls": [
-            "s.split(\"\\n\").filter(l => {\n  const t = l.trim();\n  if (/^<!--[\\s\\S]*-->$/.test(t)) return false;\n  if (/^>\\s*📄\\s*Schema v2/.test(l)) return false;\n  if (/^##\\s*📌\\s*User Remarks$/.test(t)) return false;\n  if (/^##\\s*🤖\\s*AI Overview$/.test(t)) return false;\n  return true;\n}).join(\"\\n\").replace(/\\n{3,}/g, \"\\n\\n\").trim",
-            "s.split(\"\\n\").filter(l => {\n  const t = l.trim();\n  if (/^<!--[\\s\\S]*-->$/.test(t)) return false;\n  if (/^>\\s*📄\\s*Schema v2/.test(l)) return false;\n  if (/^##\\s*📌\\s*User Remarks$/.test(t)) return false;\n  if (/^##\\s*🤖\\s*AI Overview$/.test(t)) return false;\n  return true;\n}).join(\"\\n\").replace",
-            "s.split(\"\\n\").filter(l => {\n  const t = l.trim();\n  if (/^<!--[\\s\\S]*-->$/.test(t)) return false;\n  if (/^>\\s*📄\\s*Schema v2/.test(l)) return false;\n  if (/^##\\s*📌\\s*User Remarks$/.test(t)) return false;\n  if (/^##\\s*🤖\\s*AI Overview$/.test(t)) return false;\n  return true;\n}).join",
+            "s.split(\"\\n\").filter(l => {\n  const t = l.trim();\n  if (/^<!--[\\s\\S]*-->$/.test(t)) return false;\n  if (/^>\\s*📄\\s*Schema v2/.test(l)) return false;\n  if (/^##\\s*📌\\s*User Remarks$/.test(t)) return false;\n  if (/^##\\s*🤖\\s*AI Overview$/.test(t)) return false;\n  if (/^##\\s*📄\\s*Product Spec$/.test(t)) return false;\n  if (/^>\\s*📄\\s*Schema v3/.test(t)) return false;\n  return true;\n}).join(\"\\n\").replace(/\\n{3,}/g, \"\\n\\n\").trim",
+            "s.split(\"\\n\").filter(l => {\n  const t = l.trim();\n  if (/^<!--[\\s\\S]*-->$/.test(t)) return false;\n  if (/^>\\s*📄\\s*Schema v2/.test(l)) return false;\n  if (/^##\\s*📌\\s*User Remarks$/.test(t)) return false;\n  if (/^##\\s*🤖\\s*AI Overview$/.test(t)) return false;\n  if (/^##\\s*📄\\s*Product Spec$/.test(t)) return false;\n  if (/^>\\s*📄\\s*Schema v3/.test(t)) return false;\n  return true;\n}).join(\"\\n\").replace",
+            "s.split(\"\\n\").filter(l => {\n  const t = l.trim();\n  if (/^<!--[\\s\\S]*-->$/.test(t)) return false;\n  if (/^>\\s*📄\\s*Schema v2/.test(l)) return false;\n  if (/^##\\s*📌\\s*User Remarks$/.test(t)) return false;\n  if (/^##\\s*🤖\\s*AI Overview$/.test(t)) return false;\n  if (/^##\\s*📄\\s*Product Spec$/.test(t)) return false;\n  if (/^>\\s*📄\\s*Schema v3/.test(t)) return false;\n  return true;\n}).join",
             "s.split(\"\\n\").filter",
             "s.split",
             "l.trim",
             "/^<!--[\\s\\S]*-->$/.test",
             "/^>\\s*📄\\s*Schema v2/.test",
             "/^##\\s*📌\\s*User Remarks$/.test",
-            "/^##\\s*🤖\\s*AI Overview$/.test"
+            "/^##\\s*🤖\\s*AI Overview$/.test",
+            "/^##\\s*📄\\s*Product Spec$/.test",
+            "/^>\\s*📄\\s*Schema v3/.test"
           ]
         },
         {
@@ -40237,10 +41315,21 @@
           "calls": []
         },
         {
+          "name": "stripSpecPlaceholder",
+          "kind": "arrow",
+          "async": false,
+          "params": "(s)",
+          "callCount": 2,
+          "calls": [
+            "/^（尚未撰寫/.test",
+            "s.trim"
+          ]
+        },
+        {
           "name": "buildProjectMd",
           "kind": "function",
           "async": false,
-          "params": "(name, userSection, aiSection)",
+          "params": "(name, userSection, aiSection, specSection = \"\")",
           "callCount": 0,
           "calls": []
         },
@@ -40264,18 +41353,21 @@
           ]
         },
         {
-          "name": "deterministicAiSection",
-          "kind": "function",
+          "name": "clip",
+          "kind": "arrow",
           "async": false,
-          "params": "(facts)",
-          "callCount": 0,
-          "calls": []
+          "params": "(s, n)",
+          "callCount": 2,
+          "calls": [
+            "String(s).slice",
+            "String"
+          ]
         },
         {
-          "name": "llmAiSection",
+          "name": "generateSpecDraft",
           "kind": "function",
           "async": true,
-          "params": "(facts, callLLM)",
+          "params": "(root, opts = {})",
           "callCount": 0,
           "calls": []
         },
@@ -40457,6 +41549,361 @@
       "classes": [],
       "routes": [],
       "components": []
+    },
+    {
+      "file": "packages/server/src/lib/release-diff.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "findPreviousRelease",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "buildDiffSummary",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "readDiffSummary",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "./release-info-builder.mjs",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "_infoDir",
+          "kind": "function",
+          "async": false,
+          "params": "(projectPath, rrId)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "findPreviousRelease",
+          "kind": "function",
+          "async": false,
+          "params": "(projectPath, currentRrId)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_collectEvidence",
+          "kind": "function",
+          "async": false,
+          "params": "(projectPath, rrId, curInfo, curV)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "num",
+          "kind": "arrow",
+          "async": false,
+          "params": "(x, y)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "key",
+          "kind": "arrow",
+          "async": false,
+          "params": "(x)",
+          "callCount": 3,
+          "calls": [
+            "String(x.entry || \"\").toLowerCase",
+            "String",
+            "String"
+          ]
+        },
+        {
+          "name": "_gitStat",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath, range)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_stripFence",
+          "kind": "arrow",
+          "async": false,
+          "params": "(s)",
+          "callCount": 6,
+          "calls": [
+            "String(s || \"\").trim",
+            "String",
+            "o.startsWith",
+            "o.replace(/^```[a-z]*\\n?/, \"\").replace",
+            "o.replace",
+            "o.trim"
+          ]
+        },
+        {
+          "name": "_aiSummary",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath, ev)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "buildDiffSummary",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath, rrId)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "readDiffSummary",
+          "kind": "function",
+          "async": false,
+          "params": "(projectPath, rrId)",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "routes": [],
+      "components": []
+    },
+    {
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "docsStatusPath",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "readDocsStatus",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "triggerDoc",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "triggerAllDocs",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "verifyDocs",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "getDocsOverview",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "../routes/shared.mjs",
+          "names": []
+        },
+        {
+          "source": "./release-requests.mjs",
+          "names": []
+        },
+        {
+          "source": "undici",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "BASE",
+          "kind": "arrow",
+          "async": false,
+          "params": "()",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "docFetch",
+          "kind": "arrow",
+          "async": false,
+          "params": "(url, opts)",
+          "callCount": 1,
+          "calls": [
+            "_docFetch"
+          ]
+        },
+        {
+          "name": "docsStatusPath",
+          "kind": "function",
+          "async": false,
+          "params": "(projectPath, rrId)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "readDocsStatus",
+          "kind": "function",
+          "async": false,
+          "params": "(projectPath, rrId)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "writeDocsStatus",
+          "kind": "function",
+          "async": false,
+          "params": "(projectPath, rrId, st)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "setDoc",
+          "kind": "function",
+          "async": false,
+          "params": "(projectPath, rrId, kind, patch)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "triggerDoc",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath, rrId, kind)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "run",
+          "kind": "arrow",
+          "async": true,
+          "params": "()",
+          "callCount": 34,
+          "calls": [
+            "docFetch",
+            "BASE",
+            "encodeURIComponent",
+            "JSON.stringify",
+            "r.json().catch",
+            "r.json",
+            "setDoc",
+            "docFetch",
+            "BASE",
+            "encodeURIComponent",
+            "JSON.stringify",
+            "r.json().catch",
+            "r.json",
+            "setDoc",
+            "startReleaseInfoBuild",
+            "Date.now",
+            "getBuildStatus",
+            "Date.now",
+            "setTimeout",
+            "getBuildStatus",
+            "setDoc",
+            "new Date().toISOString().slice(0, 16).replace",
+            "new Date().toISOString().slice",
+            "new Date().toISOString",
+            "Date.now",
+            "getBuildStatus",
+            "Date.now",
+            "setTimeout",
+            "getBuildStatus",
+            "buildDiffSummary",
+            "setDoc",
+            "setDoc",
+            "setDoc",
+            "console.warn"
+          ]
+        },
+        {
+          "name": "triggerAllDocs",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath, rrId)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_readJson",
+          "kind": "arrow",
+          "async": false,
+          "params": "(p)",
+          "callCount": 2,
+          "calls": [
+            "JSON.parse",
+            "readFileSync"
+          ]
+        },
+        {
+          "name": "_mtime",
+          "kind": "arrow",
+          "async": false,
+          "params": "(p)",
+          "callCount": 1,
+          "calls": [
+            "statSync"
+          ]
+        },
+        {
+          "name": "verifyDocs",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath, rrId)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "add",
+          "kind": "arrow",
+          "async": false,
+          "params": "(doc, level, message)",
+          "callCount": 1,
+          "calls": [
+            "findings.push"
+          ]
+        },
+        {
+          "name": "getDocsOverview",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath, rrId)",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "routes": [],
+      "components": [
+        {
+          "name": "BASE",
+          "kind": "arrow"
+        }
+      ]
     },
     {
       "file": "packages/server/src/lib/release-evidence-snapshot.mjs",
@@ -40908,6 +42355,319 @@
       "components": []
     },
     {
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "listInfoVersions",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "readInfoMatrix",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "readInfoVersion",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "startReleaseInfoBuild",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "listAllReleaseInfo",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "getLatestReleaseInfo",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "getBuildStatus",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "./test-runner.mjs",
+          "names": []
+        },
+        {
+          "source": "./release-evidence-snapshot.mjs",
+          "names": []
+        },
+        {
+          "source": "./release-requests.mjs",
+          "names": []
+        },
+        {
+          "source": "../routes/coding-helpers.mjs",
+          "names": []
+        },
+        {
+          "source": "./shell-exec.mjs",
+          "names": []
+        },
+        {
+          "source": "./evidence-by-api.mjs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "url",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "infoDir",
+          "kind": "function",
+          "async": false,
+          "params": "(projectPath, rrId)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "readStatus",
+          "kind": "function",
+          "async": false,
+          "params": "(projectPath, rrId)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "writeStatus",
+          "kind": "function",
+          "async": false,
+          "params": "(projectPath, rrId, st)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "listInfoVersions",
+          "kind": "function",
+          "async": false,
+          "params": "(projectPath, rrId)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "readInfoMatrix",
+          "kind": "function",
+          "async": false,
+          "params": "(projectPath, rrId, v)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "readInfoVersion",
+          "kind": "function",
+          "async": false,
+          "params": "(projectPath, rrId, v)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "sleep",
+          "kind": "arrow",
+          "async": false,
+          "params": "(ms)",
+          "callCount": 1,
+          "calls": [
+            "setTimeout"
+          ]
+        },
+        {
+          "name": "_waitForTestRun",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath, timeoutMs = 15 * 60_000)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_gitOne",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath, cmd)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_bumpPatch",
+          "kind": "function",
+          "async": false,
+          "params": "(tag)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_deterministicGitBlock",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_stripFence",
+          "kind": "function",
+          "async": false,
+          "params": "(s)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_cuContext",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath, changedFiles = [])",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "norm",
+          "kind": "arrow",
+          "async": false,
+          "params": "(f)",
+          "callCount": 2,
+          "calls": [
+            "String(f || \"\").replace",
+            "String"
+          ]
+        },
+        {
+          "name": "hit",
+          "kind": "arrow",
+          "async": false,
+          "params": "(files = [])",
+          "callCount": 3,
+          "calls": [
+            "(files || []).some",
+            "changed.has",
+            "norm"
+          ]
+        },
+        {
+          "name": "_fallbackChanges",
+          "kind": "function",
+          "async": false,
+          "params": "(gitLog)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_aiSummaryAndChanges",
+          "kind": "function",
+          "async": true,
+          "params": "({ gitLog, scopeTxt, testRunTxt, rrTitle, previousTag, unitLog = \"\", cuTxt = \"\", baseGroups = [] })",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_validateAiPart",
+          "kind": "function",
+          "async": false,
+          "params": "(parsed, { hasCommits = true } = {})",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_deterministicFeatures",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath, cu)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_aiFeaturesOnly",
+          "kind": "function",
+          "async": true,
+          "params": "(baseGroups)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "_mergeFeatures",
+          "kind": "function",
+          "async": false,
+          "params": "(base, ai)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "pick",
+          "kind": "arrow",
+          "async": false,
+          "params": "(g, i)",
+          "callCount": 7,
+          "calls": [
+            "(ai || []).find",
+            "used.has",
+            "used.add",
+            "String(f.name).trim",
+            "String",
+            "String(f.impact).trim",
+            "String"
+          ]
+        },
+        {
+          "name": "startReleaseInfoBuild",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath, rrId, { by = \"human\", includeE2e = true } = {})",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "listAllReleaseInfo",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "getLatestReleaseInfo",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "getBuildStatus",
+          "kind": "function",
+          "async": false,
+          "params": "(projectPath, rrId)",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "routes": [],
+      "components": []
+    },
+    {
       "file": "packages/server/src/lib/release-requests.mjs",
       "language": "javascript",
       "exports": [
@@ -40969,6 +42729,11 @@
         {
           "kind": "function",
           "name": "closeReleaseRequest",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "reopenReleaseRequest",
           "isDefault": false
         },
         {
@@ -41314,7 +43079,7 @@
           "name": "closeReleaseRequest",
           "kind": "function",
           "async": true,
-          "params": "(projectPath, id, { note } = {})",
+          "params": "(projectPath, id, { note, force = false } = {})",
           "callCount": 0,
           "calls": []
         },
@@ -41328,6 +43093,14 @@
             "String(n).padStart",
             "String"
           ]
+        },
+        {
+          "name": "reopenReleaseRequest",
+          "kind": "function",
+          "async": true,
+          "params": "(projectPath, id, { reason } = {})",
+          "callCount": 0,
+          "calls": []
         },
         {
           "name": "cancelReleaseRequest",
@@ -41892,6 +43665,94 @@
       ],
       "imports": [],
       "functions": [],
+      "classes": [],
+      "routes": [],
+      "components": []
+    },
+    {
+      "file": "packages/server/src/lib/scan-skeleton.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "buildScanSkeleton",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "serializeSkeleton",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "loadScanSkeleton",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "enforceScanSkeleton",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "./cu-source-scan.mjs",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "buildScanSkeleton",
+          "kind": "function",
+          "async": false,
+          "params": "(root)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "has",
+          "kind": "arrow",
+          "async": false,
+          "params": "(d)",
+          "callCount": 2,
+          "calls": [
+            "existsSync",
+            "join"
+          ]
+        },
+        {
+          "name": "serializeSkeleton",
+          "kind": "function",
+          "async": false,
+          "params": "(skeleton)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "loadScanSkeleton",
+          "kind": "function",
+          "async": false,
+          "params": "(paawReadJson)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "enforceScanSkeleton",
+          "kind": "function",
+          "async": false,
+          "params": "(scanJson, skeleton)",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
       "classes": [],
       "routes": [],
       "components": []
@@ -43295,6 +45156,33 @@
           "calls": []
         },
         {
+          "name": "kindByName",
+          "kind": "arrow",
+          "async": false,
+          "params": "(n)",
+          "callCount": 4,
+          "calls": [
+            "/unit/i.test",
+            "/integration/i.test",
+            "/contract/i.test",
+            "/e2e/i.test"
+          ]
+        },
+        {
+          "name": "after",
+          "kind": "arrow",
+          "async": false,
+          "params": "(re)",
+          "callCount": 5,
+          "calls": [
+            "cmd.search",
+            "cmd.slice(i).replace(/^\\S+\\s*/, \"\").split(/\\s+/).filter",
+            "cmd.slice(i).replace(/^\\S+\\s*/, \"\").split",
+            "cmd.slice(i).replace",
+            "cmd.slice"
+          ]
+        },
+        {
           "name": "detectPytest",
           "kind": "function",
           "async": false,
@@ -43389,17 +45277,6 @@
           "params": "(projectPath, group)",
           "callCount": 0,
           "calls": []
-        },
-        {
-          "name": "walk",
-          "kind": "arrow",
-          "async": false,
-          "params": "(suites)",
-          "callCount": 2,
-          "calls": [
-            "(spec.file || s.file || \"\").replace",
-            "walk"
-          ]
         },
         {
           "name": "spawnCapture",
@@ -47089,6 +48966,49 @@
       "components": []
     },
     {
+      "file": "packages/server/src/lib/coding-db/release-info.repo.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "writeReleaseInfo",
+          "isDefault": false
+        },
+        {
+          "kind": "function",
+          "name": "listReleaseInfosDb",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "./connection.mjs",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "writeReleaseInfo",
+          "kind": "function",
+          "async": false,
+          "params": "(ruRoot, rec)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "listReleaseInfosDb",
+          "kind": "function",
+          "async": false,
+          "params": "(ruRoot, rrId)",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "routes": [],
+      "components": []
+    },
+    {
       "file": "packages/server/src/lib/coding-db/ru-info.repo.mjs",
       "language": "javascript",
       "exports": [
@@ -50755,12 +52675,12 @@
     }
   ],
   "stats": {
-    "totalFiles": 451,
-    "parsedFiles": 445,
+    "totalFiles": 463,
+    "parsedFiles": 457,
     "errors": 0,
     "languages": {
       "typescript": 57,
-      "javascript": 298,
+      "javascript": 310,
       "tsx": 96
     }
   }

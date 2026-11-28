@@ -2170,7 +2170,7 @@ export default async function projectRoute(req, res) {
           temperature: 0.3,
         }, CU_LLM_OPTS); // 對話型 0.3；maxTokens 走 providers.json
 
-        sendEvent("done", { content: result.content || "" });
+        sendEvent("done", { content: result.content || "", ...(result.model ? { model: result.model } : {}) }); // 2026-11-28：帶實際 model
       } catch (err) {
         sendEvent("error", { error: err.message });
       }

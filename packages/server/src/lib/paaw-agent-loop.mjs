@@ -1538,6 +1538,8 @@ export async function runAgentLoopStream(config, res) {
   // Resolve LLM config
   // Resolve LLM config - mutable for fallback
   let llm = resolveLLMConfig(rootDir, modelOverride, fallbackModels);
+  // 2026-11-28：追蹤本 run 實際用過的 model（fallback/vision 切換全記）— final content 事件帶回 UI 落地
+  const modelsUsed = new Set([llm.model]);
 
   // ── Check rate-limit cache: skip primary if still throttled ──
   const primaryKey = _providerKey(llm.providerId, llm.model);
@@ -1546,9 +1548,10 @@ export async function runAgentLoopStream(config, res) {
     const fb = llm.fallbacks[0];
     console.log(`[Agent Loop Stream] Primary ${primaryKey} is rate-limited (cache), using fallback ${fb.providerId}/${fb.model} directly`);
     llm = { ...llm, apiUrl: fb.apiUrl, headers: fb.headers, model: fb.model, providerId: fb.providerId, maxTokens: fb.maxTokens || llm.maxTokens, contextWindow: fb.contextWindow || llm.contextWindow };
+    modelsUsed.add(llm.model);
   }
 
-  sendSSE("start", { model: llm.model, cwd, maxTurns });
+  sendSSE("start", { model: llm.model, models: [...modelsUsed], cwd, maxTurns });
 
   // Build system prompt (load .paaw/ project context first)
   let paawContext = null;
@@ -1620,6 +1623,7 @@ export async function runAgentLoopStream(config, res) {
     // ── Vision 路由(2026-08-30 Phase 3):同 runAgentLoop - 歷史含圖 → 本輪換 vision model ──
     let usedLlm = resolveVisionLlmConfig(llm, hasImages(messages)) || llm;
     if (usedLlm !== llm) console.log(`[Agent Loop Stream] 👁 vision routing: ${llm.providerId}/${llm.model} → ${usedLlm.providerId}/${usedLlm.model} (history has images)`);
+    modelsUsed.add(usedLlm.model); // 2026-11-28：vision 路由也算實際用過
     const _llmLog = _logger.llmCall({ turn: turns, model: usedLlm.model, messageCount: trimmedMessages.length, contextTokens: estimateMessageTokens(trimmedMessages) });
     try {
       response = await callLLM(usedLlm.apiUrl, usedLlm.headers, usedLlm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, sendSSE, agentId, usedLlm.maxTokens, abortSignal, getAgentReasoning(agentId, cwd));
@@ -1643,6 +1647,7 @@ export async function runAgentLoopStream(config, res) {
             try {
               response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId, [], cwd).map(t => t.function?.name)) : getToolsForAgent(agentId, [], cwd), false, sendSSE, agentId, fb.maxTokens || llm.maxTokens, abortSignal, getAgentReasoning(agentId, cwd));
               usedLlm = fb;
+              modelsUsed.add(fb.model); // 2026-11-28：fallback 成功 = 實際用過
               // Update llm so subsequent turns use fallback directly
               llm = { ...llm, apiUrl: fb.apiUrl, headers: fb.headers, model: fb.model, providerId: fb.providerId, maxTokens: fb.maxTokens || llm.maxTokens, contextWindow: fb.contextWindow || llm.contextWindow };
               break;
@@ -1720,11 +1725,11 @@ export async function runAgentLoopStream(config, res) {
           i--;
           continue;
         }
-        sendSSE("content", { content: "[AI 回應為空或僅含隱藏字元,重試後仍失敗]", done: true });
+        sendSSE("content", { content: "[AI 回應為空或僅含隱藏字元,重試後仍失敗]", done: true, model: llm.model, models: [...modelsUsed] });
         contentEmitted = true;
         break;
       }
-      sendSSE("content", { content, done: true });
+      sendSSE("content", { content, done: true, model: llm.model, models: [...modelsUsed] });
       contentEmitted = true;
       break;
     }
@@ -1877,10 +1882,11 @@ export async function runAgentLoopStream(config, res) {
       });
       // Vision 路由同主 loop:尾輪含圖 → 換 vision model
       const _finalLlm = resolveVisionLlmConfig(llm, hasImages(messages)) || llm;
+      modelsUsed.add(_finalLlm.model); // 2026-11-28：強制總結輪也算實際用過
       const finalResponse = await callLLM(_finalLlm.apiUrl, _finalLlm.headers, _finalLlm.model, trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW), [], false, sendSSE, agentId, _finalLlm.maxTokens, abortSignal, getAgentReasoning(agentId, cwd));
       const finalContent = finalResponse.choices?.[0]?.message?.content || "";
       if (finalContent) {
-        sendSSE("content", { content: finalContent, done: true });
+        sendSSE("content", { content: finalContent, done: true, model: _finalLlm.model, models: [...modelsUsed] });
       }
     } catch (err) {
       // 使用者中斷不是錯誤 — 不送 error(防 race:abort 檢查後才觸發 abort 的窗口期)

@@ -1102,6 +1102,10 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
               const content = st.finalContent
                 || (isInterrupted ? "⏹️ Agent 已中斷。你可以繼續對話來恢復。" : null)
                 || (st.error ? `❌ (斷線期間結束) ${st.error}` : null);
+              // 2026-11-28：重連補訊息也帶 model 記錄（從緩衝的最後 content 事件拿）
+              const _lastContentEv = [...(st.events || [])].reverse().find((e: any) => e.event === "content" && e.data?.content);
+              const _reModel = _lastContentEv?.data?.model;
+              const _reModels = _lastContentEv?.data?.models;
               if (content) {
                 setCrewConversations(prev => {
                   const cur = prev[activeCrew] || [];
@@ -1112,7 +1116,7 @@ const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[])
                   // 2026-09-25 fix：live SSE 已顯示過同一筆錯誤（❌ Error: X）時，poller 的「❌ (斷線期間結束) X」不再補第二筆
                   // 兩邊 prefix 不同（前 200 字全等比不到）→ 改比錯誤本文（st.error 前 120 字是否已出現在最後一則）
                   if (st.error && last?.role === "assistant" && typeof last.content === "string" && last.content.includes(String(st.error).slice(0, 120))) return prev;
-                  return { ...prev, [activeCrew]: [...cur, { role: "assistant", content, ts: new Date().toISOString() }] };
+                  return { ...prev, [activeCrew]: [...cur, { role: "assistant", content, ts: new Date().toISOString(), ...(typeof _reModel === "string" && _reModel ? { _model: _reModel } : {}), ...(Array.isArray(_reModels) && _reModels.length ? { _models: _reModels.map(String) } : {}) }] };
                 });
               }
             }
@@ -1678,6 +1682,7 @@ const sendChat = useCallback(async () => {
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let assistantContent = "";
+        let domainUsedModel = ""; // 2026-11-28：本則回覆實際使用的 model
         let buffer = "";
         while (true) {
           const { done, value } = await reader.read();
@@ -1691,6 +1696,7 @@ const sendChat = useCallback(async () => {
                 const data = JSON.parse(line.slice(6));
                 if (data.content !== undefined && data.message === undefined) {
                   assistantContent = data.content;
+                  if (typeof data.model === "string" && data.model) domainUsedModel = data.model; // 2026-11-28：實際使用 model
                 }
                 if (data.error) {
                   assistantContent = `❌ Error: ${data.error}`;
@@ -1708,6 +1714,10 @@ const sendChat = useCallback(async () => {
         }
         if (!assistantContent) {
           setChatMessages(prev => [...prev, { role: "assistant", content: `(${chatMode.toUpperCase()} AI completed with no output)`, ts: new Date().toISOString() }]);
+        }
+        // 2026-11-28：domain AI 回覆 stamp 實際 model
+        if (domainUsedModel) {
+          setChatMessages(prev => { const last = prev[prev.length - 1]; return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, _model: domainUsedModel }] : prev; });
         }
       } catch (err: any) {
         if (err.name === "AbortError") {
@@ -1893,6 +1903,9 @@ const sendChat = useCallback(async () => {
                     finalContent = data.content;
                     setAgentAction("\u200B"); // clear action indicator
                     const finalMsg: ChatMessage = { role: "assistant", content: finalContent, ts: new Date().toISOString() };
+                    // 2026-11-28：記錄本 run 實際用的 model（切換三個 model 的歷史不再只剩一個）— server content done 事件帶回
+                    if (typeof data.model === "string" && data.model) finalMsg._model = data.model;
+                    if (Array.isArray(data.models) && data.models.length) finalMsg._models = data.models.map(String).filter(Boolean);
                     if (silentToolCalls.length > 0) finalMsg._toolCalls = silentToolCalls;
                     setChatMessages(prev => [...prev, finalMsg]);
 

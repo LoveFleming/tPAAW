@@ -1361,6 +1361,33 @@
     },
     {
       "type": "function",
+      "name": "fakeLLM",
+      "file": "tests/unit/project-md-spec.test.mjs",
+      "kind": "arrow",
+      "async": true,
+      "params": "({ messages })",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "flaky",
+      "file": "tests/unit/project-md-spec.test.mjs",
+      "kind": "arrow",
+      "async": true,
+      "params": "({ messages })",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "rec",
+      "file": "tests/unit/project-md-spec.test.mjs",
+      "kind": "arrow",
+      "async": true,
+      "params": "({ messages })",
+      "callCount": 0
+    },
+    {
+      "type": "function",
       "name": "loadProviders",
       "file": "tests/unit/providers.test.mjs",
       "kind": "function",
@@ -5205,6 +5232,33 @@
       "callCount": 12
     },
     {
+      "type": "function",
+      "name": "sideLabel",
+      "file": "packages/ui/src/pages/SettingsPage.tsx",
+      "kind": "arrow",
+      "async": false,
+      "params": "(k: string)",
+      "callCount": 4
+    },
+    {
+      "type": "function",
+      "name": "savePref",
+      "file": "packages/ui/src/pages/SettingsPage.tsx",
+      "kind": "arrow",
+      "async": true,
+      "params": "(key: string, value: string)",
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "PrefRow",
+      "file": "packages/ui/src/pages/SettingsPage.tsx",
+      "kind": "arrow",
+      "async": false,
+      "params": "({ k, label }: { k: string; label: string })",
+      "callCount": 3
+    },
+    {
       "type": "export",
       "name": "SettingsPage",
       "file": "packages/ui/src/pages/SettingsPage.tsx",
@@ -5216,6 +5270,12 @@
       "name": "SettingsPage",
       "file": "packages/ui/src/pages/SettingsPage.tsx",
       "kind": "function"
+    },
+    {
+      "type": "component",
+      "name": "PrefRow",
+      "file": "packages/ui/src/pages/SettingsPage.tsx",
+      "kind": "arrow"
     },
     {
       "type": "function",
@@ -6452,15 +6512,6 @@
     },
     {
       "type": "function",
-      "name": "sendAiAddPayload",
-      "file": "packages/ui/src/components/ApiTesterTabs.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 5
-    },
-    {
-      "type": "function",
       "name": "loadPayloadDetail",
       "file": "packages/ui/src/components/ApiTesterTabs.tsx",
       "kind": "arrow",
@@ -7229,6 +7280,38 @@
       "type": "component",
       "name": "DecisionLog",
       "file": "packages/ui/src/components/DecisionLog.tsx",
+      "kind": "function"
+    },
+    {
+      "type": "function",
+      "name": "DfoPanel",
+      "file": "packages/ui/src/components/DfoPanel.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "({ rootPath, active, theme: tk }: { rootPath: string; active?: boolean; theme: { borderLight: string; accent: string; accentHover?: string } })",
+      "callCount": 0
+    },
+    {
+      "type": "class",
+      "name": "DfoErrorBoundary",
+      "file": "packages/ui/src/components/DfoPanel.tsx",
+      "methods": [
+        "state",
+        "getDerivedStateFromError",
+        "render"
+      ]
+    },
+    {
+      "type": "export",
+      "name": "DfoPanel",
+      "file": "packages/ui/src/components/DfoPanel.tsx",
+      "kind": "function",
+      "isDefault": true
+    },
+    {
+      "type": "component",
+      "name": "DfoPanel",
+      "file": "packages/ui/src/components/DfoPanel.tsx",
       "kind": "function"
     },
     {
@@ -8271,6 +8354,42 @@
     },
     {
       "type": "function",
+      "name": "sweepStrayMermaidDivs",
+      "file": "packages/ui/src/components/MermaidBlock.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "(ownId?: string)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "mermaidQuoteFixup",
+      "file": "packages/ui/src/components/MermaidBlock.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "(code: string)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "esc",
+      "file": "packages/ui/src/components/MermaidBlock.tsx",
+      "kind": "arrow",
+      "async": false,
+      "params": "(s: string)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "renameReserved",
+      "file": "packages/ui/src/components/MermaidBlock.tsx",
+      "kind": "arrow",
+      "async": false,
+      "params": "(w: string)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
       "name": "mdPreWithMermaid",
       "file": "packages/ui/src/components/MermaidBlock.tsx",
       "kind": "function",
@@ -8480,21 +8599,30 @@
     },
     {
       "type": "function",
-      "name": "save",
+      "name": "onFocus",
       "file": "packages/ui/src/components/ProjectMdPage.tsx",
       "kind": "arrow",
-      "async": true,
+      "async": false,
       "params": "()",
-      "callCount": 12
+      "callCount": 1
     },
     {
       "type": "function",
-      "name": "regenerate",
+      "name": "refresh",
       "file": "packages/ui/src/components/ProjectMdPage.tsx",
       "kind": "arrow",
       "async": true,
       "params": "()",
-      "callCount": 11
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "fillAll",
+      "file": "packages/ui/src/components/ProjectMdPage.tsx",
+      "kind": "arrow",
+      "async": true,
+      "params": "()",
+      "callCount": 15
     },
     {
       "type": "export",
@@ -8596,6 +8724,96 @@
     },
     {
       "type": "function",
+      "name": "p",
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "kind": "arrow",
+      "async": false,
+      "params": "(e: string)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "confirmAsk",
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "kind": "arrow",
+      "async": false,
+      "params": "(o: { icon?: string; title: string; body: string; okLabel?: string; okColor?: string })",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "closeConfirm",
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "kind": "arrow",
+      "async": false,
+      "params": "(v: boolean)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "buildAllDocs",
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "kind": "arrow",
+      "async": true,
+      "params": "()",
+      "callCount": 14
+    },
+    {
+      "type": "function",
+      "name": "rebuildDoc",
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "kind": "arrow",
+      "async": true,
+      "params": "(kind: \"spec\" | \"dfo\" | \"releaseInfo\")",
+      "callCount": 12
+    },
+    {
+      "type": "function",
+      "name": "refreshReleaseInfo",
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "kind": "arrow",
+      "async": true,
+      "params": "()",
+      "callCount": 5
+    },
+    {
+      "type": "function",
+      "name": "rebuildInfo",
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "kind": "arrow",
+      "async": true,
+      "params": "()",
+      "callCount": 13
+    },
+    {
+      "type": "function",
+      "name": "confirmRelease",
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "kind": "arrow",
+      "async": true,
+      "params": "()",
+      "callCount": 23
+    },
+    {
+      "type": "function",
+      "name": "reopenRR",
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "kind": "arrow",
+      "async": true,
+      "params": "()",
+      "callCount": 17
+    },
+    {
+      "type": "function",
+      "name": "createNewRR",
+      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+      "kind": "arrow",
+      "async": true,
+      "params": "()",
+      "callCount": 13
+    },
+    {
+      "type": "function",
       "name": "loadE2eInv",
       "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
       "kind": "arrow",
@@ -8629,51 +8847,6 @@
       "async": true,
       "params": "()",
       "callCount": 11
-    },
-    {
-      "type": "function",
-      "name": "runTests",
-      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
-      "kind": "arrow",
-      "async": true,
-      "params": "()",
-      "callCount": 12
-    },
-    {
-      "type": "function",
-      "name": "readinessEvidence",
-      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 18
-    },
-    {
-      "type": "function",
-      "name": "matrixEvidenceText",
-      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 8
-    },
-    {
-      "type": "function",
-      "name": "generateReport",
-      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
-      "kind": "arrow",
-      "async": true,
-      "params": "()",
-      "callCount": 16
-    },
-    {
-      "type": "function",
-      "name": "askAiVerify",
-      "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 2
     },
     {
       "type": "function",
@@ -9370,28 +9543,6 @@
       "type": "component",
       "name": "TestsPageInner",
       "file": "packages/ui/src/components/TestsPage.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "function",
-      "name": "TroubleshootingPanel",
-      "file": "packages/ui/src/components/TroubleshootingPanel.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ rootPath, theme: tk }: Props)",
-      "callCount": 0
-    },
-    {
-      "type": "export",
-      "name": "TroubleshootingPanel",
-      "file": "packages/ui/src/components/TroubleshootingPanel.tsx",
-      "kind": "function",
-      "isDefault": true
-    },
-    {
-      "type": "component",
-      "name": "TroubleshootingPanel",
-      "file": "packages/ui/src/components/TroubleshootingPanel.tsx",
       "kind": "function"
     },
     {
@@ -14174,6 +14325,77 @@
     },
     {
       "type": "function",
+      "name": "readBody",
+      "file": "packages/server/src/routes/coding-dfo.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(req)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "json",
+      "file": "packages/server/src/routes/coding-dfo.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(res, code, data)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "loadDfoPrompt",
+      "file": "packages/server/src/routes/coding-dfo.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "dfoRoutes",
+      "file": "packages/server/src/routes/coding-dfo.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(req, res)",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "dfoRoutes",
+      "file": "packages/server/src/routes/coding-dfo.mjs",
+      "kind": "function",
+      "isDefault": true
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-dfo",
+      "file": "packages/server/src/routes/coding-dfo.mjs",
+      "method": "GET",
+      "path": "/api/coding-dfo"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-dfo/versions",
+      "file": "packages/server/src/routes/coding-dfo.mjs",
+      "method": "GET",
+      "path": "/api/coding-dfo/versions"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-dfo/generate",
+      "file": "packages/server/src/routes/coding-dfo.mjs",
+      "method": "POST",
+      "path": "/api/coding-dfo/generate"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-dfo/section",
+      "file": "packages/server/src/routes/coding-dfo.mjs",
+      "method": "POST",
+      "path": "/api/coding-dfo/section"
+    },
+    {
+      "type": "function",
       "name": "docCoverageRoutes",
       "file": "packages/server/src/routes/coding-doc-coverage.mjs",
       "kind": "function",
@@ -15401,60 +15623,6 @@
     },
     {
       "type": "function",
-      "name": "_apiE2eCoverageChecker",
-      "file": "packages/server/src/routes/coding-releases.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(root)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "build",
-      "file": "packages/server/src/routes/coding-releases.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "()",
-      "callCount": 15
-    },
-    {
-      "type": "function",
-      "name": "isTestFile",
-      "file": "packages/server/src/routes/coding-releases.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(n)",
-      "callCount": 3
-    },
-    {
-      "type": "function",
-      "name": "walk",
-      "file": "packages/server/src/routes/coding-releases.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(dir, depth)",
-      "callCount": 11
-    },
-    {
-      "type": "function",
-      "name": "segPattern",
-      "file": "packages/server/src/routes/coding-releases.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(seg)",
-      "callCount": 4
-    },
-    {
-      "type": "function",
-      "name": "tryMatch",
-      "file": "packages/server/src/routes/coding-releases.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(k)",
-      "callCount": 8
-    },
-    {
-      "type": "function",
       "name": "readTasksFile",
       "file": "packages/server/src/routes/coding-releases.mjs",
       "kind": "function",
@@ -15581,24 +15749,6 @@
     },
     {
       "type": "function",
-      "name": "_pathOf",
-      "file": "packages/server/src/routes/coding-releases.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(entry)",
-      "callCount": 6
-    },
-    {
-      "type": "function",
-      "name": "_normLower",
-      "file": "packages/server/src/routes/coding-releases.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(s)",
-      "callCount": 3
-    },
-    {
-      "type": "function",
       "name": "readFileStream",
       "file": "packages/server/src/routes/coding-releases.mjs",
       "kind": "function",
@@ -15687,6 +15837,76 @@
       "file": "packages/server/src/routes/coding-releases.mjs",
       "method": "POST",
       "path": "/api/coding-releases/reject"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-releases/release-info/status",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "method": "GET",
+      "path": "/api/coding-releases/release-info/status"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-releases/release-info/list",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "method": "GET",
+      "path": "/api/coding-releases/release-info/list"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-releases/release-info/item",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "method": "GET",
+      "path": "/api/coding-releases/release-info/item"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-releases/release-info/db",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "method": "GET",
+      "path": "/api/coding-releases/release-info/db"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-releases/release-info/matrix",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "method": "GET",
+      "path": "/api/coding-releases/release-info/matrix"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-releases/docs",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "method": "GET",
+      "path": "/api/coding-releases/docs"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-releases/release-docs/rebuild",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "method": "POST",
+      "path": "/api/coding-releases/release-docs/rebuild"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-releases/release-docs/build-all",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "method": "POST",
+      "path": "/api/coding-releases/release-docs/build-all"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-releases/release-info/diff",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "method": "GET",
+      "path": "/api/coding-releases/release-info/diff"
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-releases/release-info/latest",
+      "file": "packages/server/src/routes/coding-releases.mjs",
+      "method": "GET",
+      "path": "/api/coding-releases/release-info/latest"
     },
     {
       "type": "route",
@@ -16333,6 +16553,15 @@
     },
     {
       "type": "function",
+      "name": "outputExists",
+      "file": "packages/server/src/routes/coding.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(id, rel)",
+      "callCount": 4
+    },
+    {
+      "type": "function",
       "name": "flag",
       "file": "packages/server/src/routes/coding.mjs",
       "kind": "arrow",
@@ -16595,10 +16824,38 @@
     },
     {
       "type": "route",
+      "name": "GET /api/coding-project/project-md/spec-versions/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "method": "GET",
+      "path": "/api/coding-project/project-md/spec-versions/*"
+    },
+    {
+      "type": "route",
       "name": "GET /api/coding-project/project-md/*",
       "file": "packages/server/src/routes/coding.mjs",
       "method": "GET",
       "path": "/api/coding-project/project-md/*"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-project/project-md/spec-fill/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "method": "POST",
+      "path": "/api/coding-project/project-md/spec-fill/*"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-project/project-md/spec-section/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "method": "POST",
+      "path": "/api/coding-project/project-md/spec-section/*"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-project/project-md/spec-draft/*",
+      "file": "packages/server/src/routes/coding.mjs",
+      "method": "POST",
+      "path": "/api/coding-project/project-md/spec-draft/*"
     },
     {
       "type": "route",
@@ -21567,6 +21824,15 @@
     },
     {
       "type": "function",
+      "name": "walk",
+      "file": "packages/server/src/lib/c4-model-scan.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(dir, depth)",
+      "callCount": 9
+    },
+    {
+      "type": "function",
       "name": "_loadTemplate",
       "file": "packages/server/src/lib/c4-model-scan.mjs",
       "kind": "function",
@@ -22793,6 +23059,58 @@
     },
     {
       "type": "function",
+      "name": "_collectProjectRoots",
+      "file": "packages/server/src/lib/cu-background-watcher.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "readList",
+      "file": "packages/server/src/lib/cu-background-watcher.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(p, pick)",
+      "callCount": 5
+    },
+    {
+      "type": "function",
+      "name": "_runFirstCu",
+      "file": "packages/server/src/lib/cu-background-watcher.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_runSweep",
+      "file": "packages/server/src/lib/cu-background-watcher.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "startCuBackgroundWatcher",
+      "file": "packages/server/src/lib/cu-background-watcher.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "startCuBackgroundWatcher",
+      "file": "packages/server/src/lib/cu-background-watcher.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "function",
       "name": "rescanMechanicalLayer",
       "file": "packages/server/src/lib/cu-mechanical.mjs",
       "kind": "function",
@@ -23297,6 +23615,180 @@
       "isDefault": false
     },
     {
+      "type": "function",
+      "name": "dfoDir",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "dfoPath",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "dfoVersionsDir",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "validateDfo",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(dfo)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "readDfo",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "listDfoVersions",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "readDfoVersion",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root, version)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "extractSkipBlocks",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(markdown)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "writeDfo",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root, partialSections, updatedBy, label)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "dfoFrozenReason",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "DFO_SECTIONS",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "variable",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "DFO_SCHEMA_VERSION",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "variable",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "dfoDir",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "dfoPath",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "dfoVersionsDir",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "validateDfo",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "readDfo",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "listDfoVersions",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "readDfoVersion",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "extractSkipBlocks",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "writeDfo",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "dfoFrozenReason",
+      "file": "packages/server/src/lib/dfo.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
       "type": "export",
       "name": "DIRECT_AGENTS",
       "file": "packages/server/src/lib/dispatch-catalog.mjs",
@@ -23403,6 +23895,58 @@
     },
     {
       "type": "function",
+      "name": "_readJson",
+      "file": "packages/server/src/lib/doc-autorefresh.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(p)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_writeJson",
+      "file": "packages/server/src/lib/doc-autorefresh.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(p, o)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_head",
+      "file": "packages/server/src/lib/doc-autorefresh.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_post",
+      "file": "packages/server/src/lib/doc-autorefresh.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(url, body)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "autoRefreshDocs",
+      "file": "packages/server/src/lib/doc-autorefresh.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(root, opts = {})",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "autoRefreshDocs",
+      "file": "packages/server/src/lib/doc-autorefresh.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "function",
       "name": "readDocCoverage",
       "file": "packages/server/src/lib/doc-coverage.mjs",
       "kind": "function",
@@ -23462,6 +24006,65 @@
       "type": "export",
       "name": "getUndocumentedCommits",
       "file": "packages/server/src/lib/doc-coverage.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "function",
+      "name": "readText",
+      "file": "packages/server/src/lib/doc-evidence.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(p)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "collectAdr",
+      "file": "packages/server/src/lib/doc-evidence.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "collectTasks",
+      "file": "packages/server/src/lib/doc-evidence.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "collectDocEvidence",
+      "file": "packages/server/src/lib/doc-evidence.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root, opts = {})",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "docEvidenceBlock",
+      "file": "packages/server/src/lib/doc-evidence.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root, opts = {})",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "collectDocEvidence",
+      "file": "packages/server/src/lib/doc-evidence.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "docEvidenceBlock",
+      "file": "packages/server/src/lib/doc-evidence.mjs",
       "kind": "function",
       "isDefault": false
     },
@@ -24782,6 +25385,101 @@
       "type": "export",
       "name": "shipAuditEvent",
       "file": "packages/server/src/lib/es-shipper.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "function",
+      "name": "apiE2eCoverageChecker",
+      "file": "packages/server/src/lib/evidence-by-api.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "build",
+      "file": "packages/server/src/lib/evidence-by-api.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "()",
+      "callCount": 15
+    },
+    {
+      "type": "function",
+      "name": "isTestFile",
+      "file": "packages/server/src/lib/evidence-by-api.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(n)",
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "walk",
+      "file": "packages/server/src/lib/evidence-by-api.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(dir, depth)",
+      "callCount": 11
+    },
+    {
+      "type": "function",
+      "name": "segPattern",
+      "file": "packages/server/src/lib/evidence-by-api.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(seg)",
+      "callCount": 4
+    },
+    {
+      "type": "function",
+      "name": "tryMatch",
+      "file": "packages/server/src/lib/evidence-by-api.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(k)",
+      "callCount": 8
+    },
+    {
+      "type": "function",
+      "name": "buildEvidenceByApi",
+      "file": "packages/server/src/lib/evidence-by-api.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath, { sinceSha = null } = {})",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_pathOf",
+      "file": "packages/server/src/lib/evidence-by-api.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(entry)",
+      "callCount": 6
+    },
+    {
+      "type": "function",
+      "name": "_normLower",
+      "file": "packages/server/src/lib/evidence-by-api.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(s)",
+      "callCount": 3
+    },
+    {
+      "type": "export",
+      "name": "apiE2eCoverageChecker",
+      "file": "packages/server/src/lib/evidence-by-api.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "buildEvidenceByApi",
+      "file": "packages/server/src/lib/evidence-by-api.mjs",
       "kind": "function",
       "isDefault": false
     },
@@ -26412,6 +27110,15 @@
       "file": "packages/server/src/lib/janitor.mjs",
       "kind": "function",
       "isDefault": false
+    },
+    {
+      "type": "function",
+      "name": "_llmFetch",
+      "file": "packages/server/src/lib/llm-utils.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(...args)",
+      "callCount": 1
     },
     {
       "type": "function",
@@ -29052,6 +29759,123 @@
     },
     {
       "type": "function",
+      "name": "splitSpecSections",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(specMd)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "joinSpecSections",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(parts)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "specVersionsDir",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "listSpecVersions",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "readSpecVersion",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root, version)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "snapshotSpec",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root, label, by)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "readSpecAiConversation",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(paaw)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "readJson",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "arrow",
+      "async": true,
+      "params": "(rel)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "stripCodeFence",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(c)",
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "buildSectionPrompt",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(index, transcript, facts, extra = \"\", existing = \"\")",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "callAndStrip",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(callLLM, prompt)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "generateSpecSection",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(root, index, opts = {})",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "generateFullSpec",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(root, opts = {})",
+      "callCount": 0
+    },
+    {
+      "type": "function",
       "name": "sliceBetween",
       "file": "packages/server/src/lib/project-md.mjs",
       "kind": "function",
@@ -29066,7 +29890,7 @@
       "kind": "arrow",
       "async": false,
       "params": "(s)",
-      "callCount": 10
+      "callCount": 12
     },
     {
       "type": "function",
@@ -29079,11 +29903,20 @@
     },
     {
       "type": "function",
+      "name": "stripSpecPlaceholder",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(s)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
       "name": "buildProjectMd",
       "file": "packages/server/src/lib/project-md.mjs",
       "kind": "function",
       "async": false,
-      "params": "(name, userSection, aiSection)",
+      "params": "(name, userSection, aiSection, specSection = \"\")",
       "callCount": 0
     },
     {
@@ -29106,20 +29939,20 @@
     },
     {
       "type": "function",
-      "name": "deterministicAiSection",
+      "name": "clip",
       "file": "packages/server/src/lib/project-md.mjs",
-      "kind": "function",
+      "kind": "arrow",
       "async": false,
-      "params": "(facts)",
-      "callCount": 0
+      "params": "(s, n)",
+      "callCount": 2
     },
     {
       "type": "function",
-      "name": "llmAiSection",
+      "name": "generateSpecDraft",
       "file": "packages/server/src/lib/project-md.mjs",
       "kind": "function",
       "async": true,
-      "params": "(facts, callLLM)",
+      "params": "(root, opts = {})",
       "callCount": 0
     },
     {
@@ -29147,6 +29980,20 @@
     },
     {
       "type": "export",
+      "name": "SPEC_START",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "variable",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "SPEC_END",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "variable",
+      "isDefault": false
+    },
+    {
+      "type": "export",
       "name": "AI_START",
       "file": "packages/server/src/lib/project-md.mjs",
       "kind": "variable",
@@ -29161,6 +30008,83 @@
     },
     {
       "type": "export",
+      "name": "SPEC_SECTIONS",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "variable",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "SPEC_SECTION_TITLES",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "variable",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "SPEC_SECTION_SCHEMAS",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "variable",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "splitSpecSections",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "joinSpecSections",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "specVersionsDir",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "listSpecVersions",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "readSpecVersion",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "snapshotSpec",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "generateSpecSection",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "generateFullSpec",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
       "name": "parseProjectMd",
       "file": "packages/server/src/lib/project-md.mjs",
       "kind": "function",
@@ -29169,6 +30093,13 @@
     {
       "type": "export",
       "name": "buildProjectMd",
+      "file": "packages/server/src/lib/project-md.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "generateSpecDraft",
       "file": "packages/server/src/lib/project-md.mjs",
       "kind": "function",
       "isDefault": false
@@ -29347,6 +30278,291 @@
       "file": "packages/server/src/lib/qa-results.mjs",
       "kind": "function",
       "isDefault": false
+    },
+    {
+      "type": "function",
+      "name": "_infoDir",
+      "file": "packages/server/src/lib/release-diff.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, rrId)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "findPreviousRelease",
+      "file": "packages/server/src/lib/release-diff.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, currentRrId)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_collectEvidence",
+      "file": "packages/server/src/lib/release-diff.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, rrId, curInfo, curV)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "num",
+      "file": "packages/server/src/lib/release-diff.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(x, y)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "key",
+      "file": "packages/server/src/lib/release-diff.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(x)",
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "_gitStat",
+      "file": "packages/server/src/lib/release-diff.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath, range)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_stripFence",
+      "file": "packages/server/src/lib/release-diff.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(s)",
+      "callCount": 6
+    },
+    {
+      "type": "function",
+      "name": "_aiSummary",
+      "file": "packages/server/src/lib/release-diff.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath, ev)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "buildDiffSummary",
+      "file": "packages/server/src/lib/release-diff.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath, rrId)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "readDiffSummary",
+      "file": "packages/server/src/lib/release-diff.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, rrId)",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "findPreviousRelease",
+      "file": "packages/server/src/lib/release-diff.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "buildDiffSummary",
+      "file": "packages/server/src/lib/release-diff.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "readDiffSummary",
+      "file": "packages/server/src/lib/release-diff.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "function",
+      "name": "BASE",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "docFetch",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(url, opts)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "docsStatusPath",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, rrId)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "readDocsStatus",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, rrId)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "writeDocsStatus",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, rrId, st)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "setDoc",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, rrId, kind, patch)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "triggerDoc",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath, rrId, kind)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "run",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "arrow",
+      "async": true,
+      "params": "()",
+      "callCount": 34
+    },
+    {
+      "type": "function",
+      "name": "triggerAllDocs",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath, rrId)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_readJson",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(p)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "_mtime",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(p)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "verifyDocs",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath, rrId)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "add",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(doc, level, message)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "getDocsOverview",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath, rrId)",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "docsStatusPath",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "readDocsStatus",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "triggerDoc",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "triggerAllDocs",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "verifyDocs",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "getDocsOverview",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "component",
+      "name": "BASE",
+      "file": "packages/server/src/lib/release-docs.mjs",
+      "kind": "arrow"
     },
     {
       "type": "function",
@@ -29729,6 +30945,289 @@
     },
     {
       "type": "function",
+      "name": "infoDir",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, rrId)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "readStatus",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, rrId)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "writeStatus",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, rrId, st)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "listInfoVersions",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, rrId)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "readInfoMatrix",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, rrId, v)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "readInfoVersion",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, rrId, v)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "sleep",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(ms)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "_waitForTestRun",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath, timeoutMs = 15 * 60_000)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_gitOne",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath, cmd)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_bumpPatch",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(tag)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_deterministicGitBlock",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_stripFence",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(s)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_cuContext",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath, changedFiles = [])",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "norm",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(f)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "hit",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(files = [])",
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "_fallbackChanges",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(gitLog)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_aiSummaryAndChanges",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "({ gitLog, scopeTxt, testRunTxt, rrTitle, previousTag, unitLog = \"\", cuTxt = \"\", baseGroups = [] })",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_validateAiPart",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(parsed, { hasCommits = true } = {})",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_deterministicFeatures",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath, cu)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_aiFeaturesOnly",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(baseGroups)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_mergeFeatures",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(base, ai)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "pick",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(g, i)",
+      "callCount": 7
+    },
+    {
+      "type": "function",
+      "name": "startReleaseInfoBuild",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath, rrId, { by = \"human\", includeE2e = true } = {})",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "listAllReleaseInfo",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "getLatestReleaseInfo",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "getBuildStatus",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectPath, rrId)",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "listInfoVersions",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "readInfoMatrix",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "readInfoVersion",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "startReleaseInfoBuild",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "listAllReleaseInfo",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "getLatestReleaseInfo",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "getBuildStatus",
+      "file": "packages/server/src/lib/release-info-builder.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "function",
       "name": "gitLines",
       "file": "packages/server/src/lib/release-requests.mjs",
       "kind": "function",
@@ -30021,7 +31520,7 @@
       "file": "packages/server/src/lib/release-requests.mjs",
       "kind": "function",
       "async": true,
-      "params": "(projectPath, id, { note } = {})",
+      "params": "(projectPath, id, { note, force = false } = {})",
       "callCount": 0
     },
     {
@@ -30032,6 +31531,15 @@
       "async": false,
       "params": "(n)",
       "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "reopenReleaseRequest",
+      "file": "packages/server/src/lib/release-requests.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectPath, id, { reason } = {})",
+      "callCount": 0
     },
     {
       "type": "function",
@@ -30149,6 +31657,13 @@
     {
       "type": "export",
       "name": "closeReleaseRequest",
+      "file": "packages/server/src/lib/release-requests.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "reopenReleaseRequest",
       "file": "packages/server/src/lib/release-requests.mjs",
       "kind": "function",
       "isDefault": false
@@ -30649,6 +32164,79 @@
       "name": "runningCodingAgents",
       "file": "packages/server/src/lib/running-agents.mjs",
       "kind": "variable",
+      "isDefault": false
+    },
+    {
+      "type": "function",
+      "name": "buildScanSkeleton",
+      "file": "packages/server/src/lib/scan-skeleton.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(root)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "has",
+      "file": "packages/server/src/lib/scan-skeleton.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(d)",
+      "callCount": 2
+    },
+    {
+      "type": "function",
+      "name": "serializeSkeleton",
+      "file": "packages/server/src/lib/scan-skeleton.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(skeleton)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "loadScanSkeleton",
+      "file": "packages/server/src/lib/scan-skeleton.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(paawReadJson)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "enforceScanSkeleton",
+      "file": "packages/server/src/lib/scan-skeleton.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(scanJson, skeleton)",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "buildScanSkeleton",
+      "file": "packages/server/src/lib/scan-skeleton.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "serializeSkeleton",
+      "file": "packages/server/src/lib/scan-skeleton.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "loadScanSkeleton",
+      "file": "packages/server/src/lib/scan-skeleton.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "enforceScanSkeleton",
+      "file": "packages/server/src/lib/scan-skeleton.mjs",
+      "kind": "function",
       "isDefault": false
     },
     {
@@ -31720,6 +33308,24 @@
     },
     {
       "type": "function",
+      "name": "kindByName",
+      "file": "packages/server/src/lib/test-runner.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(n)",
+      "callCount": 4
+    },
+    {
+      "type": "function",
+      "name": "after",
+      "file": "packages/server/src/lib/test-runner.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(re)",
+      "callCount": 5
+    },
+    {
+      "type": "function",
       "name": "detectPytest",
       "file": "packages/server/src/lib/test-runner.mjs",
       "kind": "function",
@@ -31816,15 +33422,6 @@
       "async": true,
       "params": "(projectPath, group)",
       "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "walk",
-      "file": "packages/server/src/lib/test-runner.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(suites)",
-      "callCount": 2
     },
     {
       "type": "function",
@@ -35063,6 +36660,38 @@
       "type": "export",
       "name": "readFileConversations",
       "file": "packages/server/src/lib/coding-db/reads.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "function",
+      "name": "writeReleaseInfo",
+      "file": "packages/server/src/lib/coding-db/release-info.repo.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(ruRoot, rec)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "listReleaseInfosDb",
+      "file": "packages/server/src/lib/coding-db/release-info.repo.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(ruRoot, rrId)",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "writeReleaseInfo",
+      "file": "packages/server/src/lib/coding-db/release-info.repo.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "listReleaseInfosDb",
+      "file": "packages/server/src/lib/coding-db/release-info.repo.mjs",
       "kind": "function",
       "isDefault": false
     },
@@ -39369,6 +40998,15 @@
       {
         "type": "function",
         "name": "json",
+        "file": "packages/server/src/routes/coding-dfo.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(res, code, data)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "json",
         "file": "packages/server/src/routes/coding-review-board.mjs",
         "kind": "arrow",
         "async": false,
@@ -39437,6 +41075,15 @@
         "async": false,
         "params": "(obj)",
         "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "writeStatus",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, rrId, st)",
+        "callCount": 0
       }
     ],
     "readStatus": [
@@ -39447,6 +41094,15 @@
         "kind": "function",
         "async": false,
         "params": "()",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "readStatus",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, rrId)",
         "callCount": 0
       }
     ],
@@ -40290,6 +41946,15 @@
       {
         "type": "function",
         "name": "run",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "arrow",
+        "async": true,
+        "params": "()",
+        "callCount": 34
+      },
+      {
+        "type": "function",
+        "name": "run",
         "file": "packages/server/src/lib/release-unit/analyze.mjs",
         "kind": "arrow",
         "async": true,
@@ -40497,6 +42162,39 @@
         "kind": "function",
         "async": false,
         "params": "(root, p, c)",
+        "callCount": 0
+      }
+    ],
+    "fakeLLM": [
+      {
+        "type": "function",
+        "name": "fakeLLM",
+        "file": "tests/unit/project-md-spec.test.mjs",
+        "kind": "arrow",
+        "async": true,
+        "params": "({ messages })",
+        "callCount": 1
+      }
+    ],
+    "flaky": [
+      {
+        "type": "function",
+        "name": "flaky",
+        "file": "tests/unit/project-md-spec.test.mjs",
+        "kind": "arrow",
+        "async": true,
+        "params": "({ messages })",
+        "callCount": 1
+      }
+    ],
+    "rec": [
+      {
+        "type": "function",
+        "name": "rec",
+        "file": "tests/unit/project-md-spec.test.mjs",
+        "kind": "arrow",
+        "async": true,
+        "params": "({ messages })",
         "callCount": 0
       }
     ],
@@ -41605,6 +43303,15 @@
       {
         "type": "function",
         "name": "add",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(doc, level, message)",
+        "callCount": 1
+      },
+      {
+        "type": "function",
+        "name": "add",
         "file": "packages/server/src/lib/release-unit/cost.mjs",
         "kind": "arrow",
         "async": false,
@@ -42541,15 +44248,6 @@
         "kind": "arrow",
         "async": false,
         "params": "(dir, depth)",
-        "callCount": 11
-      },
-      {
-        "type": "function",
-        "name": "walk",
-        "file": "packages/server/src/routes/coding-releases.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(dir, depth)",
         "callCount": 8
       },
       {
@@ -42573,11 +44271,29 @@
       {
         "type": "function",
         "name": "walk",
+        "file": "packages/server/src/lib/c4-model-scan.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(dir, depth)",
+        "callCount": 9
+      },
+      {
+        "type": "function",
+        "name": "walk",
         "file": "packages/server/src/lib/e2e-inventory.mjs",
         "kind": "arrow",
         "async": false,
         "params": "(dir, depth, prefix)",
         "callCount": 17
+      },
+      {
+        "type": "function",
+        "name": "walk",
+        "file": "packages/server/src/lib/evidence-by-api.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(dir, depth)",
+        "callCount": 11
       },
       {
         "type": "function",
@@ -42677,15 +44393,6 @@
         "async": false,
         "params": "(suites, path)",
         "callCount": 4
-      },
-      {
-        "type": "function",
-        "name": "walk",
-        "file": "packages/server/src/lib/test-runner.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(suites)",
-        "callCount": 2
       },
       {
         "type": "function",
@@ -43683,15 +45390,6 @@
         "async": true,
         "params": "()",
         "callCount": 10
-      },
-      {
-        "type": "function",
-        "name": "save",
-        "file": "packages/ui/src/components/ProjectMdPage.tsx",
-        "kind": "arrow",
-        "async": true,
-        "params": "()",
-        "callCount": 12
       }
     ],
     "cancelEdit": [
@@ -45577,6 +47275,15 @@
         "async": true,
         "params": "()",
         "callCount": 2
+      },
+      {
+        "type": "function",
+        "name": "refresh",
+        "file": "packages/ui/src/components/ProjectMdPage.tsx",
+        "kind": "arrow",
+        "async": true,
+        "params": "()",
+        "callCount": 3
       }
     ],
     "openProject": [
@@ -46079,6 +47786,45 @@
         "async": true,
         "params": "()",
         "callCount": 12
+      }
+    ],
+    "sideLabel": [
+      {
+        "type": "function",
+        "name": "sideLabel",
+        "file": "packages/ui/src/pages/SettingsPage.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(k: string)",
+        "callCount": 4
+      }
+    ],
+    "savePref": [
+      {
+        "type": "function",
+        "name": "savePref",
+        "file": "packages/ui/src/pages/SettingsPage.tsx",
+        "kind": "arrow",
+        "async": true,
+        "params": "(key: string, value: string)",
+        "callCount": 3
+      }
+    ],
+    "PrefRow": [
+      {
+        "type": "function",
+        "name": "PrefRow",
+        "file": "packages/ui/src/pages/SettingsPage.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "({ k, label }: { k: string; label: string })",
+        "callCount": 3
+      },
+      {
+        "type": "component",
+        "name": "PrefRow",
+        "file": "packages/ui/src/pages/SettingsPage.tsx",
+        "kind": "arrow"
       }
     ],
     "buildPromptFromFields": [
@@ -47462,17 +49208,6 @@
         "kind": "function"
       }
     ],
-    "sendAiAddPayload": [
-      {
-        "type": "function",
-        "name": "sendAiAddPayload",
-        "file": "packages/ui/src/components/ApiTesterTabs.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 5
-      }
-    ],
     "loadPayloadDetail": [
       {
         "type": "function",
@@ -48309,6 +50044,42 @@
         "async": true,
         "params": "()",
         "callCount": 8
+      }
+    ],
+    "DfoPanel": [
+      {
+        "type": "function",
+        "name": "DfoPanel",
+        "file": "packages/ui/src/components/DfoPanel.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "({ rootPath, active, theme: tk }: { rootPath: string; active?: boolean; theme: { borderLight: string; accent: string; accentHover?: string } })",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "DfoPanel",
+        "file": "packages/ui/src/components/DfoPanel.tsx",
+        "kind": "function",
+        "isDefault": true
+      },
+      {
+        "type": "component",
+        "name": "DfoPanel",
+        "file": "packages/ui/src/components/DfoPanel.tsx",
+        "kind": "function"
+      }
+    ],
+    "DfoErrorBoundary": [
+      {
+        "type": "class",
+        "name": "DfoErrorBoundary",
+        "file": "packages/ui/src/components/DfoPanel.tsx",
+        "methods": [
+          "state",
+          "getDerivedStateFromError",
+          "render"
+        ]
       }
     ],
     "parseUnifiedDiff": [
@@ -49432,6 +51203,68 @@
         "callCount": 0
       }
     ],
+    "sweepStrayMermaidDivs": [
+      {
+        "type": "function",
+        "name": "sweepStrayMermaidDivs",
+        "file": "packages/ui/src/components/MermaidBlock.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(ownId?: string)",
+        "callCount": 0
+      }
+    ],
+    "mermaidQuoteFixup": [
+      {
+        "type": "function",
+        "name": "mermaidQuoteFixup",
+        "file": "packages/ui/src/components/MermaidBlock.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(code: string)",
+        "callCount": 0
+      }
+    ],
+    "esc": [
+      {
+        "type": "function",
+        "name": "esc",
+        "file": "packages/ui/src/components/MermaidBlock.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(s: string)",
+        "callCount": 2
+      },
+      {
+        "type": "function",
+        "name": "esc",
+        "file": "packages/server/src/lib/e2e-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(s)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "esc",
+        "file": "packages/server/src/lib/page-inventory.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(s)",
+        "callCount": 0
+      }
+    ],
+    "renameReserved": [
+      {
+        "type": "function",
+        "name": "renameReserved",
+        "file": "packages/ui/src/components/MermaidBlock.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(w: string)",
+        "callCount": 1
+      }
+    ],
     "mdPreWithMermaid": [
       {
         "type": "function",
@@ -49664,15 +51497,35 @@
         "kind": "function"
       }
     ],
-    "regenerate": [
+    "onFocus": [
       {
         "type": "function",
-        "name": "regenerate",
+        "name": "onFocus",
+        "file": "packages/ui/src/components/ProjectMdPage.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 1
+      },
+      {
+        "type": "function",
+        "name": "onFocus",
+        "file": "packages/ui/src/components/TestsPage.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 1
+      }
+    ],
+    "fillAll": [
+      {
+        "type": "function",
+        "name": "fillAll",
         "file": "packages/ui/src/components/ProjectMdPage.tsx",
         "kind": "arrow",
         "async": true,
         "params": "()",
-        "callCount": 11
+        "callCount": 15
       }
     ],
     "QaRecords": [
@@ -49767,6 +51620,143 @@
         "callCount": 11
       }
     ],
+    "p": [
+      {
+        "type": "function",
+        "name": "p",
+        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(e: string)",
+        "callCount": 1
+      },
+      {
+        "type": "function",
+        "name": "p",
+        "file": "packages/server/src/lib/dev-server.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(n)",
+        "callCount": 2
+      },
+      {
+        "type": "function",
+        "name": "p",
+        "file": "packages/server/src/lib/qa-results.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(n, l = 2)",
+        "callCount": 2
+      },
+      {
+        "type": "function",
+        "name": "p",
+        "file": "packages/server/src/lib/test-runner.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(n)",
+        "callCount": 2
+      }
+    ],
+    "confirmAsk": [
+      {
+        "type": "function",
+        "name": "confirmAsk",
+        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(o: { icon?: string; title: string; body: string; okLabel?: string; okColor?: string })",
+        "callCount": 1
+      }
+    ],
+    "closeConfirm": [
+      {
+        "type": "function",
+        "name": "closeConfirm",
+        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(v: boolean)",
+        "callCount": 2
+      }
+    ],
+    "buildAllDocs": [
+      {
+        "type": "function",
+        "name": "buildAllDocs",
+        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+        "kind": "arrow",
+        "async": true,
+        "params": "()",
+        "callCount": 14
+      }
+    ],
+    "rebuildDoc": [
+      {
+        "type": "function",
+        "name": "rebuildDoc",
+        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+        "kind": "arrow",
+        "async": true,
+        "params": "(kind: \"spec\" | \"dfo\" | \"releaseInfo\")",
+        "callCount": 12
+      }
+    ],
+    "refreshReleaseInfo": [
+      {
+        "type": "function",
+        "name": "refreshReleaseInfo",
+        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+        "kind": "arrow",
+        "async": true,
+        "params": "()",
+        "callCount": 5
+      }
+    ],
+    "rebuildInfo": [
+      {
+        "type": "function",
+        "name": "rebuildInfo",
+        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+        "kind": "arrow",
+        "async": true,
+        "params": "()",
+        "callCount": 13
+      }
+    ],
+    "confirmRelease": [
+      {
+        "type": "function",
+        "name": "confirmRelease",
+        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+        "kind": "arrow",
+        "async": true,
+        "params": "()",
+        "callCount": 23
+      }
+    ],
+    "reopenRR": [
+      {
+        "type": "function",
+        "name": "reopenRR",
+        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+        "kind": "arrow",
+        "async": true,
+        "params": "()",
+        "callCount": 17
+      }
+    ],
+    "createNewRR": [
+      {
+        "type": "function",
+        "name": "createNewRR",
+        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
+        "kind": "arrow",
+        "async": true,
+        "params": "()",
+        "callCount": 13
+      }
+    ],
     "loadE2eInv": [
       {
         "type": "function",
@@ -49809,61 +51799,6 @@
         "async": true,
         "params": "()",
         "callCount": 11
-      }
-    ],
-    "runTests": [
-      {
-        "type": "function",
-        "name": "runTests",
-        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
-        "kind": "arrow",
-        "async": true,
-        "params": "()",
-        "callCount": 12
-      }
-    ],
-    "readinessEvidence": [
-      {
-        "type": "function",
-        "name": "readinessEvidence",
-        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 18
-      }
-    ],
-    "matrixEvidenceText": [
-      {
-        "type": "function",
-        "name": "matrixEvidenceText",
-        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 8
-      }
-    ],
-    "generateReport": [
-      {
-        "type": "function",
-        "name": "generateReport",
-        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
-        "kind": "arrow",
-        "async": true,
-        "params": "()",
-        "callCount": 16
-      }
-    ],
-    "askAiVerify": [
-      {
-        "type": "function",
-        "name": "askAiVerify",
-        "file": "packages/ui/src/components/ReleaseManagerPanel.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 2
       }
     ],
     "fmtShort": [
@@ -50443,17 +52378,6 @@
         "kind": "function"
       }
     ],
-    "onFocus": [
-      {
-        "type": "function",
-        "name": "onFocus",
-        "file": "packages/ui/src/components/TestsPage.tsx",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 1
-      }
-    ],
     "askGaps": [
       {
         "type": "function",
@@ -50483,30 +52407,6 @@
         "file": "packages/ui/src/components/TestsPage.tsx",
         "kind": "value",
         "isDefault": true
-      }
-    ],
-    "TroubleshootingPanel": [
-      {
-        "type": "function",
-        "name": "TroubleshootingPanel",
-        "file": "packages/ui/src/components/TroubleshootingPanel.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ rootPath, theme: tk }: Props)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "TroubleshootingPanel",
-        "file": "packages/ui/src/components/TroubleshootingPanel.tsx",
-        "kind": "function",
-        "isDefault": true
-      },
-      {
-        "type": "component",
-        "name": "TroubleshootingPanel",
-        "file": "packages/ui/src/components/TroubleshootingPanel.tsx",
-        "kind": "function"
       }
     ],
     "fmtUsd": [
@@ -51086,6 +52986,15 @@
         "async": false,
         "params": "",
         "callCount": 7
+      },
+      {
+        "type": "function",
+        "name": "norm",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(f)",
+        "callCount": 2
       },
       {
         "type": "function",
@@ -53613,6 +55522,15 @@
         "async": false,
         "params": "(req)",
         "callCount": 3
+      },
+      {
+        "type": "function",
+        "name": "readBody",
+        "file": "packages/server/src/routes/coding-dfo.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(req)",
+        "callCount": 0
       },
       {
         "type": "function",
@@ -56319,6 +58237,71 @@
         "path": "/api/coding-db/status/*"
       }
     ],
+    "loadDfoPrompt": [
+      {
+        "type": "function",
+        "name": "loadDfoPrompt",
+        "file": "packages/server/src/routes/coding-dfo.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root)",
+        "callCount": 0
+      }
+    ],
+    "dfoRoutes": [
+      {
+        "type": "function",
+        "name": "dfoRoutes",
+        "file": "packages/server/src/routes/coding-dfo.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(req, res)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "dfoRoutes",
+        "file": "packages/server/src/routes/coding-dfo.mjs",
+        "kind": "function",
+        "isDefault": true
+      }
+    ],
+    "GET /api/coding-dfo": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-dfo",
+        "file": "packages/server/src/routes/coding-dfo.mjs",
+        "method": "GET",
+        "path": "/api/coding-dfo"
+      }
+    ],
+    "GET /api/coding-dfo/versions": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-dfo/versions",
+        "file": "packages/server/src/routes/coding-dfo.mjs",
+        "method": "GET",
+        "path": "/api/coding-dfo/versions"
+      }
+    ],
+    "POST /api/coding-dfo/generate": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-dfo/generate",
+        "file": "packages/server/src/routes/coding-dfo.mjs",
+        "method": "POST",
+        "path": "/api/coding-dfo/generate"
+      }
+    ],
+    "POST /api/coding-dfo/section": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-dfo/section",
+        "file": "packages/server/src/routes/coding-dfo.mjs",
+        "method": "POST",
+        "path": "/api/coding-dfo/section"
+      }
+    ],
     "docCoverageRoutes": [
       {
         "type": "function",
@@ -57868,129 +59851,6 @@
         "path": "/api/coding-ops/runbook/save"
       }
     ],
-    "_apiE2eCoverageChecker": [
-      {
-        "type": "function",
-        "name": "_apiE2eCoverageChecker",
-        "file": "packages/server/src/routes/coding-releases.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(root)",
-        "callCount": 0
-      }
-    ],
-    "build": [
-      {
-        "type": "function",
-        "name": "build",
-        "file": "packages/server/src/routes/coding-releases.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 15
-      },
-      {
-        "type": "function",
-        "name": "build",
-        "file": "packages/server/src/routes/coding-releases.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 15
-      },
-      {
-        "type": "function",
-        "name": "build",
-        "file": "packages/server/src/lib/release-evidence-snapshot.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "()",
-        "callCount": 14
-      }
-    ],
-    "isTestFile": [
-      {
-        "type": "function",
-        "name": "isTestFile",
-        "file": "packages/server/src/routes/coding-releases.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(n)",
-        "callCount": 3
-      },
-      {
-        "type": "function",
-        "name": "isTestFile",
-        "file": "packages/server/src/routes/coding-releases.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(n)",
-        "callCount": 3
-      },
-      {
-        "type": "function",
-        "name": "isTestFile",
-        "file": "packages/server/src/lib/code-graph.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(p)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "isTestFile",
-        "file": "packages/server/src/lib/code-graph.mjs",
-        "kind": "function",
-        "isDefault": false
-      },
-      {
-        "type": "function",
-        "name": "isTestFile",
-        "file": "packages/server/src/lib/release-evidence-snapshot.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(n)",
-        "callCount": 2
-      },
-      {
-        "type": "function",
-        "name": "isTestFile",
-        "file": "packages/server/src/lib/release-unit/metrics.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(rel)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "isTestFile",
-        "file": "packages/server/src/lib/release-unit/metrics.mjs",
-        "kind": "function",
-        "isDefault": false
-      }
-    ],
-    "segPattern": [
-      {
-        "type": "function",
-        "name": "segPattern",
-        "file": "packages/server/src/routes/coding-releases.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(seg)",
-        "callCount": 4
-      }
-    ],
-    "tryMatch": [
-      {
-        "type": "function",
-        "name": "tryMatch",
-        "file": "packages/server/src/routes/coding-releases.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(k)",
-        "callCount": 8
-      }
-    ],
     "readTasksFile": [
       {
         "type": "function",
@@ -58097,6 +59957,96 @@
         "isDefault": true
       }
     ],
+    "build": [
+      {
+        "type": "function",
+        "name": "build",
+        "file": "packages/server/src/routes/coding-releases.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 15
+      },
+      {
+        "type": "function",
+        "name": "build",
+        "file": "packages/server/src/lib/evidence-by-api.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 15
+      },
+      {
+        "type": "function",
+        "name": "build",
+        "file": "packages/server/src/lib/release-evidence-snapshot.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 14
+      }
+    ],
+    "isTestFile": [
+      {
+        "type": "function",
+        "name": "isTestFile",
+        "file": "packages/server/src/routes/coding-releases.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(n)",
+        "callCount": 3
+      },
+      {
+        "type": "function",
+        "name": "isTestFile",
+        "file": "packages/server/src/lib/code-graph.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(p)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "isTestFile",
+        "file": "packages/server/src/lib/code-graph.mjs",
+        "kind": "function",
+        "isDefault": false
+      },
+      {
+        "type": "function",
+        "name": "isTestFile",
+        "file": "packages/server/src/lib/evidence-by-api.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(n)",
+        "callCount": 3
+      },
+      {
+        "type": "function",
+        "name": "isTestFile",
+        "file": "packages/server/src/lib/release-evidence-snapshot.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(n)",
+        "callCount": 2
+      },
+      {
+        "type": "function",
+        "name": "isTestFile",
+        "file": "packages/server/src/lib/release-unit/metrics.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(rel)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "isTestFile",
+        "file": "packages/server/src/lib/release-unit/metrics.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
     "_buildApiStatus": [
       {
         "type": "function",
@@ -58106,28 +60056,6 @@
         "async": true,
         "params": "(projectPath)",
         "callCount": 46
-      }
-    ],
-    "_pathOf": [
-      {
-        "type": "function",
-        "name": "_pathOf",
-        "file": "packages/server/src/routes/coding-releases.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(entry)",
-        "callCount": 6
-      }
-    ],
-    "_normLower": [
-      {
-        "type": "function",
-        "name": "_normLower",
-        "file": "packages/server/src/routes/coding-releases.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(s)",
-        "callCount": 3
       }
     ],
     "readFileStream": [
@@ -58237,6 +60165,96 @@
         "file": "packages/server/src/routes/coding-releases.mjs",
         "method": "POST",
         "path": "/api/coding-releases/reject"
+      }
+    ],
+    "GET /api/coding-releases/release-info/status": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-releases/release-info/status",
+        "file": "packages/server/src/routes/coding-releases.mjs",
+        "method": "GET",
+        "path": "/api/coding-releases/release-info/status"
+      }
+    ],
+    "GET /api/coding-releases/release-info/list": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-releases/release-info/list",
+        "file": "packages/server/src/routes/coding-releases.mjs",
+        "method": "GET",
+        "path": "/api/coding-releases/release-info/list"
+      }
+    ],
+    "GET /api/coding-releases/release-info/item": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-releases/release-info/item",
+        "file": "packages/server/src/routes/coding-releases.mjs",
+        "method": "GET",
+        "path": "/api/coding-releases/release-info/item"
+      }
+    ],
+    "GET /api/coding-releases/release-info/db": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-releases/release-info/db",
+        "file": "packages/server/src/routes/coding-releases.mjs",
+        "method": "GET",
+        "path": "/api/coding-releases/release-info/db"
+      }
+    ],
+    "GET /api/coding-releases/release-info/matrix": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-releases/release-info/matrix",
+        "file": "packages/server/src/routes/coding-releases.mjs",
+        "method": "GET",
+        "path": "/api/coding-releases/release-info/matrix"
+      }
+    ],
+    "GET /api/coding-releases/docs": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-releases/docs",
+        "file": "packages/server/src/routes/coding-releases.mjs",
+        "method": "GET",
+        "path": "/api/coding-releases/docs"
+      }
+    ],
+    "POST /api/coding-releases/release-docs/rebuild": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-releases/release-docs/rebuild",
+        "file": "packages/server/src/routes/coding-releases.mjs",
+        "method": "POST",
+        "path": "/api/coding-releases/release-docs/rebuild"
+      }
+    ],
+    "POST /api/coding-releases/release-docs/build-all": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-releases/release-docs/build-all",
+        "file": "packages/server/src/routes/coding-releases.mjs",
+        "method": "POST",
+        "path": "/api/coding-releases/release-docs/build-all"
+      }
+    ],
+    "GET /api/coding-releases/release-info/diff": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-releases/release-info/diff",
+        "file": "packages/server/src/routes/coding-releases.mjs",
+        "method": "GET",
+        "path": "/api/coding-releases/release-info/diff"
+      }
+    ],
+    "GET /api/coding-releases/release-info/latest": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-releases/release-info/latest",
+        "file": "packages/server/src/routes/coding-releases.mjs",
+        "method": "GET",
+        "path": "/api/coding-releases/release-info/latest"
       }
     ],
     "POST /api/coding-releases/test-run": [
@@ -58944,6 +60962,17 @@
         "isDefault": false
       }
     ],
+    "outputExists": [
+      {
+        "type": "function",
+        "name": "outputExists",
+        "file": "packages/server/src/routes/coding.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(id, rel)",
+        "callCount": 4
+      }
+    ],
     "flag": [
       {
         "type": "function",
@@ -59264,6 +61293,15 @@
         "path": "/api/coding-project/code-intelligence/context-package/*"
       }
     ],
+    "GET /api/coding-project/project-md/spec-versions/*": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-project/project-md/spec-versions/*",
+        "file": "packages/server/src/routes/coding.mjs",
+        "method": "GET",
+        "path": "/api/coding-project/project-md/spec-versions/*"
+      }
+    ],
     "GET /api/coding-project/project-md/*": [
       {
         "type": "route",
@@ -59271,6 +61309,33 @@
         "file": "packages/server/src/routes/coding.mjs",
         "method": "GET",
         "path": "/api/coding-project/project-md/*"
+      }
+    ],
+    "POST /api/coding-project/project-md/spec-fill/*": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-project/project-md/spec-fill/*",
+        "file": "packages/server/src/routes/coding.mjs",
+        "method": "POST",
+        "path": "/api/coding-project/project-md/spec-fill/*"
+      }
+    ],
+    "POST /api/coding-project/project-md/spec-section/*": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-project/project-md/spec-section/*",
+        "file": "packages/server/src/routes/coding.mjs",
+        "method": "POST",
+        "path": "/api/coding-project/project-md/spec-section/*"
+      }
+    ],
+    "POST /api/coding-project/project-md/spec-draft/*": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-project/project-md/spec-draft/*",
+        "file": "packages/server/src/routes/coding.mjs",
+        "method": "POST",
+        "path": "/api/coding-project/project-md/spec-draft/*"
       }
     ],
     "POST /api/coding-project/project-md/regenerate/*": [
@@ -64720,11 +66785,29 @@
       {
         "type": "function",
         "name": "_readJson",
+        "file": "packages/server/src/lib/doc-autorefresh.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(p)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "_readJson",
         "file": "packages/server/src/lib/em-job-entrypoints.mjs",
         "kind": "function",
         "async": false,
         "params": "(file)",
         "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "_readJson",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(p)",
+        "callCount": 2
       },
       {
         "type": "function",
@@ -66202,6 +68285,68 @@
         "isDefault": false
       }
     ],
+    "_collectProjectRoots": [
+      {
+        "type": "function",
+        "name": "_collectProjectRoots",
+        "file": "packages/server/src/lib/cu-background-watcher.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      }
+    ],
+    "readList": [
+      {
+        "type": "function",
+        "name": "readList",
+        "file": "packages/server/src/lib/cu-background-watcher.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(p, pick)",
+        "callCount": 5
+      }
+    ],
+    "_runFirstCu": [
+      {
+        "type": "function",
+        "name": "_runFirstCu",
+        "file": "packages/server/src/lib/cu-background-watcher.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(root)",
+        "callCount": 0
+      }
+    ],
+    "_runSweep": [
+      {
+        "type": "function",
+        "name": "_runSweep",
+        "file": "packages/server/src/lib/cu-background-watcher.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "()",
+        "callCount": 0
+      }
+    ],
+    "startCuBackgroundWatcher": [
+      {
+        "type": "function",
+        "name": "startCuBackgroundWatcher",
+        "file": "packages/server/src/lib/cu-background-watcher.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "startCuBackgroundWatcher",
+        "file": "packages/server/src/lib/cu-background-watcher.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
     "rescanMechanicalLayer": [
       {
         "type": "function",
@@ -66534,35 +68679,6 @@
         "callCount": 0
       }
     ],
-    "p": [
-      {
-        "type": "function",
-        "name": "p",
-        "file": "packages/server/src/lib/dev-server.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(n)",
-        "callCount": 2
-      },
-      {
-        "type": "function",
-        "name": "p",
-        "file": "packages/server/src/lib/qa-results.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(n, l = 2)",
-        "callCount": 2
-      },
-      {
-        "type": "function",
-        "name": "p",
-        "file": "packages/server/src/lib/test-runner.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(n)",
-        "callCount": 2
-      }
-    ],
     "_ts": [
       {
         "type": "function",
@@ -66794,6 +68910,204 @@
         "callCount": 0
       }
     ],
+    "dfoDir": [
+      {
+        "type": "function",
+        "name": "dfoDir",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "dfoDir",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "dfoPath": [
+      {
+        "type": "function",
+        "name": "dfoPath",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "dfoPath",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "dfoVersionsDir": [
+      {
+        "type": "function",
+        "name": "dfoVersionsDir",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "dfoVersionsDir",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "validateDfo": [
+      {
+        "type": "function",
+        "name": "validateDfo",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(dfo)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "validateDfo",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "readDfo": [
+      {
+        "type": "function",
+        "name": "readDfo",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "readDfo",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "listDfoVersions": [
+      {
+        "type": "function",
+        "name": "listDfoVersions",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "listDfoVersions",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "readDfoVersion": [
+      {
+        "type": "function",
+        "name": "readDfoVersion",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root, version)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "readDfoVersion",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "extractSkipBlocks": [
+      {
+        "type": "function",
+        "name": "extractSkipBlocks",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(markdown)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "extractSkipBlocks",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "writeDfo": [
+      {
+        "type": "function",
+        "name": "writeDfo",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root, partialSections, updatedBy, label)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "writeDfo",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "dfoFrozenReason": [
+      {
+        "type": "function",
+        "name": "dfoFrozenReason",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(root)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "dfoFrozenReason",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "DFO_SECTIONS": [
+      {
+        "type": "export",
+        "name": "DFO_SECTIONS",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "variable",
+        "isDefault": false
+      }
+    ],
+    "DFO_SCHEMA_VERSION": [
+      {
+        "type": "export",
+        "name": "DFO_SCHEMA_VERSION",
+        "file": "packages/server/src/lib/dfo.mjs",
+        "kind": "variable",
+        "isDefault": false
+      }
+    ],
     "DIRECT_AGENTS": [
       {
         "type": "export",
@@ -66944,6 +69258,57 @@
         "isDefault": false
       }
     ],
+    "_writeJson": [
+      {
+        "type": "function",
+        "name": "_writeJson",
+        "file": "packages/server/src/lib/doc-autorefresh.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(p, o)",
+        "callCount": 0
+      }
+    ],
+    "_head": [
+      {
+        "type": "function",
+        "name": "_head",
+        "file": "packages/server/src/lib/doc-autorefresh.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root)",
+        "callCount": 0
+      }
+    ],
+    "_post": [
+      {
+        "type": "function",
+        "name": "_post",
+        "file": "packages/server/src/lib/doc-autorefresh.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(url, body)",
+        "callCount": 0
+      }
+    ],
+    "autoRefreshDocs": [
+      {
+        "type": "function",
+        "name": "autoRefreshDocs",
+        "file": "packages/server/src/lib/doc-autorefresh.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(root, opts = {})",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "autoRefreshDocs",
+        "file": "packages/server/src/lib/doc-autorefresh.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
     "readDocCoverage": [
       {
         "type": "function",
@@ -67012,6 +69377,75 @@
         "type": "export",
         "name": "getUndocumentedCommits",
         "file": "packages/server/src/lib/doc-coverage.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "readText": [
+      {
+        "type": "function",
+        "name": "readText",
+        "file": "packages/server/src/lib/doc-evidence.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(p)",
+        "callCount": 0
+      }
+    ],
+    "collectAdr": [
+      {
+        "type": "function",
+        "name": "collectAdr",
+        "file": "packages/server/src/lib/doc-evidence.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root)",
+        "callCount": 0
+      }
+    ],
+    "collectTasks": [
+      {
+        "type": "function",
+        "name": "collectTasks",
+        "file": "packages/server/src/lib/doc-evidence.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root)",
+        "callCount": 0
+      }
+    ],
+    "collectDocEvidence": [
+      {
+        "type": "function",
+        "name": "collectDocEvidence",
+        "file": "packages/server/src/lib/doc-evidence.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root, opts = {})",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "collectDocEvidence",
+        "file": "packages/server/src/lib/doc-evidence.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "docEvidenceBlock": [
+      {
+        "type": "function",
+        "name": "docEvidenceBlock",
+        "file": "packages/server/src/lib/doc-evidence.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root, opts = {})",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "docEvidenceBlock",
+        "file": "packages/server/src/lib/doc-evidence.mjs",
         "kind": "function",
         "isDefault": false
       }
@@ -67197,26 +69631,6 @@
         "callCount": 0
       }
     ],
-    "esc": [
-      {
-        "type": "function",
-        "name": "esc",
-        "file": "packages/server/src/lib/e2e-inventory.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(s)",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "esc",
-        "file": "packages/server/src/lib/page-inventory.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(s)",
-        "callCount": 0
-      }
-    ],
     "urlMatchesApi": [
       {
         "type": "function",
@@ -67320,6 +69734,15 @@
         "file": "packages/server/src/lib/project-crew.mjs",
         "kind": "function",
         "isDefault": false
+      },
+      {
+        "type": "function",
+        "name": "readJson",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "arrow",
+        "async": true,
+        "params": "(rel)",
+        "callCount": 2
       },
       {
         "type": "function",
@@ -68558,6 +70981,86 @@
         "file": "packages/server/src/lib/es-shipper.mjs",
         "kind": "function",
         "isDefault": false
+      }
+    ],
+    "apiE2eCoverageChecker": [
+      {
+        "type": "function",
+        "name": "apiE2eCoverageChecker",
+        "file": "packages/server/src/lib/evidence-by-api.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "apiE2eCoverageChecker",
+        "file": "packages/server/src/lib/evidence-by-api.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "segPattern": [
+      {
+        "type": "function",
+        "name": "segPattern",
+        "file": "packages/server/src/lib/evidence-by-api.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(seg)",
+        "callCount": 4
+      }
+    ],
+    "tryMatch": [
+      {
+        "type": "function",
+        "name": "tryMatch",
+        "file": "packages/server/src/lib/evidence-by-api.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(k)",
+        "callCount": 8
+      }
+    ],
+    "buildEvidenceByApi": [
+      {
+        "type": "function",
+        "name": "buildEvidenceByApi",
+        "file": "packages/server/src/lib/evidence-by-api.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath, { sinceSha = null } = {})",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "buildEvidenceByApi",
+        "file": "packages/server/src/lib/evidence-by-api.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "_pathOf": [
+      {
+        "type": "function",
+        "name": "_pathOf",
+        "file": "packages/server/src/lib/evidence-by-api.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(entry)",
+        "callCount": 6
+      }
+    ],
+    "_normLower": [
+      {
+        "type": "function",
+        "name": "_normLower",
+        "file": "packages/server/src/lib/evidence-by-api.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(s)",
+        "callCount": 3
       }
     ],
     "waitForDecision": [
@@ -70361,6 +72864,17 @@
         "isDefault": false
       }
     ],
+    "_llmFetch": [
+      {
+        "type": "function",
+        "name": "_llmFetch",
+        "file": "packages/server/src/lib/llm-utils.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(...args)",
+        "callCount": 1
+      }
+    ],
     "dateTimeContextBlock": [
       {
         "type": "function",
@@ -70532,6 +73046,15 @@
         "async": false,
         "params": "(ms)",
         "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "sleep",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(ms)",
+        "callCount": 1
       },
       {
         "type": "function",
@@ -71316,6 +73839,15 @@
         "kind": "arrow",
         "async": false,
         "params": "(c)",
+        "callCount": 3
+      },
+      {
+        "type": "function",
+        "name": "hit",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(files = [])",
         "callCount": 3
       }
     ],
@@ -73143,6 +75675,194 @@
         "isDefault": false
       }
     ],
+    "splitSpecSections": [
+      {
+        "type": "function",
+        "name": "splitSpecSections",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(specMd)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "splitSpecSections",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "joinSpecSections": [
+      {
+        "type": "function",
+        "name": "joinSpecSections",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(parts)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "joinSpecSections",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "specVersionsDir": [
+      {
+        "type": "function",
+        "name": "specVersionsDir",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "specVersionsDir",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "listSpecVersions": [
+      {
+        "type": "function",
+        "name": "listSpecVersions",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "listSpecVersions",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "readSpecVersion": [
+      {
+        "type": "function",
+        "name": "readSpecVersion",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root, version)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "readSpecVersion",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "snapshotSpec": [
+      {
+        "type": "function",
+        "name": "snapshotSpec",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root, label, by)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "snapshotSpec",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "readSpecAiConversation": [
+      {
+        "type": "function",
+        "name": "readSpecAiConversation",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(paaw)",
+        "callCount": 0
+      }
+    ],
+    "stripCodeFence": [
+      {
+        "type": "function",
+        "name": "stripCodeFence",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(c)",
+        "callCount": 3
+      }
+    ],
+    "buildSectionPrompt": [
+      {
+        "type": "function",
+        "name": "buildSectionPrompt",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(index, transcript, facts, extra = \"\", existing = \"\")",
+        "callCount": 0
+      }
+    ],
+    "callAndStrip": [
+      {
+        "type": "function",
+        "name": "callAndStrip",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(callLLM, prompt)",
+        "callCount": 0
+      }
+    ],
+    "generateSpecSection": [
+      {
+        "type": "function",
+        "name": "generateSpecSection",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(root, index, opts = {})",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "generateSpecSection",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "generateFullSpec": [
+      {
+        "type": "function",
+        "name": "generateFullSpec",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(root, opts = {})",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "generateFullSpec",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
     "sliceBetween": [
       {
         "type": "function",
@@ -73162,7 +75882,7 @@
         "kind": "arrow",
         "async": false,
         "params": "(s)",
-        "callCount": 10
+        "callCount": 12
       }
     ],
     "parseProjectMd": [
@@ -73183,6 +75903,17 @@
         "isDefault": false
       }
     ],
+    "stripSpecPlaceholder": [
+      {
+        "type": "function",
+        "name": "stripSpecPlaceholder",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(s)",
+        "callCount": 2
+      }
+    ],
     "buildProjectMd": [
       {
         "type": "function",
@@ -73190,7 +75921,7 @@
         "file": "packages/server/src/lib/project-md.mjs",
         "kind": "function",
         "async": false,
-        "params": "(name, userSection, aiSection)",
+        "params": "(name, userSection, aiSection, specSection = \"\")",
         "callCount": 0
       },
       {
@@ -73212,26 +75943,33 @@
         "callCount": 0
       }
     ],
-    "deterministicAiSection": [
+    "clip": [
       {
         "type": "function",
-        "name": "deterministicAiSection",
+        "name": "clip",
         "file": "packages/server/src/lib/project-md.mjs",
-        "kind": "function",
+        "kind": "arrow",
         "async": false,
-        "params": "(facts)",
-        "callCount": 0
+        "params": "(s, n)",
+        "callCount": 2
       }
     ],
-    "llmAiSection": [
+    "generateSpecDraft": [
       {
         "type": "function",
-        "name": "llmAiSection",
+        "name": "generateSpecDraft",
         "file": "packages/server/src/lib/project-md.mjs",
         "kind": "function",
         "async": true,
-        "params": "(facts, callLLM)",
+        "params": "(root, opts = {})",
         "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "generateSpecDraft",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "function",
+        "isDefault": false
       }
     ],
     "regenerateProjectMd": [
@@ -73270,6 +76008,24 @@
         "isDefault": false
       }
     ],
+    "SPEC_START": [
+      {
+        "type": "export",
+        "name": "SPEC_START",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "variable",
+        "isDefault": false
+      }
+    ],
+    "SPEC_END": [
+      {
+        "type": "export",
+        "name": "SPEC_END",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "variable",
+        "isDefault": false
+      }
+    ],
     "AI_START": [
       {
         "type": "export",
@@ -73283,6 +76039,33 @@
       {
         "type": "export",
         "name": "AI_END",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "variable",
+        "isDefault": false
+      }
+    ],
+    "SPEC_SECTIONS": [
+      {
+        "type": "export",
+        "name": "SPEC_SECTIONS",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "variable",
+        "isDefault": false
+      }
+    ],
+    "SPEC_SECTION_TITLES": [
+      {
+        "type": "export",
+        "name": "SPEC_SECTION_TITLES",
+        "file": "packages/server/src/lib/project-md.mjs",
+        "kind": "variable",
+        "isDefault": false
+      }
+    ],
+    "SPEC_SECTION_SCHEMAS": [
+      {
+        "type": "export",
+        "name": "SPEC_SECTION_SCHEMAS",
         "file": "packages/server/src/lib/project-md.mjs",
         "kind": "variable",
         "isDefault": false
@@ -73469,6 +76252,333 @@
         "type": "export",
         "name": "qaStats",
         "file": "packages/server/src/lib/qa-results.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "_infoDir": [
+      {
+        "type": "function",
+        "name": "_infoDir",
+        "file": "packages/server/src/lib/release-diff.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, rrId)",
+        "callCount": 0
+      }
+    ],
+    "findPreviousRelease": [
+      {
+        "type": "function",
+        "name": "findPreviousRelease",
+        "file": "packages/server/src/lib/release-diff.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, currentRrId)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "findPreviousRelease",
+        "file": "packages/server/src/lib/release-diff.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "_collectEvidence": [
+      {
+        "type": "function",
+        "name": "_collectEvidence",
+        "file": "packages/server/src/lib/release-diff.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, rrId, curInfo, curV)",
+        "callCount": 0
+      }
+    ],
+    "num": [
+      {
+        "type": "function",
+        "name": "num",
+        "file": "packages/server/src/lib/release-diff.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(x, y)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "num",
+        "file": "packages/server/src/lib/test-report-reader.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(a)",
+        "callCount": 2
+      }
+    ],
+    "key": [
+      {
+        "type": "function",
+        "name": "key",
+        "file": "packages/server/src/lib/release-diff.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(x)",
+        "callCount": 3
+      }
+    ],
+    "_gitStat": [
+      {
+        "type": "function",
+        "name": "_gitStat",
+        "file": "packages/server/src/lib/release-diff.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath, range)",
+        "callCount": 0
+      }
+    ],
+    "_stripFence": [
+      {
+        "type": "function",
+        "name": "_stripFence",
+        "file": "packages/server/src/lib/release-diff.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(s)",
+        "callCount": 6
+      },
+      {
+        "type": "function",
+        "name": "_stripFence",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(s)",
+        "callCount": 0
+      }
+    ],
+    "_aiSummary": [
+      {
+        "type": "function",
+        "name": "_aiSummary",
+        "file": "packages/server/src/lib/release-diff.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath, ev)",
+        "callCount": 0
+      }
+    ],
+    "buildDiffSummary": [
+      {
+        "type": "function",
+        "name": "buildDiffSummary",
+        "file": "packages/server/src/lib/release-diff.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath, rrId)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "buildDiffSummary",
+        "file": "packages/server/src/lib/release-diff.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "readDiffSummary": [
+      {
+        "type": "function",
+        "name": "readDiffSummary",
+        "file": "packages/server/src/lib/release-diff.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, rrId)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "readDiffSummary",
+        "file": "packages/server/src/lib/release-diff.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "BASE": [
+      {
+        "type": "function",
+        "name": "BASE",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      },
+      {
+        "type": "component",
+        "name": "BASE",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "arrow"
+      }
+    ],
+    "docFetch": [
+      {
+        "type": "function",
+        "name": "docFetch",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(url, opts)",
+        "callCount": 1
+      }
+    ],
+    "docsStatusPath": [
+      {
+        "type": "function",
+        "name": "docsStatusPath",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, rrId)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "docsStatusPath",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "readDocsStatus": [
+      {
+        "type": "function",
+        "name": "readDocsStatus",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, rrId)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "readDocsStatus",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "writeDocsStatus": [
+      {
+        "type": "function",
+        "name": "writeDocsStatus",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, rrId, st)",
+        "callCount": 0
+      }
+    ],
+    "setDoc": [
+      {
+        "type": "function",
+        "name": "setDoc",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, rrId, kind, patch)",
+        "callCount": 0
+      }
+    ],
+    "triggerDoc": [
+      {
+        "type": "function",
+        "name": "triggerDoc",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath, rrId, kind)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "triggerDoc",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "triggerAllDocs": [
+      {
+        "type": "function",
+        "name": "triggerAllDocs",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath, rrId)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "triggerAllDocs",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "_mtime": [
+      {
+        "type": "function",
+        "name": "_mtime",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(p)",
+        "callCount": 1
+      },
+      {
+        "type": "function",
+        "name": "_mtime",
+        "file": "packages/server/src/lib/ru-skills.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(p)",
+        "callCount": 0
+      }
+    ],
+    "verifyDocs": [
+      {
+        "type": "function",
+        "name": "verifyDocs",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath, rrId)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "verifyDocs",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "getDocsOverview": [
+      {
+        "type": "function",
+        "name": "getDocsOverview",
+        "file": "packages/server/src/lib/release-docs.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath, rrId)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "getDocsOverview",
+        "file": "packages/server/src/lib/release-docs.mjs",
         "kind": "function",
         "isDefault": false
       }
@@ -73857,6 +76967,284 @@
         "type": "export",
         "name": "buildEvidenceMatrix",
         "file": "packages/server/src/lib/release-evidence.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "infoDir": [
+      {
+        "type": "function",
+        "name": "infoDir",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, rrId)",
+        "callCount": 0
+      }
+    ],
+    "listInfoVersions": [
+      {
+        "type": "function",
+        "name": "listInfoVersions",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, rrId)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "listInfoVersions",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "readInfoMatrix": [
+      {
+        "type": "function",
+        "name": "readInfoMatrix",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, rrId, v)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "readInfoMatrix",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "readInfoVersion": [
+      {
+        "type": "function",
+        "name": "readInfoVersion",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, rrId, v)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "readInfoVersion",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "_waitForTestRun": [
+      {
+        "type": "function",
+        "name": "_waitForTestRun",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath, timeoutMs = 15 * 60_000)",
+        "callCount": 0
+      }
+    ],
+    "_gitOne": [
+      {
+        "type": "function",
+        "name": "_gitOne",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath, cmd)",
+        "callCount": 0
+      }
+    ],
+    "_bumpPatch": [
+      {
+        "type": "function",
+        "name": "_bumpPatch",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(tag)",
+        "callCount": 0
+      }
+    ],
+    "_deterministicGitBlock": [
+      {
+        "type": "function",
+        "name": "_deterministicGitBlock",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath)",
+        "callCount": 0
+      }
+    ],
+    "_cuContext": [
+      {
+        "type": "function",
+        "name": "_cuContext",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath, changedFiles = [])",
+        "callCount": 0
+      }
+    ],
+    "_fallbackChanges": [
+      {
+        "type": "function",
+        "name": "_fallbackChanges",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(gitLog)",
+        "callCount": 0
+      }
+    ],
+    "_aiSummaryAndChanges": [
+      {
+        "type": "function",
+        "name": "_aiSummaryAndChanges",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "({ gitLog, scopeTxt, testRunTxt, rrTitle, previousTag, unitLog = \"\", cuTxt = \"\", baseGroups = [] })",
+        "callCount": 0
+      }
+    ],
+    "_validateAiPart": [
+      {
+        "type": "function",
+        "name": "_validateAiPart",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(parsed, { hasCommits = true } = {})",
+        "callCount": 0
+      }
+    ],
+    "_deterministicFeatures": [
+      {
+        "type": "function",
+        "name": "_deterministicFeatures",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath, cu)",
+        "callCount": 0
+      }
+    ],
+    "_aiFeaturesOnly": [
+      {
+        "type": "function",
+        "name": "_aiFeaturesOnly",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(baseGroups)",
+        "callCount": 0
+      }
+    ],
+    "_mergeFeatures": [
+      {
+        "type": "function",
+        "name": "_mergeFeatures",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(base, ai)",
+        "callCount": 0
+      }
+    ],
+    "pick": [
+      {
+        "type": "function",
+        "name": "pick",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(g, i)",
+        "callCount": 7
+      },
+      {
+        "type": "function",
+        "name": "pick",
+        "file": "packages/server/src/lib/test-report-reader.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(pred)",
+        "callCount": 1
+      }
+    ],
+    "startReleaseInfoBuild": [
+      {
+        "type": "function",
+        "name": "startReleaseInfoBuild",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath, rrId, { by = \"human\", includeE2e = true } = {})",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "startReleaseInfoBuild",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "listAllReleaseInfo": [
+      {
+        "type": "function",
+        "name": "listAllReleaseInfo",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "listAllReleaseInfo",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "getLatestReleaseInfo": [
+      {
+        "type": "function",
+        "name": "getLatestReleaseInfo",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "getLatestReleaseInfo",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "getBuildStatus": [
+      {
+        "type": "function",
+        "name": "getBuildStatus",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectPath, rrId)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "getBuildStatus",
+        "file": "packages/server/src/lib/release-info-builder.mjs",
         "kind": "function",
         "isDefault": false
       }
@@ -74295,12 +77683,30 @@
         "file": "packages/server/src/lib/release-requests.mjs",
         "kind": "function",
         "async": true,
-        "params": "(projectPath, id, { note } = {})",
+        "params": "(projectPath, id, { note, force = false } = {})",
         "callCount": 0
       },
       {
         "type": "export",
         "name": "closeReleaseRequest",
+        "file": "packages/server/src/lib/release-requests.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "reopenReleaseRequest": [
+      {
+        "type": "function",
+        "name": "reopenReleaseRequest",
+        "file": "packages/server/src/lib/release-requests.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectPath, id, { reason } = {})",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "reopenReleaseRequest",
         "file": "packages/server/src/lib/release-requests.mjs",
         "kind": "function",
         "isDefault": false
@@ -74832,17 +78238,6 @@
         "callCount": 0
       }
     ],
-    "_mtime": [
-      {
-        "type": "function",
-        "name": "_mtime",
-        "file": "packages/server/src/lib/ru-skills.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(p)",
-        "callCount": 0
-      }
-    ],
     "removeRuSkill": [
       {
         "type": "function",
@@ -74885,6 +78280,89 @@
         "name": "runningCodingAgents",
         "file": "packages/server/src/lib/running-agents.mjs",
         "kind": "variable",
+        "isDefault": false
+      }
+    ],
+    "buildScanSkeleton": [
+      {
+        "type": "function",
+        "name": "buildScanSkeleton",
+        "file": "packages/server/src/lib/scan-skeleton.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(root)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "buildScanSkeleton",
+        "file": "packages/server/src/lib/scan-skeleton.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "has": [
+      {
+        "type": "function",
+        "name": "has",
+        "file": "packages/server/src/lib/scan-skeleton.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(d)",
+        "callCount": 2
+      }
+    ],
+    "serializeSkeleton": [
+      {
+        "type": "function",
+        "name": "serializeSkeleton",
+        "file": "packages/server/src/lib/scan-skeleton.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(skeleton)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "serializeSkeleton",
+        "file": "packages/server/src/lib/scan-skeleton.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "loadScanSkeleton": [
+      {
+        "type": "function",
+        "name": "loadScanSkeleton",
+        "file": "packages/server/src/lib/scan-skeleton.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(paawReadJson)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "loadScanSkeleton",
+        "file": "packages/server/src/lib/scan-skeleton.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "enforceScanSkeleton": [
+      {
+        "type": "function",
+        "name": "enforceScanSkeleton",
+        "file": "packages/server/src/lib/scan-skeleton.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(scanJson, skeleton)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "enforceScanSkeleton",
+        "file": "packages/server/src/lib/scan-skeleton.mjs",
+        "kind": "function",
         "isDefault": false
       }
     ],
@@ -75878,17 +79356,6 @@
         "callCount": 0
       }
     ],
-    "num": [
-      {
-        "type": "function",
-        "name": "num",
-        "file": "packages/server/src/lib/test-report-reader.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(a)",
-        "callCount": 2
-      }
-    ],
     "parseJacocoXml": [
       {
         "type": "function",
@@ -75987,17 +79454,6 @@
         "isDefault": false
       }
     ],
-    "pick": [
-      {
-        "type": "function",
-        "name": "pick",
-        "file": "packages/server/src/lib/test-report-reader.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(pred)",
-        "callCount": 1
-      }
-    ],
     "detectTestGroups": [
       {
         "type": "function",
@@ -76014,6 +79470,28 @@
         "file": "packages/server/src/lib/test-runner.mjs",
         "kind": "function",
         "isDefault": false
+      }
+    ],
+    "kindByName": [
+      {
+        "type": "function",
+        "name": "kindByName",
+        "file": "packages/server/src/lib/test-runner.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(n)",
+        "callCount": 4
+      }
+    ],
+    "after": [
+      {
+        "type": "function",
+        "name": "after",
+        "file": "packages/server/src/lib/test-runner.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(re)",
+        "callCount": 5
       }
     ],
     "detectPytest": [
@@ -79852,6 +83330,42 @@
         "callCount": 0
       }
     ],
+    "writeReleaseInfo": [
+      {
+        "type": "function",
+        "name": "writeReleaseInfo",
+        "file": "packages/server/src/lib/coding-db/release-info.repo.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(ruRoot, rec)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "writeReleaseInfo",
+        "file": "packages/server/src/lib/coding-db/release-info.repo.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "listReleaseInfosDb": [
+      {
+        "type": "function",
+        "name": "listReleaseInfosDb",
+        "file": "packages/server/src/lib/coding-db/release-info.repo.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(ruRoot, rrId)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "listReleaseInfosDb",
+        "file": "packages/server/src/lib/coding-db/release-info.repo.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
     "readRuInfo": [
       {
         "type": "function",
@@ -83276,11 +86790,11 @@
     ]
   },
   "stats": {
-    "total": 4731,
-    "functions": 2765,
-    "classes": 32,
-    "exports": 1344,
-    "routes": 384,
-    "components": 206
+    "total": 4929,
+    "functions": 2886,
+    "classes": 33,
+    "exports": 1400,
+    "routes": 402,
+    "components": 208
   }
 }

@@ -150,7 +150,7 @@ function _streamStateCleanup(agentId, cwd) {
 
 /** 完成（或出錯）後：把 assistant 回覆落地到 conversation active.json（coding.{agentId}）。
  *  dedupe：檔案最後一筆 assistant 內容前 200 字相同就不重複加（client 正常存檔路徑不受影響）。*/
-async function _persistAssistantReply(agentId, cwd, content) {
+async function _persistAssistantReply(agentId, cwd, content, model) {
   try {
     if (!content || typeof content !== "string") return;
     const crewId = `coding.${agentId}`;
@@ -168,7 +168,7 @@ async function _persistAssistantReply(agentId, cwd, content) {
     const last = messages[messages.length - 1];
     if (last && last.role === "assistant" && typeof last.content === "string"
         && last.content.slice(0, 200) === content.slice(0, 200)) return; // client 已存過
-    messages.push({ role: "assistant", content, ts: new Date().toISOString() });
+    messages.push({ role: "assistant", content, ts: new Date().toISOString(), ...(model ? { _model: model } : {}) }); // 2026-11-28：落地也帶實際 model
     const { writeFile } = await import("fs/promises");
     await mkdir(convDir, { recursive: true });
     await writeFile(activeFile, JSON.stringify({ messages, _meta: { updatedAt: new Date().toISOString(), savedBy: "a2a-stream-recovery" } }, null, 2), "utf-8");
@@ -1223,7 +1223,7 @@ export default async function a2aRoutes(req, res) {
             _streamStateCleanup(agentId, rootDir); // 同 agent 同 RU 蓋掉舊紀錄（同 key 重複派工沿舊行為；不同 RU 不互蓋）
             const stState = {
               agentId, cwd: rootDir, startedAt: Date.now(), seq: 0,
-              events: [], finalContent: null, done: false, error: null, timer: null,
+              events: [], finalContent: null, finalModel: null, done: false, error: null, timer: null,
             };
             streamStates.set(streamKey, stState);
             const _stBuffer = (evName, dataObj) => {
@@ -1232,6 +1232,7 @@ export default async function a2aRoutes(req, res) {
               if (stState.events.length > STREAM_STATE_MAX_EVENTS) stState.events.splice(0, stState.events.length - STREAM_STATE_MAX_EVENTS);
               if (evName === "content" && dataObj?.done && typeof dataObj.content === "string") {
                 stState.finalContent = dataObj.content; // 斷線期間完成的回覆 — 重連後靠這個補回 UI
+                if (dataObj.model) stState.finalModel = dataObj.model; // 2026-11-28：實際使用的 model
               }
               if (evName === "error" && dataObj?.error) stState.error = String(dataObj.error).slice(0, 500);
               if (evName === "interrupted") stState.interrupted = true; // 2026-09-21：使用者中斷 — poller 據此顯示中斷訊息而非錯誤
@@ -1240,7 +1241,7 @@ export default async function a2aRoutes(req, res) {
             const _finishState = () => {
               if (stState.done) return;
               stState.done = true;
-              _persistAssistantReply(agentId, rootDir, stState.finalContent).finally(() => {
+              _persistAssistantReply(agentId, rootDir, stState.finalContent, stState.finalModel).finally(() => {
                 stState.timer = setTimeout(() => _streamStateCleanup(agentId, rootDir), STREAM_STATE_TTL_MS);
               });
             };

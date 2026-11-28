@@ -1,292 +1,329 @@
 # paaw
 
-> 📄 Schema v2 · AI 區每次 CU 重寫 · 上次生成 2026-11-09 10:59 · User Remarks 由人維護
+> 📄 Product Spec · 上次更新 2026-11-27 17:30 · 人+AI 共寫
 
-<!-- USER:START — 人的區（AI 絕不覆蓋） -->
-## 📌 User Remarks
+<!-- SPEC:START — Product Spec（人+AI 共寫區） -->
+## 📄 Product Spec
 
-（人在 UI 或直接編輯這區 — AI 絕不覆蓋。放專案背景、地雷、口頭知識…）
+## 1. Product Overview — 產品定位、目標、範圍、使用情境
 
-<!-- USER:END -->
+- **定位**：PAAW（Personal AI Assistant Workspace）— 打造個人 AI Workforce 的工作區平台。
+- **目標**：（資料待補 — 待人確認）
+- **範圍內**（依事實資料之功能清單）：
+  - A2A 協定互動：Agent Card 探索、JSON-RPC 任務入口、任務列表/中斷
+  - Agent 治理：Agent 設定讀寫、記憶 CRUD、任務日誌、日誌清理
+  - LLM 設定：LLM Providers 列表/更新、AI 設定總覽、使用者偏好讀寫
+  - Workspace 與 API 工具：Workspaces 管理、Request 集合、API 代理、請求歷史、SSE 串流代理
+  - Crew 協作：Crew 對話/派工、EM 規劃/執行、派工型錄、執行中 Agents、中斷 Crew Agent、Crew 匯入/匯出、QA 結果讀寫、Context 用量估算、審查委員會
+  - RU（Release Unit）管理：RU 資訊讀寫、AI 調整 RU 資訊、RU 除錯/操作日誌、RU 彙總、DFO 文件/版本、C4 模型讀取/重掃、Coding DB 狀態
+  - App 生命週期：建立 App、訓練報告 App、發布報告、發布證據、匯入 App、App 規則
+  - 助理設定：技能綁定、頭像、使用者設定檔、Providers（assistant）、寫檔、系統提示
+  - 安全：安全模式讀寫、網路白名單
+  - 備份：備份設定讀寫、執行/列出/還原/刪除備份
+  - 瀏覽器自動化：環境狀態、導航、截圖、畫面串流、分頁、下載、對話框、鍵盤滑鼠、視覺模式、剪貼簿等
+  - 聊天與自動派工：聊天 Context/CRUD/訊息、自動派工設定/提示詞/啟動停止/預覽/執行紀錄/報告串流
+  - 排程與執行：Cron 任務管理、Agent Run（同步/SSE）
+  - 稽核：稽核日誌日期列表與查詢
+  - UI 狀態：讀/全量寫/部分更新
+- **範圍外**：（資料待補 — 待人確認）
+- **使用情境**：（資料待補 — 待人確認）
 
-<!-- AI:START — CU 自動生成區（每次重寫，人改會被覆蓋） -->
-## 🤖 AI Overview
+## 2. Functional Requirements — 功能需求、業務規則、Acceptance Criteria
 
-### 一句話定位
-PAAW（Personal AI Assistant Workspace）是一套讓使用者建立個人 AI 工作團隊（AI Workforce）的工作區平台。目標使用者為需要以個人化 AI 助理、技能、代理與自動化流程協作完成工作的使用者。
+> 事實資料僅含功能名稱（desc 皆為空、codeFiles/apis 為 0），以下需求描述與驗收條件為最小推論框架，細節均為（資料待補 — 待人確認）。
 
-### 架構與模組
-- 框架：`frameworks` 欄位為空（資料待補）。
-- 程式規模：程式碼智能索引顯示 2,745 個函式、4,782 個符號；測試檔 114 個（unit 103、e2e 11、integration 0、contract 0）；錯誤碼 190 個。
-- 模組分佈（依 features 歸類）：
-  - 聊天與對話：串流聊天、聊天脈絡、對話 CRUD、系統提示詞。
-  - AI 設定與偏好：AI 設定清單、agent 設定、providers 設定、使用者偏好、工作區（ai-settings 版）。
-  - 技能與代理：助理技能綁定、技能清單/設定/測試、agent 直接執行與串流執行、agent 中斷與執行中狀態、agent memory 讀寫刪、agent skill 操作、CU skill 操作。
-  - A2A 協定：Agent Card、JSON-RPC 入口、任務列出與中斷。
-  - Auto Dispatch：設定、prompts、啟動/預覽/停止/重置、runs 與報告。
-  - Crew 與 EM：Crew 聊天、派工、QA results、context window、EM job/計畫/執行、review board、派工目錄、crew 匯出/匯入。
-  - RU（Release Unit）：主入口、工作區管理、Clone、QA 資訊、成本與發佈視窗成本、程式碼智能、模型查詢、總覽/脈絡/架構/依賴/影響分析/驗證/指標/分析/Gates/測試/features/runbooks/changes/問答/APIs/specs/releases/證據、debug 記錄、成本摘要、log、release evidence (db)。
-  - 執行計畫：建立、最新、列出、未完成。
-  - 筆記本：筆記本/章節/筆記 CRUD、移動、AI 撰寫、搜尋、標籤、釘選、最近筆記、圖片上傳與讀取。
-  - 瀏覽器自動化：設定狀態、視窗調整、導覽、截圖/串流/即時截圖、分頁管理、下載清單、對話框處理、動作紀錄與截圖、剪貼簿、輸入、視覺點擊、狀態。
-  - 檔案與上傳：上傳檔案/文字、讀取上傳檔案、讀取 PAAW 上傳檔案、寫入檔案、寫入 vibe fs、選擇目錄、建立 vibe session。
-  - API 測試工具：collection 儲存/讀取、代理請求、儲存 API 測試請求、串流請求。
-  - 維運與治理：備份設定/執行/列出/還原/刪除、清理設定與執行、console log、日誌保留設定與清除、稽核日期與稽核日誌、LLM 呼叫記錄/統計/刪除/清除過期、技能使用統計與參與度、HelpDesk 提問/工單/知識/模型清單。
-  - 平台與 App：PAAW 根路徑、使用者資料、助理頭像、App 規則、App 匯入/建立/列出、訓練報告、發佈報告、版本、provider 設定、工作區管理、知識路徑、安全模式、網路白名單、專案、模組、插件、starter kit、UI 狀態、心智圖、cron job 管理、CLI 執行。
+#### FR-01 — A2A Agent 探索與任務（A20261121-004~008）
 
-### 如何建置/跑/測
-bash
-# 開發（同時啟動 UI 與 API）
-npm run dev
+**Requirement**
 
-# 只啟動 UI / 只啟動 API
-npm run dev:ui
-npm run dev:server
+系統支援 A2A 協定：探索 Agent Card、經 JSON-RPC 任務入口派發任務、列出與中斷 A2A 任務、取得 Agent Card（API 路徑）。
 
-# 建置（UI）
-npm run build
+**Acceptance Criteria**
 
-# 啟動（server）
-npm run start
-npm run start:prod   # node scripts/prod-server.mjs
+- 可取得遠端 Agent 之 Agent Card（資料待補 — 待人確認）
+- A2A 任務可建立、列表、中斷（資料待補 — 待人確認）
 
-# 型別檢查（UI）
-npm run typecheck
+#### FR-02 — Agent 設定與記憶（A20261121-013/014/117~119）
 
-# 測試
-npm run test         # vitest run
-### Feature 清單（表格：| Feature | 說明 | 檔案數 |）
+**Requirement**
 
-| Feature | 說明 | 檔案數 |
+支援讀取/更新 Agent 設定，以及 Agent 記憶的讀、寫、刪。
+
+**Acceptance Criteria**
+
+- Agent 設定讀取與更新成功回傳（資料待補 — 待人確認）
+- 記憶 CRUD 操作可執行（資料待補 — 待人確認）
+
+#### FR-03 — LLM Providers 與 AI 設定（A20261121-015/016/019、017/018）
+
+**Requirement**
+
+支援列出/更新 LLM Providers、AI 設定總覽、使用者偏好讀寫。
+
+**Acceptance Criteria**
+
+- Providers 列表與更新、AI 設定總覽、偏好讀寫皆可執行（資料待補 — 待人確認）
+
+#### FR-04 — Workspace 與 API 代理（A20261121-020~024）
+
+**Requirement**
+
+支援列出 Workspaces、管理 Request 集合、API 代理請求、儲存請求歷史、SSE 代理串流；另含 Workspace 新增/刪除（046/047）與 assistant 版列表（045）。
+
+**Acceptance Criteria**
+
+- API 代理可轉發請求並回傳結果；SSE 串流可串接（資料待補 — 待人確認）
+- 請求歷史可儲存（資料待補 — 待人確認）
+
+#### FR-05 — 日誌與稽核（A20261121-009~012、106/107、053/054）
+
+**Requirement**
+
+支援 RU 除錯日誌、Agent 任務日誌列表、RU 彙總、舊 Agent 日誌清理、RU 操作日誌與詳情、稽核日誌日期列表與查詢。
+
+**Acceptance Criteria**
+
+- 日誌可查詢、彙總、清理（資料待補 — 待人確認）
+
+#### FR-06 — Crew 協作與派工（A20261121-101~121、085~098）
+
+**Requirement**
+
+支援 Crew 對話/派工、EM 規劃/執行/任務執行、派工型錄、QA 結果讀寫、Context 用量估算、執行中 Agents、中斷 Crew Agent、Crew 匯入/匯出、審查委員會；以及自動派工設定、提示詞讀寫/重設、啟動/停止/重設、預覽計畫、執行紀錄與報告串流。
+
+**Acceptance Criteria**
+
+- Crew 派工可執行並產生執行紀錄（資料待補 — 待人確認）
+- 自動派工可啟動/停止，報告可串流接收（資料待補 — 待人確認）
+
+#### FR-07 — RU/DFO/C4/發布（A20261121-123~128、099/100、025~027、122）
+
+**Requirement**
+
+支援 RU 資訊讀寫與 AI 調整、Coding DB 狀態、DFO 文件讀取與版本清單、C4 模型讀取/重掃、建立 App、訓練報告 App、發布報告、讀發布證據。
+
+**Acceptance Criteria**
+
+- RU 資訊可讀寫並由 AI 調整（資料待補 — 待人確認）
+- 發布流程可產出報告與證據（資料待補 — 待人確認）
+
+#### FR-08 — 助理/使用者設定（A20261121-028~036、043/044、049~051）
+
+**Requirement**
+
+支援助理技能綁定列表/更新、Data Home 根目錄、使用者設定檔讀寫、頭像上傳/取得、App 規則讀寫、版本取得、Providers（assistant）列表/更新、知識庫路徑列表、UI 狀態讀/全量寫/部分更新。
+
+**Acceptance Criteria**
+
+- 各設定項讀寫正常（資料待補 — 待人確認）
+
+#### FR-09 — 安全模式與網路白名單（A20261121-039~042）
+
+**Requirement**
+
+支援讀取/切換安全模式、讀取/更新網路白名單。
+
+**Acceptance Criteria**
+
+- 安全模式切換生效；白名單更新後生效（資料待補 — 待人確認）
+
+#### FR-10 — 備份（A20261121-055~060）
+
+**Requirement**
+
+支援備份設定讀寫、執行備份、列出備份、還原備份、刪除備份。
+
+**Acceptance Criteria**
+
+- 備份可建立、還原、刪除（資料待補 — 待人確認）
+
+#### FR-11 — 瀏覽器自動化（A20261121-061~076）
+
+**Requirement**
+
+支援瀏覽器環境狀態、視窗調整、導航、截圖/即時截圖/截圖檔、畫面串流、分頁列表/操作、下載清單、對話框處理、操作紀錄、剪貼簿讀取、鍵盤/滑鼠輸入、視覺模式操作、瀏覽器狀態。
+
+**Acceptance Criteria**
+
+- 各瀏覽器操作可執行並回傳結果（資料待補 — 待人確認）
+
+#### FR-12 — 聊天（A20261121-077~084）
+
+**Requirement**
+
+支援建立聊天 Context、聊天列表/單一取得/建立/更新/刪除、發送訊息、系統提示列表。
+
+**Acceptance Criteria**
+
+- 聊天 CRUD 與訊息發送可執行（資料待補 — 待人確認）
+
+#### FR-13 — 排程與 Agent Run（A20261121-001~003）
+
+**Requirement**
+
+支援 Cron 任務管理、Agent Run 同步執行與 SSE 串流執行。
+
+**Acceptance Criteria**
+
+- Cron 可排程觸發 Agent Run（資料待補 — 待人確認）
+- SSE 串流輸出可持續接收（資料待補 — 待人確認）
+
+#### FR-14 — 技能管理（A20261121-115/116）
+
+**Requirement**
+
+支援 CU 步驟技能管理與列專案技能。
+
+**Acceptance Criteria**
+
+- 技能可列出與管理（資料待補 — 待人確認）
+
+## 3. Non-Functional Requirements — Performance、Availability、Security、Scalability
+
+#### NFR-01 — Performance
+
+**Requirement**
+
+（資料待補 — 待人確認；僅知支援 SSE 串流，隱含串流延遲需求，但無量化數據）
+
+**Acceptance Criteria**
+
+- （資料待補 — 待人確認）
+
+#### NFR-02 — Availability
+
+**Requirement**
+
+（資料待補 — 待人確認）
+
+**Acceptance Criteria**
+
+- （資料待補 — 待人確認）
+
+#### NFR-03 — Security
+
+**Requirement**
+
+具備安全模式（讀/切換）與網路白名單（讀/更新）機制；餘（資料待補 — 待人確認）。
+
+**Acceptance Criteria**
+
+- 安全模式與網路白名單設定可生效（資料待補 — 待人確認）
+
+#### NFR-04 — Scalability
+
+**Requirement**
+
+（資料待補 — 待人確認）
+
+**Acceptance Criteria**
+
+- （資料待補 — 待人確認）
+
+## 4. API & Data Contract — API、Request/Response、Error Code、Schema
+
+| Endpoint | Method | 用途 |
 |---|---|---|
-| A2A Agent Card | （資料待補） | 0 |
-| A2A JSON-RPC 入口 | （資料待補） | 0 |
-| 列出 A2A 任務 | （資料待補） | 0 |
-| 中斷 A2A 任務 | （資料待補） | 0 |
-| 取得 A2A Agent Card | （資料待補） | 0 |
-| 取得 AI 設定清單 | （資料待補） | 0 |
-| 取得 agent 設定 | （資料待補） | 0 |
-| 更新 agent 設定 | （資料待補） | 0 |
-| 取得 providers 設定 | （資料待補） | 0 |
-| 更新 providers 設定 | （資料待補） | 0 |
-| 取得使用者偏好 | （資料待補） | 0 |
-| 更新使用者偏好 | （資料待補） | 0 |
-| 列出工作區（ai-settings 版） | （資料待補） | 0 |
-| 儲存/讀取 collection | （資料待補） | 0 |
-| 代理請求 | （資料待補） | 0 |
-| 儲存 API 測試請求 | （資料待補） | 0 |
-| 串流請求 | （資料待補） | 0 |
-| 列出 agent 執行任務 | （資料待補） | 0 |
-| 取得 RU debug 記錄 | （資料待補） | 0 |
-| RU 成本摘要 | （資料待補） | 0 |
-| 清除 agent 記錄 | （資料待補） | 0 |
-| 取得 auto dispatch 設定 | （資料待補） | 0 |
-| 更新 auto dispatch 設定 | （資料待補） | 0 |
-| 取得 prompts | （資料待補） | 0 |
-| 儲存 prompts | （資料待補） | 0 |
-| 重置 prompts | （資料待補） | 0 |
-| 啟動 auto dispatch | （資料待補） | 0 |
-| 預覽 auto dispatch | （資料待補） | 0 |
-| 停止 auto dispatch | （資料待補） | 0 |
-| 重置 auto dispatch | （資料待補） | 0 |
-| 列出 runs | （資料待補） | 0 |
-| 讀取單次 run | （資料待補） | 0 |
-| 上一次 run | （資料待補） | 0 |
-| auto dispatch 狀態 | （資料待補） | 0 |
-| auto dispatch 報告 | （資料待補） | 0 |
-| 取得備份設定 | （資料待補） | 0 |
-| 更新備份設定 | （資料待補） | 0 |
-| 執行備份 | （資料待補） | 0 |
-| 列出備份 | （資料待補） | 0 |
-| 還原備份 | （資料待補） | 0 |
-| 刪除備份 | （資料待補） | 0 |
-| 執行 CLI | （資料待補） | 0 |
-| 取得 console log | （資料待補） | 0 |
-| 取得清理設定 | （資料待補） | 0 |
-| 更新清理設定 | （資料待補） | 0 |
-| 執行清理 | （資料待補） | 0 |
-| Crew 聊天 | （資料待補） | 0 |
-| 派工 | （資料待補） | 0 |
-| 取得 QA results | （資料待補） | 0 |
-| 提交 QA 結果 | （資料待補） | 0 |
-| 計算 context window | （資料待補） | 0 |
-| RU log | （資料待補） | 0 |
-| action log | （資料待補） | 0 |
-| 執行 EM job | （資料待補） | 0 |
-| 派工目錄 | （資料待補） | 0 |
-| 執行 review board | （資料待補） | 0 |
-| EM 計畫 | （資料待補） | 0 |
-| EM 執行 | （資料待補） | 0 |
-| 中斷 agent | （資料待補） | 0 |
-| 執行中的 agent | （資料待補） | 0 |
-| CU skill 操作 | （資料待補） | 0 |
-| agent skill 操作 | （資料待補） | 0 |
-| 讀取 agent memory | （資料待補） | 0 |
-| 寫入 agent memory | （資料待補） | 0 |
-| 刪除 agent memory | （資料待補） | 0 |
-| 匯出 crew | （資料待補） | 0 |
-| 匯入 crew | （資料待補） | 0 |
-| release evidence (db) | （資料待補） | 0 |
-| 建立執行計畫 | （資料待補） | 0 |
-| 最新執行計畫 | （資料待補） | 0 |
-| 列出執行計畫 | （資料待補） | 0 |
-| 未完成執行計畫 | （資料待補） | 0 |
-| HelpDesk 提問 | （資料待補） | 0 |
-| 列出 HelpDesk 工單 | （資料待補） | 0 |
-| 更新 HelpDesk 工單 | （資料待補） | 0 |
-| 取得 HelpDesk 知識 | （資料待補） | 0 |
-| HelpDesk 模型清單 | （資料待補） | 0 |
-| 讀取 LLM 呼叫記錄 | （資料待補） | 0 |
-| LLM 統計 | （資料待補） | 0 |
-| 技能使用統計 | （資料待補） | 0 |
-| 技能參與度 | （資料待補） | 0 |
-| 刪除 LLM 記錄 | （資料待補） | 0 |
-| 清除過期 LLM 記錄 | （資料待補） | 0 |
-| 取得 pocket 資料 | （資料待補） | 0 |
-| RU 主入口 | （資料待補） | 0 |
-| 列出 RU 工作區 | （資料待補） | 0 |
-| 新增 RU 工作區 | （資料待補） | 0 |
-| 移除 RU 工作區 | （資料待補） | 0 |
-| Clone RU | （資料待補） | 0 |
-| RU QA 資訊 | （資料待補） | 0 |
-| RU 成本 | （資料待補） | 0 |
-| RU 發佈視窗成本 | （資料待補） | 0 |
-| RU 程式碼智能 | （資料待補） | 0 |
-| RU 模型查詢 | （資料待補） | 0 |
-| RU 總覽 | （資料待補） | 0 |
-| RU 脈絡 | （資料待補） | 0 |
-| RU 架構 | （資料待補） | 0 |
-| RU 依賴 | （資料待補） | 0 |
-| RU 影響分析 | （資料待補） | 0 |
-| RU 驗證 | （資料待補） | 0 |
-| 取得 RU 驗證結果 | （資料待補） | 0 |
-| RU 指標 | （資料待補） | 0 |
-| RU 分析 | （資料待補） | 0 |
-| RU Gates | （資料待補） | 0 |
-| RU 測試 | （資料待補） | 0 |
-| RU features | （資料待補） | 0 |
-| RU runbooks | （資料待補） | 0 |
-| RU changes | （資料待補） | 0 |
-| RU 問答 | （資料待補） | 0 |
-| RU APIs | （資料待補） | 0 |
-| RU specs | （資料待補） | 0 |
-| RU releases | （資料待補） | 0 |
-| RU 證據 | （資料待補） | 0 |
-| 取得 starter kit | （資料待補） | 0 |
-| 取得 UI 狀態 | （資料待補） | 0 |
-| 覆寫 UI 狀態 | （資料待補） | 0 |
-| 部分更新 UI 狀態 | （資料待補） | 0 |
-| 寫入 vibe fs | （資料待補） | 0 |
-| 選擇目錄 | （資料待補） | 0 |
-| 建立 vibe session | （資料待補） | 0 |
-| 上傳檔案 | （資料待補） | 0 |
-| 上傳文字 | （資料待補） | 0 |
-| 讀取上傳檔案 | （資料待補） | 0 |
-| 讀取 PAAW 上傳檔案 | （資料待補） | 0 |
-| 列出助理技能 | （資料待補） | 0 |
-| 更新助理技能綁定 | （資料待補） | 0 |
-| 取得 PAAW 根路徑 | （資料待補） | 0 |
-| 取得使用者資料 | （資料待補） | 0 |
-| 更新使用者資料 | （資料待補） | 0 |
-| 上傳助理頭像 | （資料待補） | 0 |
-| 取得助理頭像 | （資料待補） | 0 |
-| 取得 App 規則 | （資料待補） | 0 |
-| 更新 App 規則 | （資料待補） | 0 |
-| 匯入 App | （資料待補） | 0 |
-| 取得版本 | （資料待補） | 0 |
-| 取得 provider 設定 | （資料待補） | 0 |
-| 更新 provider 設定 | （資料待補） | 0 |
-| 取得工作區 | （資料待補） | 0 |
-| 新增工作區 | （資料待補） | 0 |
-| 移除工作區 | （資料待補） | 0 |
-| 取得知識路徑 | （資料待補） | 0 |
-| 取得安全模式 | （資料待補） | 0 |
-| 設定安全模式 | （資料待補） | 0 |
-| 取得網路白名單 | （資料待補） | 0 |
-| 更新網路白名單 | （資料待補） | 0 |
-| 列出專案 | （資料待補） | 0 |
-| 建立/更新專案 | （資料待補） | 0 |
-| 發送聊天訊息（串流） | （資料待補） | 0 |
-| 取得聊天脈絡 | （資料待補） | 0 |
-| 列出對話 | （資料待補） | 0 |
-| 取得單一對話 | （資料待補） | 0 |
-| 建立對話 | （資料待補） | 0 |
-| 更新對話 | （資料待補） | 0 |
-| 刪除對話 | （資料待補） | 0 |
-| 取得系統提示詞 | （資料待補） | 0 |
-| 取得心智圖 | （資料待補） | 0 |
-| 建立 App | （資料待補） | 0 |
-| 列出 App | （資料待補） | 0 |
-| App 訓練報告 | （資料待補） | 0 |
-| App 發佈報告 | （資料待補） | 0 |
-| 列出技能 | （資料待補） | 0 |
-| 取得指定技能 | （資料待補） | 0 |
-| 取得技能設定 | （資料待補） | 0 |
-| 更新技能設定 | （資料待補） | 0 |
-| 執行技能測試 | （資料待補） | 0 |
-| cron job 管理 | （資料待補） | 0 |
-| 直接執行 agent | （資料待補） | 0 |
-| 串流執行 agent | （資料待補） | 0 |
-| 列出插件 | （資料待補） | 0 |
-| 新增/更新插件 | （資料待補） | 0 |
-| 取得日誌保留設定 | （資料待補） | 0 |
-| 更新日誌保留設定 | （資料待補） | 0 |
-| 執行日誌清除 | （資料待補） | 0 |
-| 列出模組 | （資料待補） | 0 |
-| 寫入檔案 | （資料待補） | 0 |
-| 瀏覽器設定狀態 | （資料待補） | 0 |
-| 調整瀏覽器視窗 | （資料待補） | 0 |
-| 瀏覽器導覽 | （資料待補） | 0 |
-| 瀏覽器截圖 | （資料待補） | 0 |
-| 瀏覽器串流 | （資料待補） | 0 |
-| 列出瀏覽器分頁 | （資料待補） | 0 |
-| 瀏覽器分頁操作 | （資料待補） | 0 |
-| 瀏覽器下載清單 | （資料待補） | 0 |
-| 瀏覽器對話框處理 | （資料待補） | 0 |
-| 瀏覽器動作紀錄 | （資料待補） | 0 |
-| 取得動作截圖 | （資料待補） | 0 |
-| 取得瀏覽器剪貼簿 | （資料待補） | 0 |
-| 瀏覽器輸入 | （資料待補） | 0 |
-| 視覺點擊 | （資料待補） | 0 |
-| 瀏覽器狀態 | （資料待補） | 0 |
-| 瀏覽器即時截圖 | （資料待補） | 0 |
-| 列出稽核日期 | （資料待補） | 0 |
-| 讀取稽核日誌 | （資料待補） | 0 |
-| 列出筆記本 | （資料待補） | 0 |
-| 建立筆記本 | （資料待補） | 0 |
-| 更新筆記本 | （資料待補） | 0 |
-| 刪除筆記本 | （資料待補） | 0 |
-| 列出章節 | （資料待補） | 0 |
-| 建立章節 | （資料待補） | 0 |
-| 更新章節 | （資料待補） | 0 |
-| 刪除章節 | （資料待補） | 0 |
-| 列筆記 | （資料待補） | 0 |
-| 讀取筆記 | （資料待補） | 0 |
-| 建立筆記 | （資料待補） | 0 |
-| 更新筆記 | （資料待補） | 0 |
-| 刪除筆記 | （資料待補） | 0 |
-| 移動筆記 | （資料待補） | 0 |
-| AI 撰寫筆記 | （資料待補） | 0 |
-| 搜尋筆記 | （資料待補） | 0 |
-| 列出標籤 | （資料待補） | 0 |
-| 依標籤列筆記 | （資料待補） | 0 |
-| 釘選筆記 | （資料待補） | 0 |
-| 最近筆記 | （資料待補） | 0 |
-| 筆記上傳圖片 | （資料待補） | 0 |
-| 讀取筆記圖片 | （資料待補） | 0 |
+| （資料待補 — 待人確認） | — | 事實資料僅記載 features 共 100+ 項、errorCodes 53 個，未提供路徑 |
 
-### 維運要點
-- 測試現況：測試檔共 114 個，其中 unit 103、e2e 11；integration 與 contract 皆為 0，整合/契約層覆蓋需留意（資料待補：尚無 integration/contract 測試）。
-- 錯誤碼：目前共 190 個錯誤碼，排查問題時建議先對照錯誤碼分類定位。
-- 給維運工程師的提醒：
-  - 正式環境啟動請用 `npm run start:prod`（`node scripts/prod-server.mjs`），而非 `npm run start`。
-  - 日誌與清理相關設定（日誌保留設定、清理設定、LLM 記錄清除、稽核日誌）為獨立可調整項，調整前請確認保留政策（見 ADR-023）。
-  - 備份/還原/刪除備份為高風險操作，執行前請確認目標備份。
-  - 安全模式與網路白名單設定會影響對外行為，變更需審慎。
+#### API-01 —（資料待補 — 待人確認）
 
-### 最新決策
-- ADR-024: TASK-055 測試範圍：route-level 整合測試 Secretary.tsx 背後的 4 個 server routes
-- ADR-023: 日誌三層架構與資產級保留政策
-- ADR-022: TASK-049 測試策略：範本檔以「靜態契約掃描 + 最小可執行語意重現」雙層鞏固
+- 用途：（資料待補 — 待人確認；對應功能清單見第 2 節）
+- Request：（資料待補 — 待人確認）
+- Response：（資料待補 — 待人確認）
+- Error Codes：系統共有 53 個錯誤碼，具體代碼與意義（資料待補 — 待人確認）
 
-<!-- AI:END -->
+**補充事實**：程式中存在 A2A JSON-RPC 任務入口（JSON-RPC 協定）與 SSE 串流端點，實際契約（資料待補 — 待人確認）。
+
+## 5. Architecture Design — Components、Sequence、Integration、Data Flow
+
+- **Components**：
+
+| Component | 職責 |
+|---|---|
+| @paaw/ui | 前端 UI workspace（有 build 與 typecheck script）（細節資料待補 — 待人確認） |
+| @paaw/server | 後端 server（有 start script）（細節資料待補 — 待人確認） |
+| scripts/prod-server.mjs | 生產環境啟動腳本（職責資料待補 — 待人確認） |
+
+- **Sequence**：
+
+（資料待補 — 待人確認；僅知存在「Crew 派工 → EM 規劃 → EM 執行 → QA 結果」與「SSE 串流」等流程名稱，無實際互動細節）
+
+- **Integrations**：
+
+| From | To | Protocol/Format |
+|---|---|---|
+| @paaw/server | 遠端 A2A Agent | JSON-RPC（A2A） |
+| @paaw/ui / client | LLM Providers | API 代理（含 SSE 串流） |
+| @paaw/server | 瀏覽器環境 | 瀏覽器自動化操作（協定資料待補 — 待人確認） |
+
+- **Data Flow**：（資料待補 — 待人確認；已知存在請求歷史儲存、稽核日誌、三層日誌架構（ADR-023）等資料流名稱）
+
+## 6. Technical Design — Modules、Interface、核心邏輯、技術選型
+
+- **技術選型**：
+
+| 項目 | 選擇 |
+|---|---|
+| 語言/型別 | TypeScript（typecheck script 存在） |
+| 套件管理/monorepo | npm workspaces（`-w @paaw/ui`、`-w @paaw/server`） |
+| 測試框架 | Vitest |
+| 開發並行工具 | concurrently |
+| UI framework | （資料待補 — 待人確認；frameworks 為空） |
+| Server framework | （資料待補 — 待人確認） |
+
+- **Modules**：（資料待補 — 待人確認；僅知 codeIntel：functions 2764、symbols 4826）
+
+- **核心邏輯**：（資料待補 — 待人確認）
+
+- **關鍵決策**（依 ADR 標題）：
+
+| 主題 | 決定 | 原因 |
+|---|---|---|
+| 日誌架構（ADR-023） | 日誌三層架構與資產級保留政策 | （資料待補 — 待人確認） |
+| TASK-049 測試策略（ADR-022） | 範本檔以「靜態契約掃描 + 最小可執行語意重現」雙層鞏固 | （資料待補 — 待人確認） |
+| TASK-055 測試範圍（ADR-024） | route-level 整合測試 Secretary.tsx 背後的 4 個 server routes | （資料待補 — 待人確認） |
+
+## 7. Testing Strategy — Unit、Integration、E2E、Failure Scenarios
+
+測試目標：以自動化測試（現有 115 個測試檔：unit 104、e2e 11、integration 0、contract 0，框架 Vitest）保障功能正確性；整合與契約測試目前為 0，屬缺口。
+
+| ID | 類型 | 情境 | 預期結果 |
+|---|---|---|---|
+| T-01 | Unit | （資料待補 — 待人確認，現有 104 個 unit 測試檔） | 全數通過 |
+| T-02 | Integration | Secretary.tsx 背後 4 個 server routes（ADR-024） | route-level 整合測試通過 |
+| T-03 | Integration | 範本檔靜態契約掃描 + 語意重現（ADR-022） | 契約掃描與重現皆通過 |
+| T-04 | E2E | （資料待補 — 待人確認，現有 11 個 e2e 測試檔） | 全數通過 |
+| T-05 | Failure | 中斷 A2A 任務 / 中斷 Crew Agent | 任務正確终止並回報狀態（資料待補 — 待人確認） |
+| T-06 | Failure | SSE 串流中斷 | （資料待補 — 待人確認） |
+| T-07 | Load | （資料待補 — 待人確認） | （資料待補 — 待人確認） |
+
+## 8. Operations & Observability — Metrics、Logging、Tracing、Deployment、Alerting
+
+- **Metrics**：
+
+| Metric | 用途 |
+|---|---|
+| （資料待補 — 待人確認） | — |
+
+- **Logging**：
+  - 依 ADR-023 採「日誌三層架構與資產級保留政策」（細節資料待補 — 待人確認）
+  - 稽核日誌可依日期列表與查詢
+  - 含 RU 除錯日誌、Agent 任務日誌、RU 操作日誌
+  - 不記什麼：（資料待補 — 待人確認）
+
+- **Tracing**：暫不（資料待補 — 待人確認）
+
+- **Deployment**：
+  - 開發：`npm run dev`（concurrently 同時啟 UI 與 API）；可分開 `dev:ui` / `dev:server`
+  - 建置：`npm run build`（僅 build UI workspace）
+  - 生產啟動：`npm run start`（server）或 `npm run start:prod`（node scripts/prod-server.mjs）
+  - 其他部署細節（資料待補 — 待人確認）
+
+- **Alerting**：
+
+| Alert | 觸發條件 |
+|---|---|
+| （資料待補 — 待人確認） | — |
+
+<!-- SPEC:END -->

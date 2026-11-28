@@ -1,134 +1,247 @@
 {
-  "scannedAt": "2026-11-09T10:59:07.177Z",
+  "scannedAt": "2026-11-27T17:30:41.038Z",
   "method": "llm-v2",
-  "conventions": "none",
-  "conventionNote": "全庫幾乎沒有系統性 error code：絕大多數是 `throw new Error(\"中文/英文字串\")` 或 `res.status(4xx/5xx).json({ error: \"...\" })`，訊息即識別。少數接近 registry 的雛形：`execution-plan.mjs` 的 `PlanError`（帶 `NOT_FOUND`/`VALIDATION` 與 httpStatus）、`coding-security.mjs` 的 `PATH_TRAVERSAL` code 與 `sendPathTraversalError`、`types/index.ts` 的 `errorCodePrefix` 欄位（未落地使用）。命名、HTTP status 對應、payload 形狀（`error` vs `detail` vs `message`）各處不一致。",
+  "conventions": "mixed",
+  "conventionNote": "絕大多數 error 處理是 inline 字串訊息（throw new Error(\"…\")）搭配 HTTP status（res.status(400).json({error})），沒有系統性 error code。僅有極少數孤立例外：execution-plan.mjs 的 PlanError（NOT_FOUND/VALIDATION + 4xx status）、coding-security 的 PATH_TRAVERSAL err.code、release-requests.mjs 在 Error 物件上掛 e.status=4xx、以及範本教材 route-handler-api.ts 的 HTTP-status-only 回應。整體涵蓋率 <5%，語意全靠訊息字串，前端只能靠 data.error 字串判斷。",
   "recommendation": {
     "suggest": true,
-    "plan": "以 Error Code Rules v1 為基底導入。格式 `{CODE_CLASS}_{AREA}_{FAMILY}_{DETAIL}`，CODE_CLASS ∈ SYS|BIZ|EXT。建議第一批 area 依現有分層：`CODING`（coding-* routes / coding-db / coding-security）、`AGENT`（paaw-agent-loop / tool-engine / llm-utils）、`DISPATCH`（auto-dispatch / execution-plan）、`RELEASE`（release-requests）、`DB`（packages/db repositories）、`UI`（前端 fetch 錯誤）。落地位置：新增 `packages/server/src/lib/errors/registry.mjs`（匯出 `ERRORS` 常數表 + `AppError` class，含 code/message/httpStatus/kind），前端另建 `packages/ui/src/lib/errorCodes.ts` 對照。throw 點改法：把 `throw new Error(\"AI 回應為空，無法產生 API Map\")` 改為 `throw new AppError(ERRORS.CODING_MAP_AI_EMPTY)`；route 層統一 `catch (e) { res.status(e.httpStatus ?? 500).json({ code: e.code, error: e.message }) }`；`PlanError` 與 `PATH_TRAVERSAL` 收斂進 registry 保留相容。Seed code 範例（由現有訊息轉寫）：1) `BIZ_CODING_MAP_AI_EMPTY`（AI 回應為空，無法產生 API Map / UI Map，400）；2) `BIZ_CODING_MAP_PARSE_FAILED`（API Map / UI Map 解析失敗（非 JSON array），502 或 400）；3) `BIZ_CODING_PATH_TRAVERSAL`（Path traversal blocked，400，取代現有 `PATH_TRAVERSAL`）；4) `EXT_AGENT_LLM_API_ERROR`（LLM API error ${status}，502）；5) `BIZ_DISPATCH_PLAN_NOT_FOUND`（Plan not found，404，取代 `_notFound`）；6) `BIZ_RELEASE_INVALID_STATE`（已 ${status}，不可修改，400）；7) `SYS_DB_MIGRATE_FAILED`（coding-db migrate v${version} failed，500）。前端 fetch 統一改拋 `AppError` 並讀 `body.code` 顯示對應 i18n 文案，避免 `HTTP ${status}` 裸字串。"
+    "plan": "現有『systematic』部分僅是孤立點，整體近乎 none，建議導入 Error Code Rules v1。步驟：(1) 在 packages/server/src/lib/error-registry.mjs 建立 registry（code → message 範本、CODE_CLASS、HTTP status），並提供 bizError()/extError()/sysError() helper；(2) 第一批 area 依照 codebase 分層：A2A（webhook/agent 路由）、LLM（provider 呼叫）、DISPATCH（EM 規劃/執行計畫）、RELEASE（放行單狀態機）、CODING（CU 掃描/API Map）。(3) Seed codes（從現有訊息轉寫）：BIZ_A2A_WEBHOOK_URL_INVALID（Invalid webhook URL, 400）、BIZ_A2A_WEBHOOK_HOST_BLOCKED（loopback/link-local blocked, 400）、EXT_LLM_PROVIDER_NO_API_KEY（No API key for provider, 502）、EXT_LLM_RESPONSE_INVALID_JSON（LLM 回覆不是合法 JSON，502）、BIZ_EMO_PLAN_STATUS_CONFLICT（Cannot start a ${plan.status} plan, 409）。(4) throw 點改法：throw bizError(\"BIZ_EMO_PLAN_STATUS_CONFLICT\", { planStatus })，取代 throw new Error(`Cannot start a ${plan.status} plan`)；既有 PlanError 可升級為 registry 其中一個 family。(5) HTTP route 層統一在 error middleware 讀 err.code 對應 status，response 加上 { code, message } 欄位，前端 uiAlertError 可顯示 code 供分類統計與 i18n。"
   },
   "stats": {
-    "total": 358,
-    "uniqueCodes": 190,
-    "featureCount": 80
+    "total": 201,
+    "uniqueCodes": 155,
+    "featureCount": 41
   },
   "byFeature": [
     {
-      "featureId": "F-019",
-      "featureName": "上線放行閘門與證據審查（Release Request 與證據包）",
-      "summary": "release-requests 以 `new Error(msg)` 加 `e.status` 表達狀態機違規與 404，是少數帶 httpStatus 的 inline 模式；無 code。",
+      "featureId": "F20261107-001",
+      "featureName": "程式理解與 AI Agent 派工路由層（A2A 協定 + Crew 自動派工 + CU 專案知識 API）",
+      "summary": "全為 inline 字串 throw（webhook 驗證、API key、AI 輸出解析），無任何 error code；安全類錯誤（URL/host 驗證）與業務錯誤混在同一型態，無法區分。",
       "codes": [
         {
           "code": null,
-          "message": "release request not found",
+          "message": "Invalid webhook URL",
           "kind": "throw",
-          "httpStatus": 404,
-          "file": "packages/server/src/lib/release-requests.mjs",
-          "line": 717
+          "httpStatus": null,
+          "file": "packages/server/src/routes/a2a.mjs",
+          "line": 362
         },
         {
           "code": null,
-          "message": "已 ${rr.status}，不可修改",
+          "message": "Webhook URL must be http(s)",
           "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/release-requests.mjs",
-          "line": 719
+          "httpStatus": null,
+          "file": "packages/server/src/routes/a2a.mjs",
+          "line": 364
         },
         {
           "code": null,
-          "message": "baseline 只能在 draft 階段修改（reviewing 已鎖定）",
+          "message": "Webhook URL host is not allowed (loopback/link-local blocked)",
           "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/release-requests.mjs",
-          "line": 722
+          "httpStatus": null,
+          "file": "packages/server/src/routes/a2a.mjs",
+          "line": 367,
+          "note": "SSRF 防護，適合 BIZ_A2A family"
         },
         {
           "code": null,
-          "message": "狀態是 ${rr.status}，只有 draft 可以 open",
+          "message": "Public webhook URL must use https",
           "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/release-requests.mjs",
-          "line": 741
+          "httpStatus": null,
+          "file": "packages/server/src/routes/a2a.mjs",
+          "line": 371
         },
         {
           "code": null,
-          "message": "狀態是 ${rr.status}，只有 reviewing 可以審查",
+          "message": "No API key for provider: ${providerId}",
           "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/release-requests.mjs",
-          "line": 764
+          "httpStatus": null,
+          "file": "packages/server/src/routes/a2a.mjs",
+          "line": 676
         },
         {
           "code": null,
-          "message": "checklist item 不存在：${itemId}",
+          "message": "AI did not return an array",
           "kind": "throw",
-          "httpStatus": 404,
-          "file": "packages/server/src/lib/release-requests.mjs",
-          "line": 766
+          "httpStatus": null,
+          "file": "packages/server/src/routes/coding-features.mjs",
+          "line": 998
         },
         {
           "code": null,
-          "message": "verdict 只能是 pass / fail / waived",
+          "message": "AI did not return an array",
           "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/release-requests.mjs",
-          "line": 768
+          "httpStatus": null,
+          "file": "packages/server/src/routes/coding-features.mjs",
+          "line": 1140
         },
         {
           "code": null,
-          "message": "waive 必須留 note（為什麼可以放行）",
+          "message": "AI 未回傳可解析的 sections",
           "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/release-requests.mjs",
-          "line": 771
+          "httpStatus": null,
+          "file": "packages/server/src/routes/coding-handover.mjs",
+          "line": 465
         },
         {
           "code": null,
-          "message": "已結案，不可取消",
+          "message": "AI 回應為空，無法產生 API Map",
           "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/release-requests.mjs",
-          "line": 900
+          "httpStatus": null,
+          "file": "packages/server/src/routes/coding.mjs",
+          "line": 1273
         },
         {
           "code": null,
-          "message": "已 ${rr.status}，無需鎖定",
+          "message": "API Map 解析失敗（非 JSON array）",
           "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/release-requests.mjs",
-          "line": 913
+          "httpStatus": null,
+          "file": "packages/server/src/routes/coding.mjs",
+          "line": 1275
         },
         {
           "code": null,
-          "message": "已 ${rr.status}，不接受新建議",
+          "message": "API Map 無有效 entry",
           "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/release-requests.mjs",
-          "line": 936
+          "httpStatus": null,
+          "file": "packages/server/src/routes/coding.mjs",
+          "line": 1301
         },
         {
           "code": null,
-          "message": "items 必須是 [{ itemId, verdict, reason }]（至少一項）",
+          "message": "AI 回應為空，無法產生 UI Map",
           "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/release-requests.mjs",
-          "line": 939
+          "httpStatus": null,
+          "file": "packages/server/src/routes/coding.mjs",
+          "line": 1318
         },
         {
           "code": null,
-          "message": "checklist item 不存在：${it.itemId}（有效：${[...valid].join(\", \")}）",
+          "message": "UI Map 解析失敗（非 JSON array）",
           "kind": "throw",
-          "httpStatus": 404,
-          "file": "packages/server/src/lib/release-requests.mjs",
-          "line": 945
+          "httpStatus": null,
+          "file": "packages/server/src/routes/coding.mjs",
+          "line": 1333
+        },
+        {
+          "code": null,
+          "message": "UI Map 無有效 route",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/routes/coding.mjs",
+          "line": 1361
         }
       ],
       "uniqueCount": 13
     },
     {
+      "featureId": "F20261107-017",
+      "featureName": "程式碼理解與證據化派工發布引擎（CU 掃描 + EM 工頭 + Release Evidence）",
+      "summary": "CU 掃描 pipeline（prompt 缺失、LLM 空回應、DFO schema 驗證）全為 inline throw；DFO 驗證系列訊息其實是穩定的 rule set，很適合轉成 BIZ_CU_SCHEMA_* codes。",
+      "codes": [
+        {
+          "code": null,
+          "message": "gen-api-map.md prompt 不存在",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/api-map.mjs",
+          "line": 71
+        },
+        {
+          "code": null,
+          "message": "API Map 解析失敗（非 JSON array）",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/api-map.mjs",
+          "line": 91
+        },
+        {
+          "code": null,
+          "message": "API Map 無有效 entry",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/api-map.mjs",
+          "line": 93
+        },
+        {
+          "code": null,
+          "message": "prompt template c4-model.md not found",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/c4-model-scan.mjs",
+          "line": 315
+        },
+        {
+          "code": null,
+          "message": "empty LLM response",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/c4-model-scan.mjs",
+          "line": 329
+        },
+        {
+          "code": null,
+          "message": "no fileFeatures doc",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/change-intelligence.mjs",
+          "line": 115
+        },
+        {
+          "code": null,
+          "message": "enrichCrosscutConcepts: callLLM required",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/crosscut-concepts.mjs",
+          "line": 249
+        },
+        {
+          "code": null,
+          "message": "CROSSCUT-CONCEPTS not found — run Code Understanding first",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/crosscut-concepts.mjs",
+          "line": 251
+        },
+        {
+          "code": null,
+          "message": "dfo 必須是 object",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/dfo.mjs",
+          "line": 27
+        },
+        {
+          "code": null,
+          "message": "schemaVersion 必須是 ${DFO_SCHEMA_VERSION}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/dfo.mjs",
+          "line": 28
+        },
+        {
+          "code": null,
+          "message": "sections 必須是 array",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/dfo.mjs",
+          "line": 29
+        },
+        {
+          "code": null,
+          "message": "缺少 section: ${def.id}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/dfo.mjs",
+          "line": 32
+        }
+      ],
+      "uniqueCount": 12
+    },
+    {
       "featureId": "F20261109-005",
-      "featureName": "AI Agent 執行核心（工具迴圈、沙箱審批與上下文治理）",
-      "summary": "paaw-bridge 與 browser-executor 大量 inline `throw new Error`，含 docker 失敗、session 未開、參數缺失；無 code。",
+      "featureName": "自建 Agent 執行核心（Agent Loop、工具沙箱、Context 引擎與全程審計治理）",
+      "summary": "docker exec/cp、baseline 比對、sync 狀態等全是 inline throw；審計模組刻意不 throw（設計良好）。外部依賴（docker）與業務錯誤無區分，EXT 類 code 缺席。",
       "codes": [
         {
           "code": null,
@@ -204,14 +317,6 @@
         },
         {
           "code": null,
-          "message": "BrowserExecutor: release unit \"${releaseUnitId}\" 沒有開啟的 session — 先呼叫 open()",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/browser-executor.mjs",
-          "line": 53
-        },
-        {
-          "code": null,
           "message": "url required",
           "kind": "throw",
           "httpStatus": null,
@@ -227,12 +332,192 @@
           "line": 208
         }
       ],
-      "uniqueCount": 12
+      "uniqueCount": 11
+    },
+    {
+      "featureId": "F20261107-008",
+      "featureName": "Coding 專案的 EM 編排設定與 RU 技能資產管理",
+      "summary": "project-crew 的 agent 管理（not found / 唯讀 / 重複 / custom 規則）全為 inline throw；review-runner 另以 parseError 欄位回傳解析錯誤，屬 result 物件而非 exception，兩種風格並存。",
+      "codes": [
+        {
+          "code": null,
+          "message": "git diff ${range} 沒有輸出（range 不存在或沒有變更…）",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/coding-review-runner.mjs",
+          "line": 161
+        },
+        {
+          "code": null,
+          "message": "Agent not found: ${agentId}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/project-crew.mjs",
+          "line": 365
+        },
+        {
+          "code": null,
+          "message": "Firmware crew '${agentId}' 的 ${k} 為 module 唯讀（多人 release 紀律）…",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/project-crew.mjs",
+          "line": 374,
+          "note": "典型的狀態衝突，適合 409 類 code"
+        },
+        {
+          "code": null,
+          "message": "Agent ID is required",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/project-crew.mjs",
+          "line": 400
+        },
+        {
+          "code": null,
+          "message": "Custom agent ID must start with \"custom.\"",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/project-crew.mjs",
+          "line": 402
+        },
+        {
+          "code": null,
+          "message": "Agent already exists: ${agentId}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/project-crew.mjs",
+          "line": 408
+        },
+        {
+          "code": null,
+          "message": "Only custom agents can be deleted",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/project-crew.mjs",
+          "line": 457
+        },
+        {
+          "code": null,
+          "message": "No global definition for: ${agentId}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/project-crew.mjs",
+          "line": 489
+        },
+        {
+          "code": null,
+          "message": "empty response",
+          "kind": "error-call",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/coding-review-runner.mjs",
+          "line": 206,
+          "note": "parseError 欄位值"
+        },
+        {
+          "code": null,
+          "message": "no json array found",
+          "kind": "error-call",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/coding-review-runner.mjs",
+          "line": 223,
+          "note": "parseError 欄位值"
+        }
+      ],
+      "uniqueCount": 10
+    },
+    {
+      "featureId": "F-008",
+      "featureName": "技能執行引擎與 LLM 工具呼叫迴圈",
+      "summary": "engine runner 的 data/API/script 三類操作全為 inline throw，包含明確的 SSRF 防護（https-only、block private host）與權限拒絕（access denied）等重要語意，均無 code。",
+      "codes": [
+        {
+          "code": null,
+          "message": "DataRunner requires a dataStoreRepo but none was injected (check createRunner deps)",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/engine/src/runner/index.ts",
+          "line": 71
+        },
+        {
+          "code": null,
+          "message": "Record not found: ${id}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/engine/src/runner/index.ts",
+          "line": 93
+        },
+        {
+          "code": null,
+          "message": "Unknown data operation: ${operation}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/engine/src/runner/index.ts",
+          "line": 124
+        },
+        {
+          "code": null,
+          "message": "Record access denied for ${op}: row is not owned by the current user",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/engine/src/runner/index.ts",
+          "line": 131,
+          "note": "權限拒絕，適合 BIZ + 403"
+        },
+        {
+          "code": null,
+          "message": "Invalid API url: ${rawUrl}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/engine/src/runner/index.ts",
+          "line": 161
+        },
+        {
+          "code": null,
+          "message": "API runner only allows https URLs (got ${parsed.protocol})",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/engine/src/runner/index.ts",
+          "line": 164
+        },
+        {
+          "code": null,
+          "message": "API runner blocked private/loopback host: ${host}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/engine/src/runner/index.ts",
+          "line": 178
+        },
+        {
+          "code": null,
+          "message": "API call failed",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/engine/src/runner/index.ts",
+          "line": 268
+        },
+        {
+          "code": null,
+          "message": "Unsupported script language: ${language}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/engine/src/runner/index.ts",
+          "line": 329
+        },
+        {
+          "code": null,
+          "message": "ScriptRunner requires either `script` or `scriptPath` in config",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/engine/src/runner/index.ts",
+          "line": 365
+        }
+      ],
+      "uniqueCount": 10
     },
     {
       "featureId": "F20261107-009",
-      "featureName": "PAAW 工作區介面（設定、知識庫、看板與 AI 協作頁面）",
-      "summary": "前端 fetch 錯誤多為 `throw new Error(\\`HTTP ${status}\\`)` 或讀 `data.error`；無 code，訊息直接顯示給使用者。",
+      "featureName": "PAAW 主要工作頁面（聊天、筆記、專案看板與各設定中心）",
+      "summary": "前端統一模式為 throw new Error(`HTTP ${resp.status}`) 或轉傳後端 data.error 字串，完全依賴 HTTP status 與訊息字串，無 code 可供 UI 分支或 i18n。",
       "codes": [
         {
           "code": null,
@@ -260,35 +545,11 @@
         },
         {
           "code": null,
-          "message": "r.error",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/pages/CodingIDE.tsx",
-          "line": 492
-        },
-        {
-          "code": null,
-          "message": "HTTP ${resp.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/pages/FileEditor.tsx",
-          "line": 59
-        },
-        {
-          "code": null,
           "message": "HTTP ${r.status}",
           "kind": "throw",
           "httpStatus": null,
           "file": "packages/ui/src/pages/FileViewer.tsx",
           "line": 281
-        },
-        {
-          "code": null,
-          "message": "data.error",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/pages/FileViewer.tsx",
-          "line": 285
         },
         {
           "code": null,
@@ -305,14 +566,6 @@
           "httpStatus": null,
           "file": "packages/ui/src/pages/MindMapViewer.tsx",
           "line": 258
-        },
-        {
-          "code": null,
-          "message": "AI 回應失敗",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/pages/MindMapViewer.tsx",
-          "line": 355
         },
         {
           "code": null,
@@ -339,228 +592,93 @@
           "line": 57
         }
       ],
-      "uniqueCount": 12
+      "uniqueCount": 9
     },
     {
-      "featureId": "F20261107-022",
-      "featureName": "AI 對話介面與 Crew 管理（共用 Chat UI 層）",
-      "summary": "前端 fetch 錯誤多為 `throw new Error(data.error || \\`HTTP ${status}\\`)`，部分為空 `new Error()`；無 code。",
+      "featureId": "F20261109-002",
+      "featureName": "AI 代理對話與日誌維運後台",
+      "summary": "a2a webhook 驗證（同 F20261107-001）與 crew.mjs 的檔案操作參數驗證全為 inline throw；路徑安全錯誤透過 sendPathTraversalError 統一出口，是少數有集中處理的型態。",
       "codes": [
         {
           "code": null,
-          "message": "data.error || HTTP ${res.status}",
+          "message": "Invalid webhook URL",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/components/AgentBuilder.tsx",
-          "line": 213
+          "file": "packages/server/src/routes/a2a.mjs",
+          "line": 362
         },
         {
           "code": null,
-          "message": "(empty)",
+          "message": "Webhook URL host is not allowed (loopback/link-local blocked)",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/components/AssistantProfileModal.tsx",
-          "line": 66
+          "file": "packages/server/src/routes/a2a.mjs",
+          "line": 367
         },
         {
           "code": null,
-          "message": "d.error",
+          "message": "No API key for provider: ${providerId}",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/components/AssistantSkillsModal.tsx",
-          "line": 32
+          "file": "packages/server/src/routes/a2a.mjs",
+          "line": 676
+        },
+        {
+          "code": "PATH_TRAVERSAL",
+          "message": "Path traversal blocked",
+          "kind": "error-call",
+          "httpStatus": null,
+          "file": "packages/server/src/routes/cron-jobs.mjs",
+          "line": 679,
+          "note": "err.code 判斷後走 sendPathTraversalError，少數結構化案例"
         },
         {
           "code": null,
-          "message": "(empty)",
+          "message": "Unsupported platform: ${platform}",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/components/AssistantSkillsModal.tsx",
-          "line": 64
+          "file": "packages/server/src/routes/crew.mjs",
+          "line": 735
         },
         {
           "code": null,
-          "message": "save failed",
+          "message": "Missing 'content' in body",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/components/CrewManager.tsx",
-          "line": 185
+          "file": "packages/server/src/routes/crew.mjs",
+          "line": 900
         },
         {
           "code": null,
-          "message": "upload failed",
+          "message": "Missing path",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/components/CrewManager.tsx",
-          "line": 202
+          "file": "packages/server/src/routes/crew.mjs",
+          "line": 942
         },
         {
           "code": null,
-          "message": "err.error || HTTP ${res.status}",
+          "message": "Missing oldPath or newPath",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/components/CrewManager.tsx",
-          "line": 325
+          "file": "packages/server/src/routes/crew.mjs",
+          "line": 979
         },
         {
           "code": null,
-          "message": "HTTP ${res.status}",
+          "message": "Not a file",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/components/CrewManager.tsx",
-          "line": 368
-        },
-        {
-          "code": null,
-          "message": "start failed",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/components/EMDashboard.tsx",
-          "line": 786
-        },
-        {
-          "code": null,
-          "message": "await r.text()",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/components/ProjectMdPage.tsx",
-          "line": 58
-        },
-        {
-          "code": null,
-          "message": "failed",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/components/ProjectMdPage.tsx",
-          "line": 78
-        },
-        {
-          "code": null,
-          "message": "j.detail || j.error || HTTP ${res.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/components/ReleaseRequests.tsx",
-          "line": 113
-        },
-        {
-          "code": null,
-          "message": "data.error / HTTP ${res.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/components/RuCloneModal.tsx",
-          "line": 38
+          "file": "packages/server/src/routes/crew.mjs",
+          "line": 1063
         }
       ],
-      "uniqueCount": 12
+      "uniqueCount": 9
     },
     {
-      "featureId": "F20261107-006",
-      "featureName": "內建瀏覽器遠端操控（AI 瀏覽器共用畫面與操作回放）",
-      "summary": "browser-executor / browser-session 以 inline `throw new Error` 驗證 URL、protocol、參數；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "releaseUnitId required",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/browser-executor.mjs",
-          "line": 41
-        },
-        {
-          "code": null,
-          "message": "invalid releaseUnitId: ${releaseUnitId}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/browser-executor.mjs",
-          "line": 43
-        },
-        {
-          "code": null,
-          "message": "BrowserExecutor: release unit \"${releaseUnitId}\" 沒有開啟的 session — 先呼叫 open()",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/browser-executor.mjs",
-          "line": 53
-        },
-        {
-          "code": null,
-          "message": "url required",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/browser-executor.mjs",
-          "line": 160
-        },
-        {
-          "code": null,
-          "message": "text required",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/browser-executor.mjs",
-          "line": 208
-        },
-        {
-          "code": null,
-          "message": "screenshot failed (page closed?)",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/browser-executor.mjs",
-          "line": 233
-        },
-        {
-          "code": null,
-          "message": "Invalid URL: ${url}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/browser-session.mjs",
-          "line": 228
-        },
-        {
-          "code": null,
-          "message": "Blocked protocol ${u.protocol} — only http/https allowed",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/browser-session.mjs",
-          "line": 230
-        },
-        {
-          "code": null,
-          "message": "resize requires w/h",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/browser-session.mjs",
-          "line": 439
-        },
-        {
-          "code": null,
-          "message": "Provide `selector` or `text` to identify the element",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/browser-session.mjs",
-          "line": 512
-        },
-        {
-          "code": null,
-          "message": "no bounding box",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/browser-session.mjs",
-          "line": 535
-        },
-        {
-          "code": null,
-          "message": "tab not found: ${id}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/browser-session.mjs",
-          "line": 667
-        }
-      ],
-      "uniqueCount": 12
-    },
-    {
-      "featureId": "F20261016-020",
-      "featureName": "交接狀態彙整與交接包生成",
-      "summary": "paaw-agent-loop 以 inline `throw new Error` 表達 provider 缺失與 LLM API 錯誤；tool-registry 驗證 entry；無 code。",
+      "featureId": "F20261107-005",
+      "featureName": "AI 對話引擎與工具執行核心（Agent Runtime）",
+      "summary": "llm-utils 是 error 密度最高的模組（上游 LLM API 錯誤、JSON 解析、空回應、retry 耗盡、user abort），全為 inline 訊息且中英混雜；這是 EXT_LLM_* family 最需要 code 化的地方。",
       "codes": [
         {
           "code": null,
@@ -580,332 +698,245 @@
         },
         {
           "code": null,
-          "message": "No provider config found - checked: ${resolve(DATA_HOME, \"config/providers.json\")}",
+          "message": "LLM API error ${resp.status}: ${errText.slice(0, 500)}",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-          "line": 101
+          "file": "packages/server/src/lib/llm-utils.mjs",
+          "line": 540
         },
         {
           "code": null,
-          "message": "Provider '${providerId}' not found",
+          "message": "LLM API returned invalid JSON: ${jsonErr.message}",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-          "line": 134
+          "file": "packages/server/src/lib/llm-utils.mjs",
+          "line": 548
         },
         {
           "code": null,
-          "message": "LLM API error ${resp.status}: ${text.slice(0, 500)}",
+          "message": "LLM API returned no choices",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-          "line": 656
+          "file": "packages/server/src/lib/llm-utils.mjs",
+          "line": 554
         },
         {
           "code": null,
-          "message": "[ToolRegistry] Invalid tool entry: missing name/definition/handler",
+          "message": "LLM 空回應：${_diag}",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/lib/tool-registry.mjs",
-          "line": 42
+          "file": "packages/server/src/lib/llm-utils.mjs",
+          "line": 604
         },
         {
           "code": null,
-          "message": "Unsupported platform: ${platform}",
+          "message": "fetchWithRetry: unknown failure",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/routes/crew.mjs",
-          "line": 735
+          "file": "packages/server/src/lib/llm-utils.mjs",
+          "line": 457
         },
         {
           "code": null,
-          "message": "Missing 'content' in body",
+          "message": "callLLMWithRetry: exhausted all retries",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/routes/crew.mjs",
-          "line": 900
+          "file": "packages/server/src/lib/llm-utils.mjs",
+          "line": 734
         },
         {
           "code": null,
-          "message": "Missing path",
+          "message": "Invalid JSON: ${jsonErr.message}",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/routes/crew.mjs",
-          "line": 942
-        },
-        {
-          "code": null,
-          "message": "Missing path",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/crew.mjs",
-          "line": 960
-        },
-        {
-          "code": null,
-          "message": "Missing oldPath or newPath",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/crew.mjs",
-          "line": 979
-        },
-        {
-          "code": null,
-          "message": "Missing srcPath or destPath",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/crew.mjs",
-          "line": 999
-        },
-        {
-          "code": null,
-          "message": "Not a file",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/crew.mjs",
-          "line": 1063
+          "file": "packages/server/src/lib/llm-utils.mjs",
+          "line": 700
         }
       ],
-      "uniqueCount": 12
+      "uniqueCount": 9
     },
     {
-      "featureId": "F20261107-001",
-      "featureName": "Coding 專案分析與 AI 協作路由",
-      "summary": "以 `throw new Error(\"AI 回應為空/解析失敗…\")` 為主，route 層另有 `res.status(400/500).json({ error })`；無 code，AI 回應解析失敗與輸入驗證混在一起。",
+      "featureId": "F-019",
+      "featureName": "上線放行閘門與證據審查（Release Request 與證據包）",
+      "summary": "release-requests.mjs 是另一個半結構化案例：所有狀態機錯誤都在 Error 物件上掛 e.status（400/404），語意清楚但無 code；狀態機錯誤極適合 BIZ_RELEASE_* family。",
       "codes": [
         {
           "code": null,
-          "message": "AI did not return an array",
+          "message": "release request not found",
           "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding-features.mjs",
-          "line": 998
+          "httpStatus": 404,
+          "file": "packages/server/src/lib/release-requests.mjs",
+          "line": 701
         },
         {
           "code": null,
-          "message": "AI did not return an array",
+          "message": "已 ${rr.status}，不可修改",
           "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding-features.mjs",
-          "line": 1140
-        },
-        {
-          "code": null,
-          "message": "AI 未回傳可解析的 sections",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding-handover.mjs",
-          "line": 465
-        },
-        {
-          "code": null,
-          "message": "AI 回應為空，無法產生 API Map",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding.mjs",
-          "line": 1122
-        },
-        {
-          "code": null,
-          "message": "API Map 解析失敗（非 JSON array）",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding.mjs",
-          "line": 1124
-        },
-        {
-          "code": null,
-          "message": "API Map 無有效 entry",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding.mjs",
-          "line": 1150
-        },
-        {
-          "code": null,
-          "message": "AI 回應為空，無法產生 UI Map",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding.mjs",
-          "line": 1167
-        },
-        {
-          "code": null,
-          "message": "UI Map 解析失敗（非 JSON array）",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding.mjs",
-          "line": 1182
-        },
-        {
-          "code": null,
-          "message": "UI Map 無有效 route",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding.mjs",
-          "line": 1210
-        },
-        {
-          "code": null,
-          "message": "path required",
-          "kind": "http",
           "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-handover.mjs",
-          "line": 515
+          "file": "packages/server/src/lib/release-requests.mjs",
+          "line": 703
         },
         {
           "code": null,
-          "message": "path required",
-          "kind": "http",
+          "message": "baseline 只能在 draft 階段修改（reviewing 已鎖定）",
+          "kind": "throw",
           "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-handover.mjs",
-          "line": 536
+          "file": "packages/server/src/lib/release-requests.mjs",
+          "line": 706
         },
         {
           "code": null,
-          "message": "text required",
-          "kind": "http",
+          "message": "狀態是 ${rr.status}，只有 draft 可以 open",
+          "kind": "throw",
           "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-handover.mjs",
-          "line": 565
+          "file": "packages/server/src/lib/release-requests.mjs",
+          "line": 725
         },
         {
           "code": null,
-          "message": "生成失敗：${err.message}",
-          "kind": "http",
-          "httpStatus": 500,
-          "file": "packages/server/src/routes/coding-handover.mjs",
-          "line": 598
+          "message": "checklist item 不存在：${itemId}",
+          "kind": "throw",
+          "httpStatus": 404,
+          "file": "packages/server/src/lib/release-requests.mjs",
+          "line": 750
         },
         {
           "code": null,
-          "message": "path required",
-          "kind": "http",
+          "message": "verdict 只能是 pass / fail / waived",
+          "kind": "throw",
           "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-handover.mjs",
-          "line": 606
+          "file": "packages/server/src/lib/release-requests.mjs",
+          "line": 752
+        },
+        {
+          "code": null,
+          "message": "waive 必須留 note（為什麼可以放行）",
+          "kind": "throw",
+          "httpStatus": 400,
+          "file": "packages/server/src/lib/release-requests.mjs",
+          "line": 755
+        },
+        {
+          "code": null,
+          "message": "已結案（close），不可取消",
+          "kind": "throw",
+          "httpStatus": 400,
+          "file": "packages/server/src/lib/release-requests.mjs",
+          "line": 918
+        },
+        {
+          "code": null,
+          "message": "items 必須是 [{ itemId, verdict, reason }]（至少一項）",
+          "kind": "throw",
+          "httpStatus": 400,
+          "file": "packages/server/src/lib/release-requests.mjs",
+          "line": 957
         }
       ],
-      "uniqueCount": 11
+      "uniqueCount": 9
     },
     {
-      "featureId": "F20261109-002",
-      "featureName": "AI 代理對話與日誌維運後台",
-      "summary": "webhook URL 驗證與 provider 查找用 inline `throw new Error`；crew 檔案操作以 `Missing path` 等字串驗證；無 code。",
+      "featureId": "F20261107-011",
+      "featureName": "Next.js 16 後端最佳實務範本庫（技能知識資產）",
+      "summary": "範本教材採 HTTP-status-only 慣例（400/401/404/413/415/429/500/502 + error 字串），屬教材內容而非 runtime code；無 error code 但語意分層清楚。",
       "codes": [
         {
           "code": null,
-          "message": "Invalid webhook URL",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/a2a.mjs",
-          "line": 362
+          "message": "Upstream API error",
+          "kind": "http",
+          "httpStatus": 502,
+          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
+          "line": 33
         },
         {
           "code": null,
-          "message": "Webhook URL must be http(s)",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/a2a.mjs",
-          "line": 364
+          "message": "Invalid JSON body",
+          "kind": "http",
+          "httpStatus": 400,
+          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
+          "line": 97
         },
         {
           "code": null,
-          "message": "Webhook URL host is not allowed (loopback/link-local blocked)",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/a2a.mjs",
-          "line": 367
+          "message": "Failed to create post",
+          "kind": "http",
+          "httpStatus": 502,
+          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
+          "line": 56
         },
         {
           "code": null,
-          "message": "Public webhook URL must use https",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/a2a.mjs",
-          "line": 371
+          "message": "Failed to update post",
+          "kind": "http",
+          "httpStatus": 502,
+          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
+          "line": 106
         },
         {
           "code": null,
-          "message": "No API key for provider: ${providerId}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/a2a.mjs",
-          "line": 676
+          "message": "Failed to delete post",
+          "kind": "http",
+          "httpStatus": 502,
+          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
+          "line": 124
         },
         {
           "code": null,
-          "message": "Unsupported platform: ${platform}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/crew.mjs",
-          "line": 735
+          "message": "(no message)",
+          "kind": "http",
+          "httpStatus": 429,
+          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/proxy-migration.ts",
+          "line": 155
         },
         {
           "code": null,
-          "message": "Missing 'content' in body",
+          "message": "Failed to load analytics: ${res.status}",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/routes/crew.mjs",
-          "line": 900
+          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx",
+          "line": 175
         },
         {
           "code": null,
-          "message": "Missing path",
+          "message": "Upstream API responded ${r.status}",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/routes/crew.mjs",
-          "line": 942
-        },
-        {
-          "code": null,
-          "message": "Missing path",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/crew.mjs",
-          "line": 960
-        },
-        {
-          "code": null,
-          "message": "Missing oldPath or newPath",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/crew.mjs",
-          "line": 979
-        },
-        {
-          "code": null,
-          "message": "Missing srcPath or destPath",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/crew.mjs",
-          "line": 999
-        },
-        {
-          "code": null,
-          "message": "Not a file",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/crew.mjs",
-          "line": 1063
-        },
-        {
-          "code": null,
-          "message": "No API key for provider: ${providerId}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/helpdesk.mjs",
-          "line": 116
+          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
+          "line": 434
         }
       ],
-      "uniqueCount": 11
+      "uniqueCount": 8
     },
     {
       "featureId": "F20261107-002",
-      "featureName": "Coding 工作區工具組（備份還原、API 測試台、應用／筆記／心智圖、自動派工計畫、Git 與檔案操作）",
-      "summary": "`execution-plan.mjs` 有 `PlanError`（`_validation`/`_notFound` 帶 httpStatus）是少數較結構化的；其餘 backup 等仍為 inline `throw new Error`。",
+      "featureName": "Coding 助理的維運與自動派工後端（Runbook／執行計畫／設定／安全與工作區工具）",
+      "summary": "execution-plan.mjs 是全 codebase 少數有結構的地方（PlanError 攜帶 NOT_FOUND/VALIDATION 代號 + 4xx status），其餘 backup.mjs 仍為 inline 字串。可作為 error registry 的種子典範。",
       "codes": [
+        {
+          "code": "NOT_FOUND",
+          "message": "Plan not found: ${planId}",
+          "kind": "error-call",
+          "httpStatus": 404,
+          "file": "packages/server/src/lib/execution-plan.mjs",
+          "line": 47,
+          "note": "PlanError constructor，registry 化的起點"
+        },
+        {
+          "code": "VALIDATION",
+          "message": "Invalid subtask status: ${cleanPatch.status}",
+          "kind": "throw",
+          "httpStatus": 400,
+          "file": "packages/server/src/lib/execution-plan.mjs",
+          "line": 287
+        },
+        {
+          "code": "VALIDATION",
+          "message": "Cannot start a ${plan.status} plan",
+          "kind": "throw",
+          "httpStatus": 400,
+          "file": "packages/server/src/lib/execution-plan.mjs",
+          "line": 432
+        },
         {
           "code": null,
           "message": "projectPath required",
@@ -915,49 +946,7 @@
           "line": 148
         },
         {
-          "code": null,
-          "message": "Invalid subtask status: ${status}",
-          "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/execution-plan.mjs",
-          "line": 287,
-          "note": "經 _validation → PlanError VALIDATION"
-        },
-        {
-          "code": null,
-          "message": "Plan not found: ${planId}",
-          "kind": "throw",
-          "httpStatus": 404,
-          "file": "packages/server/src/lib/execution-plan.mjs",
-          "line": 293,
-          "note": "經 _notFound → PlanError NOT_FOUND"
-        },
-        {
-          "code": null,
-          "message": "Sub-task not found: ${subtaskId}",
-          "kind": "throw",
-          "httpStatus": 404,
-          "file": "packages/server/src/lib/execution-plan.mjs",
-          "line": 322
-        },
-        {
-          "code": null,
-          "message": "Cannot start a ${plan.status} plan",
-          "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/execution-plan.mjs",
-          "line": 432
-        },
-        {
-          "code": null,
-          "message": "Plan not found: ${planId}",
-          "kind": "throw",
-          "httpStatus": 404,
-          "file": "packages/server/src/lib/execution-plan.mjs",
-          "line": 548
-        },
-        {
-          "code": null,
+          "code": "VALIDATION",
           "message": "Invalid status: ${status}",
           "kind": "throw",
           "httpStatus": 400,
@@ -965,7 +954,7 @@
           "line": 559
         },
         {
-          "code": null,
+          "code": "VALIDATION",
           "message": "Cannot revert ${plan.status} plan back to running",
           "kind": "throw",
           "httpStatus": 400,
@@ -1005,484 +994,124 @@
           "line": 415
         }
       ],
-      "uniqueCount": 11
+      "uniqueCount": 7
     },
     {
-      "featureId": "F20261107-011",
-      "featureName": "Next.js 16 後端最佳實務範本集（路由、快取、Server Actions、Proxy）",
-      "summary": "教材範本，以 `NextResponse.json({ error }, { status })` 與 inline throw 示範；無 code，屬教學素材非產品程式。",
+      "featureId": "F20261107-006",
+      "featureName": "內建瀏覽器遠端操控（AI 瀏覽器共用畫面與操作回放）",
+      "summary": "browser session/executor 的參數驗證與狀態錯誤（session 未開、tab 不存在、URL 協定封鎖）全為 inline throw。",
       "codes": [
         {
           "code": null,
-          "message": "Failed to load analytics: ${res.status}",
+          "message": "BrowserExecutor: release unit \"${releaseUnitId}\" 沒有開啟的 session — 先呼叫 open()",
           "kind": "throw",
           "httpStatus": null,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx",
-          "line": 175
+          "file": "packages/server/src/lib/browser-executor.mjs",
+          "line": 53
         },
         {
           "code": null,
-          "message": "Failed to load reviews: ${res.status}",
+          "message": "screenshot failed (page closed?)",
           "kind": "throw",
           "httpStatus": null,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx",
+          "file": "packages/server/src/lib/browser-executor.mjs",
+          "line": 233
+        },
+        {
+          "code": null,
+          "message": "Invalid URL: ${url}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/browser-session.mjs",
+          "line": 228
+        },
+        {
+          "code": null,
+          "message": "Blocked protocol ${u.protocol} — only http/https allowed",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/browser-session.mjs",
+          "line": 230
+        },
+        {
+          "code": null,
+          "message": "resize requires w/h",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/browser-session.mjs",
+          "line": 439
+        },
+        {
+          "code": null,
+          "message": "no bounding box",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/browser-session.mjs",
+          "line": 535
+        },
+        {
+          "code": null,
+          "message": "tab not found: ${id}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/browser-session.mjs",
+          "line": 667
+        }
+      ],
+      "uniqueCount": 7
+    },
+    {
+      "featureId": "F-041",
+      "featureName": "維運狀態與 Runbook 管理",
+      "summary": "coding-ops.mjs 是標準 HTTP-status + error 字串模式（400/404/409），語意尚可但無 code；409（human-authored 衝突）是明確的狀態衝突案例。",
+      "codes": [
+        {
+          "code": null,
+          "message": "path required",
+          "kind": "http",
+          "httpStatus": 400,
+          "file": "packages/server/src/routes/coding-ops.mjs",
+          "line": 218
+        },
+        {
+          "code": null,
+          "message": "invalid id",
+          "kind": "http",
+          "httpStatus": 400,
+          "file": "packages/server/src/routes/coding-ops.mjs",
+          "line": 245
+        },
+        {
+          "code": null,
+          "message": "runbook not found",
+          "kind": "http",
+          "httpStatus": 404,
+          "file": "packages/server/src/routes/coding-ops.mjs",
+          "line": 249
+        },
+        {
+          "code": null,
+          "message": "invalid JSON body",
+          "kind": "http",
+          "httpStatus": 400,
+          "file": "packages/server/src/routes/coding-ops.mjs",
           "line": 259
         },
         {
           "code": null,
-          "message": "Failed to load profile: ${res.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx",
-          "line": 336
-        },
-        {
-          "code": null,
-          "message": "Upstream API responded ${r.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
-          "line": 434
-        },
-        {
-          "code": null,
-          "message": "Failed to create post (HTTP ${res.status})",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/server-actions-form.tsx",
-          "line": 60
-        },
-        {
-          "code": null,
-          "message": "Failed to like post (HTTP ${res.status})",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/server-actions-form.tsx",
-          "line": 257
-        },
-        {
-          "code": null,
-          "message": "Upstream API error",
+          "message": "runbook is human-authored; pass overwrite:true to replace",
           "kind": "http",
-          "httpStatus": 502,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
-          "line": 33
-        },
-        {
-          "code": null,
-          "message": "Failed to create post",
-          "kind": "http",
-          "httpStatus": 502,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
-          "line": 56
-        },
-        {
-          "code": null,
-          "message": "Invalid JSON body",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
-          "line": 97
-        },
-        {
-          "code": null,
-          "message": "Failed to update post",
-          "kind": "http",
-          "httpStatus": 502,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
-          "line": 106
-        },
-        {
-          "code": null,
-          "message": "Failed to delete post",
-          "kind": "http",
-          "httpStatus": 502,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
-          "line": 124
+          "httpStatus": 409,
+          "file": "packages/server/src/routes/coding-ops.mjs",
+          "line": 281
         }
       ],
-      "uniqueCount": 11
+      "uniqueCount": 5
     },
     {
-      "featureId": "F-008",
-      "featureName": "技能執行引擎與工具呼叫（Engine Runner & Tool Engine）",
-      "summary": "runner/index.ts 大量 inline `throw new Error`，含 URL 驗證、record 權限、未知操作；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "DataRunner requires a dataStoreRepo but none was injected (check createRunner deps)",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 71
-        },
-        {
-          "code": null,
-          "message": "Record not found: ${id}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 93
-        },
-        {
-          "code": null,
-          "message": "Record not found: ${input.id}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 101
-        },
-        {
-          "code": null,
-          "message": "Unknown data operation: ${operation}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 124
-        },
-        {
-          "code": null,
-          "message": "Record access denied for ${op}: row is not owned by the current user",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 131
-        },
-        {
-          "code": null,
-          "message": "Invalid API url: ${rawUrl}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 161
-        },
-        {
-          "code": null,
-          "message": "API runner only allows https URLs (got ${parsed.protocol})",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 164
-        },
-        {
-          "code": null,
-          "message": "API runner blocked private/loopback host: ${host}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 178
-        },
-        {
-          "code": null,
-          "message": "API call failed",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 268
-        },
-        {
-          "code": null,
-          "message": "Unsupported script language: ${language}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 329
-        },
-        {
-          "code": null,
-          "message": "ScriptRunner requires either `script` or `scriptPath` in config",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 365
-        }
-      ],
-      "uniqueCount": 11
-    },
-    {
-      "featureId": "F-009",
-      "featureName": "Skill Runner & Workflow Engine",
-      "summary": "runner/index.ts 以 inline `throw new Error` 表達 URL 驗證、record 權限、未知操作；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "DataRunner requires a dataStoreRepo but none was injected (check createRunner deps)",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 71
-        },
-        {
-          "code": null,
-          "message": "Record not found: ${id}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 93
-        },
-        {
-          "code": null,
-          "message": "Record not found: ${input.id}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 101
-        },
-        {
-          "code": null,
-          "message": "Unknown data operation: ${operation}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 124
-        },
-        {
-          "code": null,
-          "message": "Record access denied for ${op}: row is not owned by the current user",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 131
-        },
-        {
-          "code": null,
-          "message": "Invalid API url: ${rawUrl}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 161
-        },
-        {
-          "code": null,
-          "message": "API runner only allows https URLs (got ${parsed.protocol})",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 164
-        },
-        {
-          "code": null,
-          "message": "API runner blocked private/loopback host: ${host}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 178
-        },
-        {
-          "code": null,
-          "message": "API call failed",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 268
-        },
-        {
-          "code": null,
-          "message": "Unsupported script language: ${language}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 329
-        },
-        {
-          "code": null,
-          "message": "ScriptRunner requires either `script` or `scriptPath` in config",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/engine/src/runner/index.ts",
-          "line": 365
-        }
-      ],
-      "uniqueCount": 11
-    },
-    {
-      "featureId": "F20261107-004",
-      "featureName": "AI 上下文組裝與排程 Agent 執行",
-      "summary": "ws-handler 用 inline throw；tools/index.mjs 以回傳字串 `\"Error: ...\"` 表達錯誤（非 throw），與其他層不一致。",
-      "codes": [
-        {
-          "code": null,
-          "message": "raw terminal input",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/websocket/ws-handler.mjs",
-          "line": 54
-        },
-        {
-          "code": null,
-          "message": "Agent interrupted by user",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/websocket/ws-handler.mjs",
-          "line": 355
-        },
-        {
-          "code": null,
-          "message": "Invalid JSON",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/scheduler/cron-jobs.mjs",
-          "line": 362
-        },
-        {
-          "code": null,
-          "message": "Error: category is required.",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 843
-        },
-        {
-          "code": null,
-          "message": "Error reading issues: ${err.message}",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 856
-        },
-        {
-          "code": null,
-          "message": "Error: ${err.message}",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 868
-        },
-        {
-          "code": null,
-          "message": "Error reading ru_info: ${err.message}",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 928
-        },
-        {
-          "code": null,
-          "message": "Error: action is required.",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 936
-        },
-        {
-          "code": null,
-          "message": "Error updating ru_info: ${err.message}",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 958
-        },
-        {
-          "code": null,
-          "message": "Error: title is required.",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 961
-        }
-      ],
-      "uniqueCount": 10
-    },
-    {
-      "featureId": "F20261107-005",
-      "featureName": "AI 對話引擎與工具執行核心（Agent Runtime）",
-      "summary": "llm-utils 以 inline `throw new Error` 表達 LLM API 錯誤、JSON 解析失敗、空回應；context-compaction 同型；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "Summary LLM call failed: ${response.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/context-compaction.mjs",
-          "line": 240
-        },
-        {
-          "code": null,
-          "message": "Summary too short or empty",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/context-compaction.mjs",
-          "line": 248
-        },
-        {
-          "code": null,
-          "message": "LLM API error ${resp.status}: ${errText.slice(0, 500)}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 515
-        },
-        {
-          "code": null,
-          "message": "LLM API returned invalid JSON: ${jsonErr.message}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 523
-        },
-        {
-          "code": null,
-          "message": "LLM API returned no choices",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 529
-        },
-        {
-          "code": null,
-          "message": "LLM 空回應：${_diag}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 579
-        },
-        {
-          "code": null,
-          "message": "Invalid JSON: ${jsonErr.message}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 675
-        },
-        {
-          "code": null,
-          "message": "LLM API returned no choices",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 678
-        },
-        {
-          "code": null,
-          "message": "fetchWithRetry: unknown failure",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 433
-        },
-        {
-          "code": null,
-          "message": "callLLMWithRetry: exhausted all retries",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 709
-        },
-        {
-          "code": null,
-          "message": "fetchStreamWithRetry: exhausted all retries",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 835
-        }
-      ],
-      "uniqueCount": 10
-    },
-    {
-      "featureId": "F20261016-049",
-      "featureName": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
-      "summary": "前端 fetch 錯誤多為 `throw new Error(data.error || \\`HTTP ${status}\\`)`；無 code。",
+      "featureId": "F20261107-022",
+      "featureName": "PAAW 共用前端元件庫（面板、聊天、Agent 與派工 UI）",
+      "summary": "與其他前端相同：throw new Error() 或 data.error || `HTTP ${status}` 的 fallback 模式，全部無 code；建議後端加 code 後 UI 才能分類。",
       "codes": [
         {
           "code": null,
@@ -1494,22 +1123,6 @@
         },
         {
           "code": null,
-          "message": "upload failed",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/components/CrewManager.tsx",
-          "line": 202
-        },
-        {
-          "code": null,
-          "message": "err.error || HTTP ${res.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/components/CrewManager.tsx",
-          "line": 325
-        },
-        {
-          "code": null,
           "message": "HTTP ${res.status}",
           "kind": "throw",
           "httpStatus": null,
@@ -1518,35 +1131,131 @@
         },
         {
           "code": null,
-          "message": "await r.text()",
+          "message": "start failed",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/components/ProjectMdPage.tsx",
-          "line": 58
+          "file": "packages/ui/src/components/EMDashboard.tsx",
+          "line": 787
         },
         {
           "code": null,
-          "message": "failed",
+          "message": "register failed (HTTP ${reg.status})",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/components/ProjectMdPage.tsx",
-          "line": 78
+          "file": "packages/ui/src/components/RuCloneModal.tsx",
+          "line": 46
         },
         {
           "code": null,
-          "message": "j.detail || j.error || HTTP ${res.status}",
+          "message": "HTTP ${res.status}",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/components/ReleaseRequests.tsx",
+          "file": "packages/ui/src/components/SkillSuggestModal.tsx",
           "line": 113
+        }
+      ],
+      "uniqueCount": 4
+    },
+    {
+      "featureId": "F20261016-020",
+      "featureName": "交接狀態彙整與交接包生成",
+      "summary": "provider 設定缺失與 LLM API 錯誤為 inline throw，與 F-006/F-010 同型；crew.mjs 檔案操作驗證亦同。",
+      "codes": [
+        {
+          "code": null,
+          "message": "No provider config found - checked: ...",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "line": 101
         },
         {
           "code": null,
-          "message": "r.error",
+          "message": "Provider '${providerId}' not found",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/pages/CodingIDE.tsx",
-          "line": 492
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "line": 134
+        },
+        {
+          "code": null,
+          "message": "LLM API error ${resp.status}: ${text.slice(0, 500)}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "line": 656
+        },
+        {
+          "code": null,
+          "message": "[ToolRegistry] Invalid tool entry: missing name/definition/handler",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/tool-registry.mjs",
+          "line": 42
+        }
+      ],
+      "uniqueCount": 4
+    },
+    {
+      "featureId": "F-026",
+      "featureName": "Coding Handover",
+      "summary": "後端混合 throw（AI sections 解析失敗）與 HTTP status 回應（400/500 + error 字串）；前端另設 ErrorBoundary 元件處理渲染錯誤。",
+      "codes": [
+        {
+          "code": null,
+          "message": "AI 未回傳可解析的 sections",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/routes/coding-handover.mjs",
+          "line": 465
+        },
+        {
+          "code": null,
+          "message": "path required",
+          "kind": "http",
+          "httpStatus": 400,
+          "file": "packages/server/src/routes/coding-handover.mjs",
+          "line": 515
+        },
+        {
+          "code": null,
+          "message": "text required",
+          "kind": "http",
+          "httpStatus": 400,
+          "file": "packages/server/src/routes/coding-handover.mjs",
+          "line": 565
+        },
+        {
+          "code": null,
+          "message": "生成失敗：${String(err?.message || err).slice(0, 200)}",
+          "kind": "http",
+          "httpStatus": 500,
+          "file": "packages/server/src/routes/coding-handover.mjs",
+          "line": 598
+        }
+      ],
+      "uniqueCount": 4
+    },
+    {
+      "featureId": "F20261016-049",
+      "featureName": "AI 編碼工作台（Coding IDE 多頁簽開發環境）",
+      "summary": "前端 fetch 錯誤處理與共用元件同型（HTTP status / data.error fallback），無 code。",
+      "codes": [
+        {
+          "code": null,
+          "message": "fail",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/ui/src/components/browser/BrowserPanel.tsx",
+          "line": 506
+        },
+        {
+          "code": null,
+          "message": "capture failed",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/ui/src/components/browser/BrowserPanel.tsx",
+          "line": 530
         },
         {
           "code": null,
@@ -1558,148 +1267,52 @@
         },
         {
           "code": null,
-          "message": "data.error",
+          "message": "HTTP ${resp.status}",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/pages/FileViewer.tsx",
-          "line": 285
+          "file": "packages/ui/src/pages/FileEditor.tsx",
+          "line": 59
         }
       ],
-      "uniqueCount": 10
+      "uniqueCount": 4
     },
     {
-      "featureId": "F20261107-008",
-      "featureName": "AI 團隊調度與技能資產管理（EM 調度設定 / RU 技能實例）",
-      "summary": "project-crew 以 inline `throw new Error` 驗證 agentId 與唯讀規則；coding-review-runner 用 `parseError` 字串回傳而非 throw；無 code。",
+      "featureId": "F20261121-012",
+      "featureName": "AI Coding Team 自動派工與夜間批次執行",
+      "summary": "EM 規劃解析失敗的三種型態（非 JSON、缺欄位、找不到工作清單）全為 inline throw 且訊息內嵌 LLM 原文，對 diagnostics 有用但無法程式化分類。",
       "codes": [
         {
           "code": null,
-          "message": "git diff ${range} 沒有輸出…",
+          "message": "EM 規劃解析失敗（LLM 回覆不是合法 JSON）：${parseErr.message}",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/lib/coding-review-runner.mjs",
-          "line": 161
+          "file": "packages/server/src/lib/auto-dispatch-manager.mjs",
+          "line": 485
         },
         {
           "code": null,
-          "message": "cfg.error",
+          "message": "LLM 回覆的 JSON 項目缺少 agent/task 欄位（${list.length} 項全無效）",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/lib/coding-review-runner.mjs",
-          "line": 241
+          "file": "packages/server/src/lib/auto-dispatch-manager.mjs",
+          "line": 491
         },
         {
           "code": null,
-          "message": "Agent not found: ${agentId}",
+          "message": "EM 規劃失敗：LLM 回覆中找不到 JSON 工作清單（回應前 500 字：…）",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/lib/project-crew.mjs",
-          "line": 365
-        },
-        {
-          "code": null,
-          "message": "Firmware crew '${agentId}' 的 ${k} 為 module 唯讀…",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/project-crew.mjs",
-          "line": 374
-        },
-        {
-          "code": null,
-          "message": "Agent ID is required",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/project-crew.mjs",
-          "line": 400
-        },
-        {
-          "code": null,
-          "message": "Custom agent ID must start with \"custom.\"",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/project-crew.mjs",
-          "line": 402
-        },
-        {
-          "code": null,
-          "message": "Agent already exists: ${agentId}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/project-crew.mjs",
-          "line": 408
-        },
-        {
-          "code": null,
-          "message": "Only custom agents can be deleted",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/project-crew.mjs",
-          "line": 457
-        },
-        {
-          "code": null,
-          "message": "No global definition for: ${agentId}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/project-crew.mjs",
-          "line": 489
+          "file": "packages/server/src/lib/auto-dispatch-manager.mjs",
+          "line": 496
         }
       ],
-      "uniqueCount": 9
+      "uniqueCount": 3
     },
     {
-      "featureId": "F20261107-017",
-      "featureName": "程式碼理解與功能地圖引擎（Code Understanding / API-First 功能盤點）",
-      "summary": "api-map / c4-model-scan / coding-db 以 inline `throw new Error` 表達 prompt 缺失、LLM 回應解析失敗、migrate 失敗；無 code。",
+      "featureId": "F20261107-018",
+      "featureName": "Coding DB — RU 專屬 SQLite 編碼知識庫（資訊卡、任務/功能掃描、歷程與對話儲存）",
+      "summary": "多數為 re-throw（噪訊已過濾），僅 migration 失敗與 unknown doc_key 是自產 inline 訊息；schema 內含 error_codes 表但只是資料欄位，不是程式 error code。",
       "codes": [
-        {
-          "code": null,
-          "message": "gen-api-map.md prompt 不存在",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/api-map.mjs",
-          "line": 71
-        },
-        {
-          "code": null,
-          "message": "API Map 解析失敗（非 JSON array）",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/api-map.mjs",
-          "line": 91
-        },
-        {
-          "code": null,
-          "message": "API Map 無有效 entry",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/api-map.mjs",
-          "line": 93
-        },
-        {
-          "code": null,
-          "message": "prompt template c4-model.md not found",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/c4-model-scan.mjs",
-          "line": 278
-        },
-        {
-          "code": null,
-          "message": "empty LLM response",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/c4-model-scan.mjs",
-          "line": 292
-        },
-        {
-          "code": null,
-          "message": "no fileFeatures doc",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/change-intelligence.mjs",
-          "line": 115
-        },
         {
           "code": null,
           "message": "coding-db migrate v${m.version} failed: ${err.message}",
@@ -1725,1070 +1338,12 @@
           "line": 80
         }
       ],
-      "uniqueCount": 9
-    },
-    {
-      "featureId": "F20261016-072",
-      "featureName": "工作區周邊功能 API 與通用 App 工具引擎",
-      "summary": "mindmap 以 inline `throw new Error` 表達 provider 缺失與 AI 格式錯誤；tools/index 以回傳字串 `\"Error: ...\"`；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "No provider config found",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/mindmap.mjs",
-          "line": 171
-        },
-        {
-          "code": null,
-          "message": "Provider '${providerId}' not found",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/mindmap.mjs",
-          "line": 177
-        },
-        {
-          "code": null,
-          "message": "AI 回應格式不正確，無法解析為心智圖",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/mindmap.mjs",
-          "line": 226
-        },
-        {
-          "code": null,
-          "message": "Path outside allowed roots: ${p}",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/mindmap.mjs",
-          "line": 84
-        },
-        {
-          "code": null,
-          "message": "Request body exceeds ${MAX_BODY_BYTES} bytes",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/pocket.mjs",
-          "line": 27
-        },
-        {
-          "code": null,
-          "message": "Error: category is required.",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 843
-        },
-        {
-          "code": null,
-          "message": "Error reading issues: ${err.message}",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 856
-        },
-        {
-          "code": null,
-          "message": "Error: ${err.message}",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 868
-        },
-        {
-          "code": null,
-          "message": "Error reading ru_info: ${err.message}",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 928
-        }
-      ],
-      "uniqueCount": 9
-    },
-    {
-      "featureId": "F-041",
-      "featureName": "維運狀態與 Runbook 管理",
-      "summary": "coding-ops 以 `res.status(400/404/409).json({ error })` 表達驗證與衝突；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "path required",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 218
-        },
-        {
-          "code": null,
-          "message": "path and id required",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 239
-        },
-        {
-          "code": null,
-          "message": "invalid id",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 245
-        },
-        {
-          "code": null,
-          "message": "runbook not found",
-          "kind": "http",
-          "httpStatus": 404,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 249
-        },
-        {
-          "code": null,
-          "message": "invalid JSON body",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 259
-        },
-        {
-          "code": null,
-          "message": "path, id, content required",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 262
-        },
-        {
-          "code": null,
-          "message": "path must be an existing directory",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 265
-        },
-        {
-          "code": null,
-          "message": "runbook is human-authored; pass overwrite:true to replace",
-          "kind": "http",
-          "httpStatus": 409,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 281
-        }
-      ],
-      "uniqueCount": 8
-    },
-    {
-      "featureId": "F-027",
-      "featureName": "維運現況總覽與 Runbook 存取",
-      "summary": "與 F-041 同源 coding-ops，`res.status(400/404/409).json({ error })`；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "path required",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 218
-        },
-        {
-          "code": null,
-          "message": "path and id required",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 239
-        },
-        {
-          "code": null,
-          "message": "invalid id",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 245
-        },
-        {
-          "code": null,
-          "message": "runbook not found",
-          "kind": "http",
-          "httpStatus": 404,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 249
-        },
-        {
-          "code": null,
-          "message": "invalid JSON body",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 259
-        },
-        {
-          "code": null,
-          "message": "path, id, content required",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 262
-        },
-        {
-          "code": null,
-          "message": "path must be an existing directory",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 265
-        },
-        {
-          "code": null,
-          "message": "runbook is human-authored; pass overwrite:true to replace",
-          "kind": "http",
-          "httpStatus": 409,
-          "file": "packages/server/src/routes/coding-ops.mjs",
-          "line": 281
-        }
-      ],
-      "uniqueCount": 8
-    },
-    {
-      "featureId": "F-007",
-      "featureName": "Tool Engine (Server)",
-      "summary": "tool-registry 以 inline `throw new Error` 驗證 entry；tool-engine 以 `detectToolError` 回傳字串；tools/index 以 `\"Error: ...\"` 字串；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "[ToolRegistry] Invalid tool entry: missing name/definition/handler",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/tool-registry.mjs",
-          "line": 42
-        },
-        {
-          "code": null,
-          "message": "Error: category is required.",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 843
-        },
-        {
-          "code": null,
-          "message": "Error reading issues: ${err.message}",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 856
-        },
-        {
-          "code": null,
-          "message": "Error: ${err.message}",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 868
-        },
-        {
-          "code": null,
-          "message": "Error reading ru_info: ${err.message}",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 928
-        },
-        {
-          "code": null,
-          "message": "Error: action is required.",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 936
-        },
-        {
-          "code": null,
-          "message": "Error updating ru_info: ${err.message}",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 958
-        },
-        {
-          "code": null,
-          "message": "Error: title is required.",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/tools/index.mjs",
-          "line": 961
-        }
-      ],
-      "uniqueCount": 8
-    },
-    {
-      "featureId": "F-010",
-      "featureName": "LLM Utils & Provider Retry",
-      "summary": "llm-utils 以 inline `throw new Error` 表達 LLM API 錯誤、JSON 解析失敗、空回應、retry 耗盡；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "LLM API error ${resp.status}: ${errText.slice(0, 500)}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 515
-        },
-        {
-          "code": null,
-          "message": "LLM API returned invalid JSON: ${jsonErr.message}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 523
-        },
-        {
-          "code": null,
-          "message": "LLM API returned no choices",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 529
-        },
-        {
-          "code": null,
-          "message": "LLM 空回應：${_diag}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 579
-        },
-        {
-          "code": null,
-          "message": "Invalid JSON: ${jsonErr.message}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 675
-        },
-        {
-          "code": null,
-          "message": "LLM API returned no choices",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 678
-        },
-        {
-          "code": null,
-          "message": "fetchWithRetry: unknown failure",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 433
-        },
-        {
-          "code": null,
-          "message": "callLLMWithRetry: exhausted all retries",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 709
-        },
-        {
-          "code": null,
-          "message": "fetchStreamWithRetry: exhausted all retries",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/llm-utils.mjs",
-          "line": 835
-        }
-      ],
-      "uniqueCount": 8
-    },
-    {
-      "featureId": "F20261016-005",
-      "featureName": "Next.js Route Handler API 範本（後端最佳實務技能素材）",
-      "summary": "教材範本，`NextResponse.json({ error }, { status })` 示範 4xx/5xx；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "Upstream API responded ${r.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
-          "line": 434
-        },
-        {
-          "code": null,
-          "message": "Upstream API error",
-          "kind": "http",
-          "httpStatus": 502,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
-          "line": 33
-        },
-        {
-          "code": null,
-          "message": "Failed to create post",
-          "kind": "http",
-          "httpStatus": 502,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
-          "line": 56
-        },
-        {
-          "code": null,
-          "message": "Invalid JSON body",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
-          "line": 97
-        },
-        {
-          "code": null,
-          "message": "Failed to update post",
-          "kind": "http",
-          "httpStatus": 502,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
-          "line": 106
-        },
-        {
-          "code": null,
-          "message": "Failed to delete post",
-          "kind": "http",
-          "httpStatus": 502,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
-          "line": 124
-        },
-        {
-          "code": null,
-          "message": "Search failed",
-          "kind": "http",
-          "httpStatus": 502,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
-          "line": 160
-        }
-      ],
-      "uniqueCount": 7
-    },
-    {
-      "featureId": "F20261016-009",
-      "featureName": "A2A 代理協作協定服務",
-      "summary": "domain-agent-registry 與 a2a route 以 inline `throw new Error` 驗證 agent/crew/webhook；`logInternalError` 僅記錄；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "Unknown agent: ${agentId}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/domain-agent-registry.mjs",
-          "line": 399
-        },
-        {
-          "code": null,
-          "message": "Crew not found: ${agent.crewId}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/domain-agent-registry.mjs",
-          "line": 403
-        },
-        {
-          "code": null,
-          "message": "Invalid webhook URL",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/a2a.mjs",
-          "line": 362
-        },
-        {
-          "code": null,
-          "message": "Webhook URL must be http(s)",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/a2a.mjs",
-          "line": 364
-        },
-        {
-          "code": null,
-          "message": "Webhook URL host is not allowed (loopback/link-local blocked)",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/a2a.mjs",
-          "line": 367
-        },
-        {
-          "code": null,
-          "message": "Public webhook URL must use https",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/a2a.mjs",
-          "line": 371
-        },
-        {
-          "code": null,
-          "message": "No API key for provider: ${providerId}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/a2a.mjs",
-          "line": 676
-        }
-      ],
-      "uniqueCount": 7
-    },
-    {
-      "featureId": "F-056",
-      "featureName": "工程經理（EM）調度設定管理",
-      "summary": "paaw-bridge 以 inline `throw new Error` 表達 docker 失敗與 sync 狀態；`sendPathTraversalError` 為少數結構化錯誤出口；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "docker exec failed: ${err.message}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
-          "line": 122
-        },
-        {
-          "code": null,
-          "message": "docker cp failed: ${err.message}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
-          "line": 130
-        },
-        {
-          "code": null,
-          "message": "No baseline data for ${subPath} at ${baselineDir}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
-          "line": 162
-        },
-        {
-          "code": null,
-          "message": "Cannot read ${containerDir} from container: ${err.message}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
-          "line": 171
-        },
-        {
-          "code": null,
-          "message": "Sync request not found",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
-          "line": 250
-        },
-        {
-          "code": null,
-          "message": "Already ${req.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
-          "line": 251
-        },
-        {
-          "code": null,
-          "message": "Unknown update action: ${action}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
-          "line": 333
-        }
-      ],
-      "uniqueCount": 7
-    },
-    {
-      "featureId": "F20261016-038",
-      "featureName": "專案 AI 團隊與技能資產管理（Skill Instance Model）",
-      "summary": "project-crew 以 inline `throw new Error` 驗證 agentId 與唯讀規則；coding-ru-skills 用 `sendPathTraversalError`；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "Agent not found: ${agentId}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/project-crew.mjs",
-          "line": 365
-        },
-        {
-          "code": null,
-          "message": "Firmware crew '${agentId}' 的 ${k} 為 module 唯讀…",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/project-crew.mjs",
-          "line": 374
-        },
-        {
-          "code": null,
-          "message": "Agent ID is required",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/project-crew.mjs",
-          "line": 400
-        },
-        {
-          "code": null,
-          "message": "Custom agent ID must start with \"custom.\"",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/project-crew.mjs",
-          "line": 402
-        },
-        {
-          "code": null,
-          "message": "Agent already exists: ${agentId}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/project-crew.mjs",
-          "line": 408
-        },
-        {
-          "code": null,
-          "message": "Only custom agents can be deleted",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/project-crew.mjs",
-          "line": 457
-        },
-        {
-          "code": null,
-          "message": "No global definition for: ${agentId}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/project-crew.mjs",
-          "line": 489
-        }
-      ],
-      "uniqueCount": 7
-    },
-    {
-      "featureId": "F-024",
-      "featureName": "自動派工執行計畫管理",
-      "summary": "execution-plan 有 `PlanError`（`NOT_FOUND`/`VALIDATION` + httpStatus）為全庫最接近 registry 的雛形；route 層對應 400/500。",
-      "codes": [
-        {
-          "code": null,
-          "message": "projectPath required",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/execution-plan.mjs",
-          "line": 148
-        },
-        {
-          "code": null,
-          "message": "Invalid subtask status: ${cleanPatch.status}",
-          "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/execution-plan.mjs",
-          "line": 287,
-          "note": "PlanError VALIDATION"
-        },
-        {
-          "code": null,
-          "message": "Plan not found: ${planId}",
-          "kind": "throw",
-          "httpStatus": 404,
-          "file": "packages/server/src/lib/execution-plan.mjs",
-          "line": 293,
-          "note": "PlanError NOT_FOUND"
-        },
-        {
-          "code": null,
-          "message": "Sub-task not found: ${subtaskId}",
-          "kind": "throw",
-          "httpStatus": 404,
-          "file": "packages/server/src/lib/execution-plan.mjs",
-          "line": 322
-        },
-        {
-          "code": null,
-          "message": "Cannot start a ${plan.status} plan",
-          "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/execution-plan.mjs",
-          "line": 432
-        },
-        {
-          "code": null,
-          "message": "Plan not found: ${planId}",
-          "kind": "throw",
-          "httpStatus": 404,
-          "file": "packages/server/src/lib/execution-plan.mjs",
-          "line": 548
-        },
-        {
-          "code": null,
-          "message": "Invalid status: ${status}",
-          "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/execution-plan.mjs",
-          "line": 559
-        },
-        {
-          "code": null,
-          "message": "Cannot revert ${plan.status} plan back to running",
-          "kind": "throw",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/execution-plan.mjs",
-          "line": 565
-        }
-      ],
-      "uniqueCount": 7
-    },
-    {
-      "featureId": "F-044",
-      "featureName": "Mind Map Generation",
-      "summary": "mindmap 以 inline `throw new Error` 表達 provider 缺失與 AI 格式錯誤；MindMapViewer 以 `throw new Error(data.error || \"預覽失敗\")`；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "No provider config found",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/mindmap.mjs",
-          "line": 171
-        },
-        {
-          "code": null,
-          "message": "Provider '${providerId}' not found",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/mindmap.mjs",
-          "line": 177
-        },
-        {
-          "code": null,
-          "message": "AI 回應格式不正確，無法解析為心智圖",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/mindmap.mjs",
-          "line": 226
-        },
-        {
-          "code": null,
-          "message": "Path outside allowed roots: ${p}",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/mindmap.mjs",
-          "line": 84
-        },
-        {
-          "code": null,
-          "message": "預覽失敗",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/pages/MindMapViewer.tsx",
-          "line": 225
-        },
-        {
-          "code": null,
-          "message": "產生失敗",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/pages/MindMapViewer.tsx",
-          "line": 258
-        },
-        {
-          "code": null,
-          "message": "AI 回應失敗",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/pages/MindMapViewer.tsx",
-          "line": 355
-        }
-      ],
-      "uniqueCount": 7
-    },
-    {
-      "featureId": "F20261016-031",
-      "featureName": "Coding Agent 團隊對話派工與專案知識庫 API（Code Understanding 樞紐）",
-      "summary": "coding.mjs 以 inline `throw new Error` 表達 AI Map 解析失敗；另有 error-codes 步驟的 log 字串；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "AI 回應為空，無法產生 API Map",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding.mjs",
-          "line": 1122
-        },
-        {
-          "code": null,
-          "message": "API Map 解析失敗（非 JSON array）",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding.mjs",
-          "line": 1124
-        },
-        {
-          "code": null,
-          "message": "API Map 無有效 entry",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding.mjs",
-          "line": 1150
-        },
-        {
-          "code": null,
-          "message": "AI 回應為空，無法產生 UI Map",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding.mjs",
-          "line": 1167
-        },
-        {
-          "code": null,
-          "message": "UI Map 解析失敗（非 JSON array）",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding.mjs",
-          "line": 1182
-        },
-        {
-          "code": null,
-          "message": "UI Map 無有效 route",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding.mjs",
-          "line": 1210
-        }
-      ],
-      "uniqueCount": 6
-    },
-    {
-      "featureId": "F-012",
-      "featureName": "Coding IDE",
-      "summary": "前端 fetch 錯誤多為 `throw new Error(data.error || \\`HTTP ${status}\\`)` 或 `uiAlertError`；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "d.error || fail",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/components/browser/BrowserPanel.tsx",
-          "line": 506
-        },
-        {
-          "code": null,
-          "message": "data.error || capture failed",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/components/browser/BrowserPanel.tsx",
-          "line": 530
-        },
-        {
-          "code": null,
-          "message": "r.error",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/pages/CodingIDE.tsx",
-          "line": 492
-        },
-        {
-          "code": null,
-          "message": "HTTP ${resp.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/pages/FileEditor.tsx",
-          "line": 59
-        },
-        {
-          "code": null,
-          "message": "HTTP ${r.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/pages/FileViewer.tsx",
-          "line": 281
-        },
-        {
-          "code": null,
-          "message": "data.error",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/pages/FileViewer.tsx",
-          "line": 285
-        }
-      ],
-      "uniqueCount": 6
-    },
-    {
-      "featureId": "F-006",
-      "featureName": "Agent Loop",
-      "summary": "paaw-agent-loop 以 inline `throw new Error` 表達 provider 缺失與 LLM API 錯誤；tool timeout 以 `reject(new Error(...))`；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "No provider config found - checked: ${resolve(DATA_HOME, \"config/providers.json\")}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-          "line": 101
-        },
-        {
-          "code": null,
-          "message": "Provider '${providerId}' not found",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-          "line": 134
-        },
-        {
-          "code": null,
-          "message": "LLM API error ${resp.status}: ${text.slice(0, 500)}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-          "line": 656
-        },
-        {
-          "code": null,
-          "message": "Tool '${_toolName}' timed out after ${Math.round(_toolTimeoutMs / 1000)}s",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-          "line": 1274
-        },
-        {
-          "code": null,
-          "message": "Tool '${_toolName2}' timed out after ${Math.round(_stTimeoutMs / 1000)}s",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-          "line": 1791
-        }
-      ],
-      "uniqueCount": 5
-    },
-    {
-      "featureId": "F20261107-007",
-      "featureName": "AI 助理工作區設定主控台",
-      "summary": "starter-kits 以 inline throw 驗證 tar.gz 內容；context/pocket 以 `new Error` reject body 過大；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "tar.gz 內容是空的",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/starter-kits.mjs",
-          "line": 142
-        },
-        {
-          "code": null,
-          "message": "Request body exceeds ${maxBytes} bytes",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/context.mjs",
-          "line": 57
-        },
-        {
-          "code": null,
-          "message": "config root is not an object",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/plugins.mjs",
-          "line": 161
-        },
-        {
-          "code": null,
-          "message": "body too large",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/starter-kits.mjs",
-          "line": 119
-        }
-      ],
-      "uniqueCount": 4
-    },
-    {
-      "featureId": "F-026",
-      "featureName": "Coding Handover",
-      "summary": "coding-handover 以 inline throw 與 `res.status(400/500).json({ error })`；HandoverPanel 有 ErrorBoundary；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "AI 未回傳可解析的 sections",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding-handover.mjs",
-          "line": 465
-        },
-        {
-          "code": null,
-          "message": "path required",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-handover.mjs",
-          "line": 515
-        },
-        {
-          "code": null,
-          "message": "path required",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-handover.mjs",
-          "line": 536
-        },
-        {
-          "code": null,
-          "message": "text required",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-handover.mjs",
-          "line": 565
-        },
-        {
-          "code": null,
-          "message": "生成失敗：${err.message}",
-          "kind": "http",
-          "httpStatus": 500,
-          "file": "packages/server/src/routes/coding-handover.mjs",
-          "line": 598
-        },
-        {
-          "code": null,
-          "message": "path required",
-          "kind": "http",
-          "httpStatus": 400,
-          "file": "packages/server/src/routes/coding-handover.mjs",
-          "line": 606
-        }
-      ],
-      "uniqueCount": 4
-    },
-    {
-      "featureId": "F20261016-071",
-      "featureName": "自動派工調度與派工報告",
-      "summary": "auto-dispatch-manager 以 inline `throw new Error` 表達 LLM 規劃解析失敗；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "EM 規劃解析失敗（LLM 回覆不是合法 JSON）：${parseErr.message}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/auto-dispatch-manager.mjs",
-          "line": 483
-        },
-        {
-          "code": null,
-          "message": "LLM 回覆的 JSON 項目缺少 agent/task 欄位（${list.length} 項全無效）",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/auto-dispatch-manager.mjs",
-          "line": 489
-        },
-        {
-          "code": null,
-          "message": "EM 規劃失敗：LLM 回覆中找不到 JSON 工作清單…",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/auto-dispatch-manager.mjs",
-          "line": 494
-        }
-      ],
       "uniqueCount": 3
     },
     {
       "featureId": "F-022",
-      "featureName": "工具呼叫安全核心（政策管線、審批、金鑰保管與稽核）",
-      "summary": "secret-store 以 inline `throw new Error` 驗證 master key 與加密格式；無 code。",
+      "featureName": "安全核心：Tool Call 政策管線、審批、密鑰加密與稽核",
+      "summary": "secret-store 的主鑰長度/格式錯誤全為 inline throw，屬系統級配置錯誤（SYS 類），目前無法與一般 Error 區分。",
       "codes": [
         {
           "code": null,
@@ -2818,65 +1373,66 @@
       "uniqueCount": 3
     },
     {
-      "featureId": "F20261107-018",
-      "featureName": "Coding DB 專案資料庫（單一真相儲存層）",
-      "summary": "connection.mjs 以 inline throw 表達 migrate 失敗；repos 多為 `throw err` 透傳；無 code。",
+      "featureId": "F20261107-007",
+      "featureName": "AI 助理工作區設定主控台",
+      "summary": "starter-kits 上傳驗證為 inline throw；context.mjs/pocket.mjs 的 body 超限走 reject(new Error(...)) 模式，仍無 code。",
       "codes": [
         {
           "code": null,
-          "message": "coding-db migrate v${m.version} failed: ${err.message}",
+          "message": "tar.gz 內容是空的",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/lib/coding-db/connection.mjs",
-          "line": 82
+          "file": "packages/server/src/routes/starter-kits.mjs",
+          "line": 142
         },
         {
           "code": null,
-          "message": "unknown doc_key: ${docKey}",
-          "kind": "throw",
+          "message": "Request body exceeds ${maxBytes} bytes",
+          "kind": "error-call",
           "httpStatus": null,
-          "file": "packages/server/src/lib/coding-db/docs.repo.mjs",
-          "line": 25
+          "file": "packages/server/src/routes/context.mjs",
+          "line": 57,
+          "note": "以 reject 傳遞"
         },
         {
           "code": null,
-          "message": "AI 回覆不是 JSON",
-          "kind": "throw",
+          "message": "body too large",
+          "kind": "error-call",
           "httpStatus": null,
-          "file": "packages/server/src/lib/coding-db/ru-info.repo.mjs",
-          "line": 80
+          "file": "packages/server/src/routes/starter-kits.mjs",
+          "line": 119
         }
       ],
       "uniqueCount": 3
     },
     {
-      "featureId": "F20261016-004",
-      "featureName": "Next.js 16 平行路由範例教材（技能知識庫）",
-      "summary": "教材範本，inline throw 與 ErrorBoundary 示範；無 code。",
+      "featureId": "F-027",
+      "featureName": "維運現況總覽與 Runbook 存取",
+      "summary": "與 F-041 共用 coding-ops.mjs 的同一批 HTTP 錯誤（400/404/409），無獨立 error code。",
       "codes": [
         {
           "code": null,
-          "message": "Failed to load analytics: ${res.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx",
-          "line": 175
+          "message": "path and id required",
+          "kind": "http",
+          "httpStatus": 400,
+          "file": "packages/server/src/routes/coding-ops.mjs",
+          "line": 239
         },
         {
           "code": null,
-          "message": "Failed to load reviews: ${res.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx",
-          "line": 259
+          "message": "path, id, content required",
+          "kind": "http",
+          "httpStatus": 400,
+          "file": "packages/server/src/routes/coding-ops.mjs",
+          "line": 262
         },
         {
           "code": null,
-          "message": "Failed to load profile: ${res.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx",
-          "line": 336
+          "message": "path must be an existing directory",
+          "kind": "http",
+          "httpStatus": 400,
+          "file": "packages/server/src/routes/coding-ops.mjs",
+          "line": 265
         }
       ],
       "uniqueCount": 3
@@ -2884,7 +1440,7 @@
     {
       "featureId": "F-035",
       "featureName": "筆記本管理與 AI 筆記整理",
-      "summary": "notes 以 inline `throw new Error` 表達 provider 缺失與 AI 空回應；`sendPathTraversalError` 處理路徑；無 code。",
+      "summary": "provider 設定與 AI 空回應為 inline throw；同樣的 provider 缺失訊息在 notes/mindmap/a2a/helpdesk 至少重複四次，是 code 化可消除重複的明證。",
       "codes": [
         {
           "code": null,
@@ -2914,33 +1470,273 @@
       "uniqueCount": 3
     },
     {
-      "featureId": "F20261016-010",
-      "featureName": "Agent 執行日誌與 RU 成本統計",
-      "summary": "es-shipper 以 inline `throw new Error(\\`HTTP ${status}\\`)` 表達 ES 失敗；agent-logs 以 `listError` 欄位回傳；無 code。",
+      "featureId": "F-044",
+      "featureName": "Mind Map Generation",
+      "summary": "後端 provider 驗證與 AI 格式解析錯誤為 inline throw，前端用 data.error || fallback 字串。",
       "codes": [
         {
           "code": null,
-          "message": "HTTP ${r.status}: ${body.slice(0, 200)}",
+          "message": "No provider config found",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/lib/es-shipper.mjs",
-          "line": 180
+          "file": "packages/server/src/routes/mindmap.mjs",
+          "line": 171
         },
         {
           "code": null,
-          "message": "${errors}/${batch.length} 筆被 ES 拒絕",
-          "kind": "error-call",
+          "message": "Provider '${providerId}' not found",
+          "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/lib/es-shipper.mjs",
-          "line": 265
+          "file": "packages/server/src/routes/mindmap.mjs",
+          "line": 177
         },
         {
           "code": null,
-          "message": "${errors}/${batch.length} 筆被 ES 拒絕",
-          "kind": "error-call",
+          "message": "AI 回應格式不正確，無法解析為心智圖",
+          "kind": "throw",
           "httpStatus": null,
-          "file": "packages/server/src/lib/es-shipper.mjs",
-          "line": 286
+          "file": "packages/server/src/routes/mindmap.mjs",
+          "line": 226
+        }
+      ],
+      "uniqueCount": 3
+    },
+    {
+      "featureId": "F20261016-004",
+      "featureName": "Next.js 16 平行路由範例教材（技能知識庫）",
+      "summary": "教材範本的 inline throw，與 F20261107-011 同批素材，無 code。",
+      "codes": [
+        {
+          "code": null,
+          "message": "Failed to load analytics: ${res.status}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx",
+          "line": 175
+        },
+        {
+          "code": null,
+          "message": "Failed to load reviews: ${res.status}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx",
+          "line": 259
+        },
+        {
+          "code": null,
+          "message": "Failed to load profile: ${res.status}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/parallel-routes-with-default.tsx",
+          "line": 336
+        }
+      ],
+      "uniqueCount": 3
+    },
+    {
+      "featureId": "F20261016-005",
+      "featureName": "Next.js Route Handler API 範本（後端最佳實務技能素材）",
+      "summary": "純 HTTP-status 慣例（401/413/415/429/500/502 + error 字串），是教材展示用，非 runtime。",
+      "codes": [
+        {
+          "code": null,
+          "message": "Invalid JSON body",
+          "kind": "http",
+          "httpStatus": 400,
+          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
+          "line": 97
+        },
+        {
+          "code": null,
+          "message": "Search failed",
+          "kind": "http",
+          "httpStatus": 502,
+          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
+          "line": 160
+        },
+        {
+          "code": null,
+          "message": "(no message)",
+          "kind": "http",
+          "httpStatus": 429,
+          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
+          "line": 480
+        },
+        {
+          "code": null,
+          "message": "(no message)",
+          "kind": "http",
+          "httpStatus": 413,
+          "file": "data/skills/physical-skill/nextjs-backend-best-practices/templates/route-handler-api.ts",
+          "line": 368
+        }
+      ],
+      "uniqueCount": 3
+    },
+    {
+      "featureId": "F20261016-009",
+      "featureName": "A2A 代理協作協定服務",
+      "summary": "webhook 驗證 + agent/crew lookup 全為 inline throw；另有 logInternalError 集中記 log（僅 server log，非回應結構）。",
+      "codes": [
+        {
+          "code": null,
+          "message": "Invalid webhook URL",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/routes/a2a.mjs",
+          "line": 362
+        },
+        {
+          "code": null,
+          "message": "Unknown agent: ${agentId}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/domain-agent-registry.mjs",
+          "line": 399
+        },
+        {
+          "code": null,
+          "message": "Crew not found: ${agent.crewId}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/domain-agent-registry.mjs",
+          "line": 403
+        }
+      ],
+      "uniqueCount": 3
+    },
+    {
+      "featureId": "F20261016-031",
+      "featureName": "Coding Agent 團隊對話派工與專案知識庫 API（Code Understanding 樞紐）",
+      "summary": "API/UI Map 產生的 6 個 throw 與 F20261107-001 的 coding.mjs 完全同批（重複歸屬），另 project-md.mjs 的 errorCodeDetail 是蒐集產物非程式錯誤。",
+      "codes": [
+        {
+          "code": null,
+          "message": "bad index",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/project-md.mjs",
+          "line": 270
+        },
+        {
+          "code": null,
+          "message": "AI 回應為空，無法產生 API Map",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/routes/coding.mjs",
+          "line": 1273
+        },
+        {
+          "code": null,
+          "message": "UI Map 解析失敗（非 JSON array）",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/routes/coding.mjs",
+          "line": 1333
+        }
+      ],
+      "uniqueCount": 3
+    },
+    {
+      "featureId": "F-010",
+      "featureName": "LLM Utils & Provider Retry",
+      "summary": "與 F20261107-005 同一檔案（llm-utils.mjs）的 inline LLM 錯誤群；retry 判斷靠 err.name/TypeError 字串比對，脆弱且無 code。",
+      "codes": [
+        {
+          "code": null,
+          "message": "LLM API error ${resp.status}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/llm-utils.mjs",
+          "line": 540
+        },
+        {
+          "code": null,
+          "message": "LLM API returned no choices",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/llm-utils.mjs",
+          "line": 554
+        },
+        {
+          "code": null,
+          "message": "callLLMWithRetry: exhausted all retries",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/llm-utils.mjs",
+          "line": 734
+        }
+      ],
+      "uniqueCount": 3
+    },
+    {
+      "featureId": "F-006",
+      "featureName": "Agent Loop",
+      "summary": "provider 設定與 LLM API 錯誤為 inline throw；tool timeout 用 reject(new Error(...))，全部無 code。",
+      "codes": [
+        {
+          "code": null,
+          "message": "No provider config found - checked: ...",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "line": 101
+        },
+        {
+          "code": null,
+          "message": "Provider '${providerId}' not found",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "line": 134
+        },
+        {
+          "code": null,
+          "message": "LLM API error ${resp.status}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "line": 656
+        }
+      ],
+      "uniqueCount": 3
+    },
+    {
+      "featureId": "F-024",
+      "featureName": "自動派工執行計畫管理",
+      "summary": "同 F20261107-002：PlanError（NOT_FOUND/VALIDATION + 4xx）是唯一結構化 error；route 層將 400/500 映射到 HTTP status。",
+      "codes": [
+        {
+          "code": "NOT_FOUND",
+          "message": "Plan not found: ${planId}",
+          "kind": "throw",
+          "httpStatus": 404,
+          "file": "packages/server/src/lib/execution-plan.mjs",
+          "line": 293
+        },
+        {
+          "code": "NOT_FOUND",
+          "message": "Sub-task not found: ${subtaskId}",
+          "kind": "throw",
+          "httpStatus": 404,
+          "file": "packages/server/src/lib/execution-plan.mjs",
+          "line": 322
+        },
+        {
+          "code": "VALIDATION",
+          "message": "Invalid subtask status: ${cleanPatch.status}",
+          "kind": "throw",
+          "httpStatus": 400,
+          "file": "packages/server/src/lib/execution-plan.mjs",
+          "line": 287
+        },
+        {
+          "code": "VALIDATION",
+          "message": "Cannot start a ${plan.status} plan",
+          "kind": "throw",
+          "httpStatus": 400,
+          "file": "packages/server/src/lib/execution-plan.mjs",
+          "line": 432
         }
       ],
       "uniqueCount": 2
@@ -2948,7 +1744,7 @@
     {
       "featureId": "F20261016-006",
       "featureName": "Next.js Server Actions 表單範本（技能參考素材）",
-      "summary": "教材範本，inline throw 與 `setError` 示範；無 code。",
+      "summary": "教材內 inline throw（HTTP status 內嵌訊息），無 code。",
       "codes": [
         {
           "code": null,
@@ -2970,73 +1766,122 @@
       "uniqueCount": 2
     },
     {
-      "featureId": "F-028",
-      "featureName": "文件覆蓋率追蹤與專案檔案 Git 操作 API",
-      "summary": "vibe-fs 以 `{ ok:false, errorText }` 回傳 git 失敗，route 層轉 500；無 code。",
+      "featureId": "F-056",
+      "featureName": "工程經理（EM）調度設定管理",
+      "summary": "docker 橋接層的執行/同步錯誤全為 inline throw，同 F20261109-005 的 paaw-bridge 內容。",
       "codes": [
         {
           "code": null,
-          "message": "git ${args[0]} timed out after ${timeoutMs}ms / git ${args.join(\" \")} failed",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/vibe-fs.mjs",
-          "line": 35
-        },
-        {
-          "code": null,
-          "message": "r.errorText || r.stderr",
-          "kind": "http",
-          "httpStatus": 500,
-          "file": "packages/server/src/routes/vibe-fs.mjs",
-          "line": 107
-        }
-      ],
-      "uniqueCount": 2
-    },
-    {
-      "featureId": "F-032",
-      "featureName": "Skill Builder 工作台（對話式技能建構、測試與發佈）",
-      "summary": "SkillBuilder 以 `throw new Error(\"No response body\")` 與 `uiAlertError` 顯示 AI 生成失敗；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "No response body",
+          "message": "docker exec failed: ${err.message}",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/pages/SkillBuilder.tsx",
-          "line": 662
+          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
+          "line": 122
         },
         {
           "code": null,
-          "message": "image load fail",
-          "kind": "error-call",
+          "message": "Sync request not found",
+          "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/components/AgentConsole.tsx",
-          "line": 362
+          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
+          "line": 250
         }
       ],
       "uniqueCount": 2
     },
     {
-      "featureId": "F-040",
-      "featureName": "系統設定中心與備份還原",
-      "summary": "BackupSettings 以 `throw new Error(\\`HTTP ${status}\\`)` 與 `setLoadError`；SettingsPage 以 `uiAlertError`；無 code。",
+      "featureId": "F20261016-038",
+      "featureName": "專案 AI 團隊與技能資產管理（Skill Instance Model）",
+      "summary": "project-crew.mjs 的 agent CRUD 驗證錯誤（同 F20261107-008），inline throw 無 code。",
+      "codes": [
+        {
+          "code": null,
+          "message": "Agent not found: ${agentId}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/project-crew.mjs",
+          "line": 365
+        },
+        {
+          "code": null,
+          "message": "Agent already exists: ${agentId}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/project-crew.mjs",
+          "line": 408
+        }
+      ],
+      "uniqueCount": 2
+    },
+    {
+      "featureId": "F-012",
+      "featureName": "Coding IDE",
+      "summary": "同 F20261016-049 的前端 error 模式，無獨立結構。",
       "codes": [
         {
           "code": null,
           "message": "HTTP ${resp.status}",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/pages/BackupSettings.tsx",
-          "line": 61
+          "file": "packages/ui/src/pages/FileEditor.tsx",
+          "line": 59
         },
         {
           "code": null,
-          "message": "invalid backup config response",
+          "message": "HTTP ${r.status}",
           "kind": "throw",
           "httpStatus": null,
-          "file": "packages/ui/src/pages/BackupSettings.tsx",
-          "line": 63
+          "file": "packages/ui/src/pages/FileViewer.tsx",
+          "line": 281
+        }
+      ],
+      "uniqueCount": 2
+    },
+    {
+      "featureId": "F-007",
+      "featureName": "Tool Engine (Server)",
+      "summary": "僅 tool-registry 一處 inline throw；tools/index.mjs 以回傳 \"Error: …\" 字串作為工具錯誤（非 exception），是另一種無結構慣例。",
+      "codes": [
+        {
+          "code": null,
+          "message": "[ToolRegistry] Invalid tool entry: missing name/definition/handler",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/server/src/lib/tool-registry.mjs",
+          "line": 42
+        },
+        {
+          "code": null,
+          "message": "Error: category is required.",
+          "kind": "error-call",
+          "httpStatus": null,
+          "file": "packages/server/src/tools/index.mjs",
+          "line": 843,
+          "note": "工具以字串回傳錯誤而非 throw"
+        }
+      ],
+      "uniqueCount": 2
+    },
+    {
+      "featureId": "F-009",
+      "featureName": "Skill Runner & Workflow Engine",
+      "summary": "同 F-008 的 engine runner inline throw 群，無 code。",
+      "codes": [
+        {
+          "code": null,
+          "message": "API runner blocked private/loopback host: ${host}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/engine/src/runner/index.ts",
+          "line": 178
+        },
+        {
+          "code": null,
+          "message": "Record not found: ${id}",
+          "kind": "throw",
+          "httpStatus": null,
+          "file": "packages/engine/src/runner/index.ts",
+          "line": 93
         }
       ],
       "uniqueCount": 2
@@ -3044,7 +1889,7 @@
     {
       "featureId": "F-001",
       "featureName": "PAAW Server Core & HTTP Entrypoint",
-      "summary": "ws-handler 以 inline `throw new Error` 表達中斷與 raw input；epipe-guard 過濾 EPIPE；無 code。",
+      "summary": "epipe-guard 以 err.code === \"EPIPE\" 判斷（node 內建 code），ws-handler 的 abort/session 錯誤為 inline throw。",
       "codes": [
         {
           "code": null,
@@ -3060,105 +1905,16 @@
           "kind": "throw",
           "httpStatus": null,
           "file": "packages/server/src/websocket/ws-handler.mjs",
-          "line": 355
+          "line": 355,
+          "note": "使用者中斷，適合 BIZ/EXT family 區分 retry 行為"
         }
       ],
       "uniqueCount": 2
-    },
-    {
-      "featureId": "F-021",
-      "featureName": "Coding Security (Path Safety)",
-      "summary": "coding-security 是全庫唯一有穩定 code 的模組：`PATH_TRAVERSAL` 與 `sendPathTraversalError`；`Invalid identifier` 仍為 inline。",
-      "codes": [
-        {
-          "code": "PATH_TRAVERSAL",
-          "message": "Path traversal blocked: ${segments.join(\"/\")}",
-          "kind": "error-call",
-          "httpStatus": 400,
-          "file": "packages/server/src/lib/coding-security.mjs",
-          "line": 43,
-          "note": "err.code = PATH_TRAVERSAL，由 sendPathTraversalError 統一輸出"
-        },
-        {
-          "code": null,
-          "message": "Invalid identifier: ${id}",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/coding-security.mjs",
-          "line": 20
-        }
-      ],
-      "uniqueCount": 2
-    },
-    {
-      "featureId": "F-046",
-      "featureName": "Knowledge Tree & File Management",
-      "summary": "vibe-fs 以 `{ ok:false, errorText }` 回傳 git 失敗並轉 500；DirectoryExplorer 以 `setError` 顯示；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "git ${args[0]} timed out after ${timeoutMs}ms / git ${args.join(\" \")} failed",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/vibe-fs.mjs",
-          "line": 35
-        },
-        {
-          "code": null,
-          "message": "r.errorText || r.stderr",
-          "kind": "http",
-          "httpStatus": 500,
-          "file": "packages/server/src/routes/vibe-fs.mjs",
-          "line": 107
-        }
-      ],
-      "uniqueCount": 2
-    },
-    {
-      "featureId": "F-057",
-      "featureName": "Context Compaction & Truncation",
-      "summary": "context-compaction 以 inline `throw new Error` 表達 LLM 摘要失敗與空摘要；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "Summary LLM call failed: ${response.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/context-compaction.mjs",
-          "line": 240
-        },
-        {
-          "code": null,
-          "message": "Summary too short or empty",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/context-compaction.mjs",
-          "line": 248
-        }
-      ],
-      "uniqueCount": 2
-    },
-    {
-      "featureId": "F20261016-070",
-      "featureName": "AI 對話上下文組裝與記憶精煉",
-      "summary": "僅一筆測試用 `throw new Error(\"boom\")`，無產品錯誤處理。",
-      "codes": [
-        {
-          "code": null,
-          "message": "boom",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "tests/unit/shared-utils.test.ts",
-          "line": 272,
-          "note": "測試用"
-        }
-      ],
-      "uniqueCount": 1
     },
     {
       "featureId": "F20261107-014",
-      "featureName": "資料存取層：技能執行紀錄、對話與資料模型儲存",
-      "summary": "data-store 以 inline `Record not found: ${id}` throw；其餘為 `error_message` 欄位與測試。",
+      "featureName": "資料庫 Repository 層 — 對話、執行紀錄與資料儲存的持久化",
+      "summary": "唯一 production throw 是 Record not found（inline 字串）；error_message 欄位僅作資料儲存，無結構化 code。測試檔的 throw 為 mock 噪訊不列入。",
       "codes": [
         {
           "code": null,
@@ -3172,25 +1928,9 @@
       "uniqueCount": 1
     },
     {
-      "featureId": "F-048",
-      "featureName": "Release Unit 技能實例管理（Skill Instance Model）",
-      "summary": "api-tester 以 `{ status: 0, statusText: \"Network Error\", error: true }` 回傳網路錯誤；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "Network Error",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/api-tester.mjs",
-          "line": 188
-        }
-      ],
-      "uniqueCount": 1
-    },
-    {
       "featureId": "F-036",
       "featureName": "AI 客服中心（Help Desk）",
-      "summary": "helpdesk 以 inline `throw new Error(\\`No API key for provider: ${providerId}\\`)`；無 code。",
+      "summary": "單一 inline throw：provider API key 缺失，與其他 provider 設定錯誤同型但各自重複實作。",
       "codes": [
         {
           "code": null,
@@ -3204,105 +1944,9 @@
       "uniqueCount": 1
     },
     {
-      "featureId": "F-049",
-      "featureName": "外部插件註冊與 iframe 嵌入管理",
-      "summary": "plugins 以 `{ ok:false, error: new Error(...), corrupt:true }` 回傳 config 損壞；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "config root is not an object",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/plugins.mjs",
-          "line": 161
-        }
-      ],
-      "uniqueCount": 1
-    },
-    {
-      "featureId": "F-031",
-      "featureName": "自訂 Agent 建立精靈（AgentBuilder Wizard）",
-      "summary": "AgentBuilder 以 `throw new Error(data.error || \\`HTTP ${status}\\`)` 並 `setError` 顯示；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "data.error || HTTP ${res.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/components/AgentBuilder.tsx",
-          "line": 213
-        }
-      ],
-      "uniqueCount": 1
-    },
-    {
-      "featureId": "F20261016-060",
-      "featureName": "Release Unit 新人 12 問證據式問答入口",
-      "summary": "RuQaSection 以 `throw new Error(\\`HTTP ${status}\\`)`；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "HTTP ${res.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/components/RuQaSection.tsx",
-          "line": 49
-        }
-      ],
-      "uniqueCount": 1
-    },
-    {
-      "featureId": "F20261016-061",
-      "featureName": "Skill 注入使用報表",
-      "summary": "SkillsUsagePanel 以 `throw new Error(\\`HTTP ${status}\\`)` 並 `setError`；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "HTTP ${res.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/components/SkillsUsagePanel.tsx",
-          "line": 74
-        }
-      ],
-      "uniqueCount": 1
-    },
-    {
-      "featureId": "F20261016-062",
-      "featureName": "Agent 用量與成本報表",
-      "summary": "UsageReportPanel 以 `throw new Error(\\`HTTP ${status}\\`)` 並 `setError`；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "HTTP ${res.status}",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/components/UsageReportPanel.tsx",
-          "line": 172
-        }
-      ],
-      "uniqueCount": 1
-    },
-    {
-      "featureId": "F-053",
-      "featureName": "簡報播放器（Briefing Player）",
-      "summary": "BriefingPlayer 以 `throw new Error(\"no notes\")` 並 `setError`；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "no notes",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/ui/src/pages/BriefingPlayer.tsx",
-          "line": 539
-        }
-      ],
-      "uniqueCount": 1
-    },
-    {
       "featureId": "F-016",
       "featureName": "Feature Mapping",
-      "summary": "coding-features 以 inline `throw new Error(\"AI did not return an array\")`；FeatureMap 以 `setFetchError` 顯示；無 code。",
+      "summary": "兩處 AI 輸出驗證 inline throw，無 code。",
       "codes": [
         {
           "code": null,
@@ -3311,240 +1955,10 @@
           "httpStatus": null,
           "file": "packages/server/src/routes/coding-features.mjs",
           "line": 998
-        },
-        {
-          "code": null,
-          "message": "AI did not return an array",
-          "kind": "throw",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/coding-features.mjs",
-          "line": 1140
         }
       ],
       "uniqueCount": 1
-    },
-    {
-      "featureId": "F-039",
-      "featureName": "Cron Jobs & Scheduler",
-      "summary": "cron-jobs 以 `fail(new Error(\"Invalid JSON\"))` 與 `sendPathTraversalError`；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "Invalid JSON",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/scheduler/cron-jobs.mjs",
-          "line": 362
-        }
-      ],
-      "uniqueCount": 1
-    },
-    {
-      "featureId": "F-055",
-      "featureName": "Pocket & Session History",
-      "summary": "pocket 以 `new Error(\\`Request body exceeds ${MAX_BODY_BYTES} bytes\\`)` reject；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "Request body exceeds ${MAX_BODY_BYTES} bytes",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/routes/pocket.mjs",
-          "line": 27
-        }
-      ],
-      "uniqueCount": 1
-    },
-    {
-      "featureId": "F-062",
-      "featureName": "Shell Execution & Utilities",
-      "summary": "test-runner 以 `reject(new Error(\\`timeout after ${timeoutMs / 1000}s\\`))` 表達逾時；無 code。",
-      "codes": [
-        {
-          "code": null,
-          "message": "timeout after ${timeoutMs / 1000}s",
-          "kind": "error-call",
-          "httpStatus": null,
-          "file": "packages/server/src/lib/test-runner.mjs",
-          "line": 361
-        }
-      ],
-      "uniqueCount": 1
-    },
-    {
-      "featureId": "F-003",
-      "featureName": "資料庫連線與 Schema 初始化（SQLite 持久層核心）",
-      "summary": "訊號多為 schema 欄位名（`error_message`）與測試描述，非錯誤拋出點；無 code。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F20261107-021",
-      "featureName": "UI 應用外殼與共用基礎層",
-      "summary": "僅有 `onError` 回呼與型別欄位 `errorCodePrefix`（未實際使用），無錯誤拋出點。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F-037",
-      "featureName": "上線放行與證據決策卡（Release Manager）",
-      "summary": "僅一筆 ai-settings 的 prompt 名稱字串，非錯誤拋出點。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F20261016-026",
-      "featureName": "個人助理設定與使用者檔案 API（/api/paaw/*）",
-      "summary": "assistant route 以 `sanitizeId` + `sendPathTraversalError` 處理路徑穿越；無 code。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F20261016-027",
-      "featureName": "安全審計紀錄查詢（AI 犯傻審計報表）",
-      "summary": "僅測試描述與範例輸出字串，非產品錯誤拋出點。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F-043",
-      "featureName": "內建共用瀏覽器（人機共駕、即時串流與操作回放）",
-      "summary": "browser route 以 `safeResolve` + `sendPathTraversalError` 處理路徑穿越；無 code。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F-011",
-      "featureName": "AI 助理對話服務（訊息串流、視覺附件與提示詞檔案）",
-      "summary": "chat/uploads 以註解說明壞 JSON → 400 的設計，並以 `console.error` 記錄；無 code。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F20261016-030",
-      "featureName": "自動派工執行控制 API（Auto Dispatch HTTP 控制面）",
-      "summary": "僅 `console.error` 記錄，無結構化錯誤。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F20261016-051",
-      "featureName": "Agent 執行軌跡檢視與 RU 成本觀測",
-      "summary": "AgentLogs 以 `uiAlertError` 顯示刪除失敗；無 code。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F20261016-058",
-      "featureName": "LLM API 呼叫日誌檢視器",
-      "summary": "僅 UI 顯示 Error 標籤，無錯誤拋出點。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F20261016-066",
-      "featureName": "個人 AI 助理主對話介面",
-      "summary": "ChatView 以 i18n `chat.errorMessage` 顯示錯誤，並過濾 AbortError；無 code。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F20261016-073",
-      "featureName": "共用型別契約與前端基礎工具層",
-      "summary": "僅型別欄位 `errorCodePrefix`，未實際使用。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F20261016-074",
-      "featureName": "建置測試設定與產品打包維運腳本",
-      "summary": "僅教材 proxy 範本的 429 status，非產品錯誤拋出點。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F-020",
-      "featureName": "Coding Health",
-      "summary": "semgrep-runner 以 `execError` 物件與 `errorDetail` 字串陣列回傳，非 throw；無 code。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F-025",
-      "featureName": "Agent Memory",
-      "summary": "coding-memory 以 `sanitizeId` + `sendPathTraversalError` 處理路徑穿越；無 code。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F-033",
-      "featureName": "App Builder & App Pool",
-      "summary": "apps route 以 `sanitizeId` + `sendPathTraversalError`；AppBuilder 以 `uiAlertError` 顯示；無 code。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F-038",
-      "featureName": "System Prompts",
-      "summary": "chat route 以註解說明壞 JSON → 400 設計，並 `console.error` 記錄；無 code。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F-047",
-      "featureName": "Vibe Sessions",
-      "summary": "vibe-sessions 以 `sanitizeId` + `sendPathTraversalError` 處理路徑穿越；無 code。",
-      "codes": [],
-      "uniqueCount": 0
-    },
-    {
-      "featureId": "F-054",
-      "featureName": "Project Dashboard & Decision Log",
-      "summary": "僅 paaw-project 的 markdown 字串，非錯誤拋出點。",
-      "codes": [],
-      "uniqueCount": 0
     }
   ],
-  "unmapped": [
-    {
-      "code": null,
-      "message": "not a2a",
-      "kind": "http",
-      "httpStatus": 404,
-      "file": "tests/unit/a2a-routes.test.mjs",
-      "line": 150
-    },
-    {
-      "code": null,
-      "message": "fatal: ${err.message}",
-      "kind": "http",
-      "httpStatus": 500,
-      "file": "tests/unit/a2a-routes.test.mjs",
-      "line": 153
-    },
-    {
-      "code": null,
-      "message": "SSE timeout",
-      "kind": "error-call",
-      "httpStatus": null,
-      "file": "tests/unit/a2a-routes.test.mjs",
-      "line": 332
-    },
-    {
-      "code": null,
-      "message": "git ${args.join(\" \")} failed: ${r.stderr}",
-      "kind": "throw",
-      "httpStatus": null,
-      "file": "tests/unit/changelog-review-scope.test.mjs",
-      "line": 19
-    },
-    {
-      "code": null,
-      "message": "Unexpected token (malformed JSON → 500 現況)",
-      "kind": "reference",
-      "httpStatus": null,
-      "file": "tests/unit/chat-uploads-routes.test.mjs",
-      "line": 341
-    }
-  ]
+  "unmapped": []
 }

@@ -170,6 +170,8 @@ interface ChatMessage {
   _greeting?: boolean; // true for auto-generated greeting bubbles (excluded from conversationHistory)
   _approval?: { id: string; command: string; reason?: string; decided?: string | null }; // 🛡 審批卡（2026-10-09）
   _security?: { kind: string; domains?: string[]; message: string }; // 🛡 安全通知卡（2026-10-10）
+  _model?: string; // 2026-11-28：本則回覆實際使用的 model（server content done 事件帶回；切 model 歷史不再只剩一個）
+  _models?: string[]; // 2026-11-28：本 run 實際用過的全部 model（fallback/vision 切換史）
 }
 
 interface CodingEvent {

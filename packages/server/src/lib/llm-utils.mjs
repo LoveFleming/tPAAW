@@ -631,6 +631,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
         finishReason: choice.finish_reason,
         toolCalls: choice.message?.tool_calls || null,
         attempts: attempt + 1,
+        model: body.model || null, // 2026-11-28：實際使用的 model（下游記錄用）
       };
 
     } catch (err) {
@@ -722,7 +723,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
             continue; // try next fallback
           }
 
-          return { content, raw: data };
+          return { content, raw: data, model: fb.model }; // 2026-11-28：帶回實際使用的 model
         } catch (fbErr) {
           console.log(`[callLLMWithRetry] Fallback ${fb.model} failed:`, fbErr.message?.slice(0, 100));  // nosemgrep: unsafe-formatstring
           continue;

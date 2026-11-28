@@ -1,6 +1,6 @@
 # Project Source Analysis (Tree-sitter)
-Parsed 450 of 456 source files
-Languages: typescript(57), javascript(298), tsx(101)
+Parsed 457 of 463 source files
+Languages: typescript(57), javascript(310), tsx(96)
 
 ## playwright.config.ts [typescript]
   Imports:
@@ -628,6 +628,17 @@ Languages: typescript(57), javascript(298), tsx(101)
   Imports:
     * ← vitest
     * ← ../../packages/server/src/lib/llm-utils.mjs
+
+## tests/unit/project-md-spec.test.mjs [javascript]
+  Imports:
+    * ← vitest
+    * ← node:fs
+    * ← node:path
+    * ← node:os
+  Functions:
+    async arrow fakeLLM({ messages })
+    async arrow flaky({ messages })
+    async arrow rec({ messages })
 
 ## tests/unit/providers.test.mjs [javascript]
   Imports:
@@ -1566,9 +1577,9 @@ Languages: typescript(57), javascript(298), tsx(101)
     * ← ../components/ReleaseManagerPanel
     * ← ../components/CodeReviewBoardPanel
     * ← ../components/HandoverPanel
-    * ← ../components/TroubleshootingPanel
+    * ← ../components/DfoPanel
     * ← ../components/TabErrorBoundary
-    * ← ../components/FeatureMap
+    * ← ../components/ApiMapView
     * ← ../components/ApiMapSidebar
     * ← ../components/ApiTesterTabs
     * ← ../components/ApiRequestTabSheet
@@ -1864,8 +1875,12 @@ Languages: typescript(57), javascript(298), tsx(101)
     arrow removeModelFromProvider(pid: string, mid: string)
     async arrow handleSaveProviders()
     async arrow handleSaveProfile()
+    arrow sideLabel(k: string)
+    async arrow savePref(key: string, value: string)
+    arrow PrefRow({ k, label }: { k: string; label: string })
   React Components:
     function: SettingsPage
+    arrow: PrefRow
 
 ## packages/ui/src/pages/SkillBuilder.tsx [tsx]
   Imports:
@@ -2004,9 +2019,8 @@ Languages: typescript(57), javascript(298), tsx(101)
     * ← ../components/ReleaseManagerPanel
     * ← ../components/CodeReviewBoardPanel
     * ← ../components/HandoverPanel
-    * ← ../components/TroubleshootingPanel
     * ← ../components/TabErrorBoundary
-    * ← ../components/FeatureMap
+    * ← ../components/ApiMapView
     * ← ../components/ApiMapSidebar
     * ← ../components/ApiTesterTabs
     * ← ../components/ApiRequestTabSheet
@@ -2096,20 +2110,6 @@ Languages: typescript(57), javascript(298), tsx(101)
   React Components:
     function: I18nProvider
 
-## packages/ui/src/components/AgentBuilder.tsx [tsx]
-  Imports:
-    * ← react
-    * ← ../utils
-    * ← ../api
-  Exports:
-    default function: AgentBuilder
-  Functions:
-    function AgentBuilder({ rootPath, theme: t, onClose, onCreated }: AgentBuilderProps)
-    arrow toggleTool(id: string)
-    async arrow handleCreate()
-  React Components:
-    function: AgentBuilder
-
 ## packages/ui/src/components/AgentConsole.tsx [tsx]
   Imports:
     * ← react
@@ -2171,6 +2171,43 @@ Languages: typescript(57), javascript(298), tsx(101)
   React Components:
     function: ApiMapSidebar
 
+## packages/ui/src/components/ApiMapView.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../i18n
+    * ← ../api
+  Exports:
+    default function: ApiMapView
+  Functions:
+    arrow methodOf(entry: string)
+    function ApiMapView({ rootPath, theme, onOpenFile, refreshKey }: Props)
+    arrow toggleCat(cat: string)
+    function Section({ title, count, theme, children }: {
+  title: string;
+  count?: number;
+  theme: Props["theme"];
+  children?: React.ReactNode;
+})
+    function FileChip({ file, theme, onOpenFile }: { file: string; theme: Props["theme"]; onOpenFile?: (p: string) => void })
+    function ApiDetail({ api, theme, t, onOpenFile }: {
+  api: ApiFeature;
+  theme: Props["theme"];
+  t: (k: string) => string;
+  onOpenFile?: (p: string) => void;
+})
+    function UiDetail({ ui, theme, t, onOpenFile }: {
+  ui: UiFeature;
+  theme: Props["theme"];
+  t: (k: string) => string;
+  onOpenFile?: (p: string) => void;
+})
+  React Components:
+    function: ApiMapView
+    function: Section
+    function: FileChip
+    function: ApiDetail
+    function: UiDetail
+
 ## packages/ui/src/components/ApiRequestTabSheet.tsx [tsx]
   Imports:
     * ← react
@@ -2218,7 +2255,6 @@ Languages: typescript(57), javascript(298), tsx(101)
   rootPath, onPick, onOpenFile, onAskAi, onLoadPayload,
   apiHistory, onClearHistory, refreshHistory,
   borderLight = "#f0f0f0", borderInput = "#e5e5e5", refreshSignal }: Props)
-    arrow sendAiAddPayload()
     async arrow loadPayloadDetail(colName: string, payloadId: string)
     async arrow deleteCollection(name: string)
     async arrow deletePayload(colName: string, payloadId: string)
@@ -2413,16 +2449,6 @@ Languages: typescript(57), javascript(298), tsx(101)
   React Components:
     function: ConsoleLogView
 
-## packages/ui/src/components/CrewAvatar.tsx [tsx]
-  Imports:
-    * ← react
-  Exports:
-    default function: CrewAvatar
-  Functions:
-    function CrewAvatar({ crewId, codename, size = 120 }: AvatarProps)
-  React Components:
-    function: CrewAvatar
-
 ## packages/ui/src/components/CrewManager.tsx [tsx]
   Imports:
     * ← react
@@ -2464,6 +2490,22 @@ Languages: typescript(57), javascript(298), tsx(101)
     async arrow handleAdd()
   React Components:
     function: DecisionLog
+
+## packages/ui/src/components/DfoPanel.tsx [tsx]
+  Imports:
+    * ← react
+    * ← ../api
+    * ← ./AgentSideChat
+    * ← ./ColResizer
+    * ← ./MarkdownText
+  Exports:
+    default function: DfoPanel
+  Functions:
+    function DfoPanel({ rootPath, active, theme: tk }: { rootPath: string; active?: boolean; theme: { borderLight: string; accent: string; accentHover?: string } })
+  Classes:
+    class DfoErrorBoundary { state, getDerivedStateFromError, render }
+  React Components:
+    function: DfoPanel
 
 ## packages/ui/src/components/DiffViewer.tsx [tsx]
   Imports:
@@ -2565,64 +2607,6 @@ Languages: typescript(57), javascript(298), tsx(101)
     async arrow stopDispatch()
   React Components:
     function: EMDashboard
-
-## packages/ui/src/components/FeatureCockpit.tsx [tsx]
-  Imports:
-    * ← react
-    * ← ../api
-  Exports:
-    function: FeatureCockpit
-    function: EntryRow
-  Functions:
-    function joinPath(root: string, rel: string)
-    function baseName(p: string)
-    function shortDate(iso?: string)
-    function KindBadge({ kind }: { kind?: string | null })
-    function CallChainTree({ chain, t, borderLight }: { chain: { function: string; depth: number; file?: string; resolved?: boolean }[]; t: any; borderLight: string })
-    function FeatureCockpit({ feature, model, callChainMap, t, accent, borderLight, accentText, FileLink, onBack }: any)
-    function EntryRow({ api, chain, t, borderLight }: any)
-  React Components:
-    function: KindBadge
-    function: CallChainTree
-    function: FeatureCockpit
-    function: EntryRow
-
-## packages/ui/src/components/FeatureMap.tsx [tsx]
-  Imports:
-    * ← react
-    * ← ../i18n
-    * ← ../api
-  Exports:
-    default function: ApiMapView
-  Functions:
-    arrow methodOf(entry: string)
-    function ApiMapView({ rootPath, theme, onOpenFile, refreshKey }: Props)
-    arrow toggleCat(cat: string)
-    function Section({ title, count, theme, children }: {
-  title: string;
-  count?: number;
-  theme: Props["theme"];
-  children?: React.ReactNode;
-})
-    function FileChip({ file, theme, onOpenFile }: { file: string; theme: Props["theme"]; onOpenFile?: (p: string) => void })
-    function ApiDetail({ api, theme, t, onOpenFile }: {
-  api: ApiFeature;
-  theme: Props["theme"];
-  t: (k: string) => string;
-  onOpenFile?: (p: string) => void;
-})
-    function UiDetail({ ui, theme, t, onOpenFile }: {
-  ui: UiFeature;
-  theme: Props["theme"];
-  t: (k: string) => string;
-  onOpenFile?: (p: string) => void;
-})
-  React Components:
-    function: ApiMapView
-    function: Section
-    function: FileChip
-    function: ApiDetail
-    function: UiDetail
 
 ## packages/ui/src/components/FileEmoji.tsx [tsx]
   Exports:
@@ -2839,6 +2823,10 @@ Languages: typescript(57), javascript(298), tsx(101)
     function: mdPreWithMermaid
   Functions:
     function loadMermaid()
+    function sweepStrayMermaidDivs(ownId?: string)
+    function mermaidQuoteFixup(code: string)
+    arrow esc(s: string)
+    arrow renameReserved(w: string)
     function mdPreWithMermaid({ children, ...props }: any)
 
 ## packages/ui/src/components/ModelSelector.tsx [tsx]
@@ -2901,14 +2889,16 @@ Languages: typescript(57), javascript(298), tsx(101)
     * ← react
     * ← ../api
     * ← ../i18n
+    * ← ./AgentSideChat
     * ← ./MarkdownText
-    * ← ./ui/uiFeedback
+    * ← ./ColResizer
   Exports:
     default function: ProjectMdPage
   Functions:
     function ProjectMdPage({ rootPath, theme }: Props)
-    async arrow save()
-    async arrow regenerate()
+    arrow onFocus()
+    async arrow refresh()
+    async arrow fillAll()
   React Components:
     function: ProjectMdPage
 
@@ -2943,54 +2933,23 @@ Languages: typescript(57), javascript(298), tsx(101)
   Functions:
     function ReleaseManagerPanel({ rootPath, theme: tk, onOpenEMDashboard, onOpenReviewBoard, onOpenQaRecords }: Props)
     async arrow loadEvApi(sha?: string)
+    arrow p(e: string)
+    arrow confirmAsk(o: { icon?: string; title: string; body: string; okLabel?: string; okColor?: string })
+    arrow closeConfirm(v: boolean)
+    async arrow buildAllDocs()
+    async arrow rebuildDoc(kind: "spec" | "dfo" | "releaseInfo")
+    async arrow refreshReleaseInfo()
+    async arrow rebuildInfo()
+    async arrow confirmRelease()
+    async arrow reopenRR()
+    async arrow createNewRR()
     async arrow loadE2eInv()
     async arrow loadPageInv()
     async arrow loadApiStatus()
     async arrow genApiSummary()
-    async arrow runTests()
-    arrow readinessEvidence()
-    arrow matrixEvidenceText()
-    async arrow generateReport()
-    arrow askAiVerify()
     function fmtShort(iso?: string)
   React Components:
     function: ReleaseManagerPanel
-
-## packages/ui/src/components/ReleaseRequests.tsx [tsx]
-  Imports:
-    * ← react
-    * ← ../api
-    * ← ../i18n
-    * ← ./AgentSideChat
-  Exports:
-    type: RrChecklistItem
-    type: RrDetail
-    default function: ReleaseRequests
-  Functions:
-    function RrCostCard({ rrId, rootPath }: { rrId: string; rootPath: string })
-    arrow fmtUsd(n: number)
-    arrow fmtTok(n: number)
-    function ReleaseRequests({ rootPath, theme: tk, notify, chatRef }: Props)
-    async arrow openCreate()
-    async arrow create()
-    async arrow patch(body: Record<string, unknown>, okText: string)
-    async arrow act(action: "open" | "close" | "cancel" | "lock" | "unlock", body: Record<string, unknown>, okText: string)
-    async arrow resolveQr(qrId: string)
-    async arrow review(itemId: string, verdict: string, note?: string)
-    arrow askAi()
-    async arrow applySuggestions()
-    arrow renderNextSteps()
-    arrow checklistDone(cl: { verdict: string }[])
-    arrow StatusBadge({ st }: { st: string })
-    arrow MiniLights({ cl }: { cl: { id: string; verdict: string; auto: string }[] })
-    arrow candOptions()
-    function patchBaseline()
-    function fmtShort(iso?: string)
-  React Components:
-    function: RrCostCard
-    function: ReleaseRequests
-    arrow: StatusBadge
-    arrow: MiniLights
 
 ## packages/ui/src/components/RuCloneModal.tsx [tsx]
   Imports:
@@ -3017,19 +2976,6 @@ Languages: typescript(57), javascript(298), tsx(101)
     function RuOnboardingModal({ rootPath, theme: t, onClose, onStartCu }: Props)
   React Components:
     function: RuOnboardingModal
-
-## packages/ui/src/components/RuQaSection.tsx [tsx]
-  Imports:
-    * ← react
-    * ← ../i18n
-    * ← ../api
-  Exports:
-    default function: RuQaSection
-  Functions:
-    function RuQaSection({ rootPath, theme, onAskAi }: { rootPath: string; theme: any; onAskAi?: (question: string, engineResult: Answer | null) => void })
-    arrow chip(e: Evidence, i: number)
-  React Components:
-    function: RuQaSection
 
 ## packages/ui/src/components/RuSkillManagerModal.tsx [tsx]
   Imports:
@@ -3226,20 +3172,6 @@ Languages: typescript(57), javascript(298), tsx(101)
     arrow askMapping(e: TestToCodeEntry)
   React Components:
     function: TestsPageInner
-
-## packages/ui/src/components/TroubleshootingPanel.tsx [tsx]
-  Imports:
-    * ← react
-    * ← ../api
-    * ← ../i18n
-    * ← ./AgentSideChat
-    * ← ./ColResizer
-  Exports:
-    default function: TroubleshootingPanel
-  Functions:
-    function TroubleshootingPanel({ rootPath, theme: tk }: Props)
-  React Components:
-    function: TroubleshootingPanel
 
 ## packages/ui/src/components/UsageReportPanel.tsx [tsx]
   Imports:
@@ -4238,6 +4170,7 @@ Languages: typescript(57), javascript(298), tsx(101)
     * ← ./context.mjs
     * ← ../lib/llm-utils.mjs
     * ← ../data-home.mjs
+    * ← ../lib/agent-exec-logger.mjs
     * ← ../lib/vision-content.mjs
     * ← ./uploads.mjs
     * ← fs/promises
@@ -4428,6 +4361,30 @@ Languages: typescript(57), javascript(298), tsx(101)
     PUT /api/coding-db/ru-info/*
     POST /api/coding-db/ru-info/ai-adjust/*
     GET /api/coding-db/status/*
+
+## packages/server/src/routes/coding-dfo.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← url
+    * ← child_process
+    * ← util
+    * ← ../lib/dfo.mjs
+    * ← ../lib/paaw-project.mjs
+    * ← ./coding-helpers.mjs
+    * ← ./coding-health.mjs
+  Exports:
+    default function: dfoRoutes
+  Functions:
+    function readBody(req)
+    function json(res, code, data)
+    function loadDfoPrompt(root)
+    async function dfoRoutes(req, res)
+  Routes:
+    GET /api/coding-dfo
+    GET /api/coding-dfo/versions
+    POST /api/coding-dfo/generate
+    POST /api/coding-dfo/section
 
 ## packages/server/src/routes/coding-doc-coverage.mjs [javascript]
   Imports:
@@ -4757,6 +4714,7 @@ Languages: typescript(57), javascript(298), tsx(101)
     * ← ./coding-evidence.mjs
     * ← ../lib/task-retrofit.mjs
     * ← ../lib/change-intelligence.mjs
+    * ← ../lib/evidence-by-api.mjs
     * ← ../lib/cu-source-scan.mjs
     * ← ../lib/release-unit/gates.mjs
     * ← ../lib/shell-exec.mjs
@@ -4770,12 +4728,6 @@ Languages: typescript(57), javascript(298), tsx(101)
   Exports:
     default function: releaseRoutes
   Functions:
-    function _apiE2eCoverageChecker(root)
-    arrow build()
-    arrow isTestFile(n)
-    arrow walk(dir, depth)
-    arrow segPattern(seg)
-    arrow tryMatch(k)
     async function readTasksFile(projectPath)
     async function writeTasksFile(projectPath, data)
     function isPendingRelease(task)
@@ -4790,8 +4742,6 @@ Languages: typescript(57), javascript(298), tsx(101)
     arrow isTestFile(n)
     arrow walk(dir, depth)
     async arrow _buildApiStatus(projectPath)
-    arrow _pathOf(entry)
-    arrow _normLower(s)
     function readFileStream(req)
     async function readJsonBody(req)
     function sanitizeId(id)
@@ -4803,6 +4753,16 @@ Languages: typescript(57), javascript(298), tsx(101)
     GET /api/coding-releases/pending
     GET /api/coding-releases/list
     POST /api/coding-releases/reject
+    GET /api/coding-releases/release-info/status
+    GET /api/coding-releases/release-info/list
+    GET /api/coding-releases/release-info/item
+    GET /api/coding-releases/release-info/db
+    GET /api/coding-releases/release-info/matrix
+    GET /api/coding-releases/docs
+    POST /api/coding-releases/release-docs/rebuild
+    POST /api/coding-releases/release-docs/build-all
+    GET /api/coding-releases/release-info/diff
+    GET /api/coding-releases/release-info/latest
     POST /api/coding-releases/test-run
     GET /api/coding-releases/test-run
     GET /api/coding-releases/test-runs
@@ -4999,6 +4959,7 @@ Languages: typescript(57), javascript(298), tsx(101)
     default function: projectRoute
   Functions:
     async function computeCuStaleness(root, steps, codeLastModifiedMs)
+    arrow outputExists(id, rel)
     arrow flag()
     async function projectRoute(req, res)
     arrow respond(obj)
@@ -5032,7 +4993,11 @@ Languages: typescript(57), javascript(298), tsx(101)
     GET /api/coding-project/change-intelligence/*
     GET /api/coding-project/code-intelligence/*
     GET /api/coding-project/code-intelligence/context-package/*
+    GET /api/coding-project/project-md/spec-versions/*
     GET /api/coding-project/project-md/*
+    POST /api/coding-project/project-md/spec-fill/*
+    POST /api/coding-project/project-md/spec-section/*
+    POST /api/coding-project/project-md/spec-draft/*
     POST /api/coding-project/project-md/regenerate/*
     POST /api/coding-project/project-md/*
     POST /api/coding-project/generate-overview/*
@@ -6048,6 +6013,7 @@ Languages: typescript(57), javascript(298), tsx(101)
     arrow pyPush(name)
     arrow scanDirForEnv(dir, depth)
     arrow scanUri(p)
+    arrow walk(dir, depth)
     function _loadTemplate(projectRoot)
     arrow _str(v, max = 200)
     arrow _evidence(v)
@@ -6281,6 +6247,21 @@ Languages: typescript(57), javascript(298), tsx(101)
     function _extractJsonArray(text)
     async function computeUtilityConsumers(projectRoot, parsed, features, opts = {})
 
+## packages/server/src/lib/cu-background-watcher.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← ../data-home.mjs
+    * ← ../routes/shared.mjs
+  Exports:
+    function: startCuBackgroundWatcher
+  Functions:
+    function _collectProjectRoots()
+    arrow readList(p, pick)
+    async function _runFirstCu(root)
+    async function _runSweep()
+    function startCuBackgroundWatcher()
+
 ## packages/server/src/lib/cu-mechanical.mjs [javascript]
   Imports:
     * ← path
@@ -6379,6 +6360,37 @@ Languages: typescript(57), javascript(298), tsx(101)
     async function devServerAction(ruRoot, args = {})
     function normalize(p)
 
+## packages/server/src/lib/dfo.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← crypto
+    * ← child_process
+  Exports:
+    variable: DFO_SECTIONS
+    variable: DFO_SCHEMA_VERSION
+    function: dfoDir
+    function: dfoPath
+    function: dfoVersionsDir
+    function: validateDfo
+    function: readDfo
+    function: listDfoVersions
+    function: readDfoVersion
+    function: extractSkipBlocks
+    function: writeDfo
+    function: dfoFrozenReason
+  Functions:
+    function dfoDir(root)
+    function dfoPath(root)
+    function dfoVersionsDir(root)
+    function validateDfo(dfo)
+    function readDfo(root)
+    function listDfoVersions(root)
+    function readDfoVersion(root, version)
+    function extractSkipBlocks(markdown)
+    function writeDfo(root, partialSections, updatedBy, label)
+    async function dfoFrozenReason(root)
+
 ## packages/server/src/lib/dispatch-catalog.mjs [javascript]
   Exports:
     variable: DIRECT_AGENTS
@@ -6405,6 +6417,21 @@ Languages: typescript(57), javascript(298), tsx(101)
     async function verifyDispatchWork(projRoot, snap)
     function dispatchRetrySuffix(verdict, attempt = 1)
 
+## packages/server/src/lib/doc-autorefresh.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← child_process
+    * ← ../routes/shared.mjs
+  Exports:
+    function: autoRefreshDocs
+  Functions:
+    function _readJson(p)
+    function _writeJson(p, o)
+    function _head(root)
+    async function _post(url, body)
+    async function autoRefreshDocs(root, opts = {})
+
 ## packages/server/src/lib/doc-coverage.mjs [javascript]
   Imports:
     * ← fs
@@ -6420,6 +6447,20 @@ Languages: typescript(57), javascript(298), tsx(101)
     function writeDocCoverage(projectDir, coverage)
     function updateDocCoverage(projectDir, newLastCommit, documentedCommits = [])
     async function getUndocumentedCommits(projectDir, runGit)
+
+## packages/server/src/lib/doc-evidence.mjs [javascript]
+  Imports:
+    * ← node:fs
+    * ← node:path
+  Exports:
+    function: collectDocEvidence
+    function: docEvidenceBlock
+  Functions:
+    function readText(p)
+    function collectAdr(root)
+    function collectTasks(root)
+    function collectDocEvidence(root, opts = {})
+    function docEvidenceBlock(root, opts = {})
 
 ## packages/server/src/lib/domain-agent-registry.mjs [javascript]
   Imports:
@@ -6679,6 +6720,26 @@ Languages: typescript(57), javascript(298), tsx(101)
     function shipAgentLogEvent({ taskId, recNo, entry, startTime, taskInfo })
     function isEsShipperEnabled()
     function shipAuditEvent(doc)
+
+## packages/server/src/lib/evidence-by-api.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← ./change-intelligence.mjs
+    * ← ./cu-source-scan.mjs
+  Exports:
+    function: apiE2eCoverageChecker
+    function: buildEvidenceByApi
+  Functions:
+    function apiE2eCoverageChecker(root)
+    arrow build()
+    arrow isTestFile(n)
+    arrow walk(dir, depth)
+    arrow segPattern(seg)
+    arrow tryMatch(k)
+    async function buildEvidenceByApi(projectPath, { sinceSha = null } = {})
+    arrow _pathOf(entry)
+    arrow _normLower(s)
 
 ## packages/server/src/lib/exec-approvals.mjs [javascript]
   Imports:
@@ -7005,6 +7066,7 @@ Languages: typescript(57), javascript(298), tsx(101)
     function: callLLMWithRetry
     function: fetchStreamWithRetry
   Functions:
+    arrow _llmFetch(...args)
     function dateTimeContextBlock()
     function resolveDefaultModel(providerConfig)
     function stripLoneSurrogates(s)
@@ -7493,25 +7555,54 @@ Languages: typescript(57), javascript(298), tsx(101)
   Imports:
     * ← node:path
     * ← node:fs
+    * ← node:child_process
     * ← ./paaw-project.mjs
     * ← ./feature-registry.mjs
   Exports:
     variable: USER_START
     variable: USER_END
+    variable: SPEC_START
+    variable: SPEC_END
     variable: AI_START
     variable: AI_END
+    variable: SPEC_SECTIONS
+    variable: SPEC_SECTION_TITLES
+    variable: SPEC_SECTION_SCHEMAS
+    function: splitSpecSections
+    function: joinSpecSections
+    function: specVersionsDir
+    function: listSpecVersions
+    function: readSpecVersion
+    function: snapshotSpec
+    function: generateSpecSection
+    function: generateFullSpec
     function: parseProjectMd
     function: buildProjectMd
+    function: generateSpecDraft
     function: regenerateProjectMd
   Functions:
+    function splitSpecSections(specMd)
+    function joinSpecSections(parts)
+    function specVersionsDir(root)
+    function listSpecVersions(root)
+    function readSpecVersion(root, version)
+    function snapshotSpec(root, label, by)
+    async function readSpecAiConversation(paaw)
+    async arrow readJson(rel)
+    arrow stripCodeFence(c)
+    function buildSectionPrompt(index, transcript, facts, extra = "", existing = "")
+    async function callAndStrip(callLLM, prompt)
+    async function generateSpecSection(root, index, opts = {})
+    async function generateFullSpec(root, opts = {})
     function sliceBetween(md, startMark, endMark)
     arrow stripSkeletonLines(s)
     function parseProjectMd(md)
-    function buildProjectMd(name, userSection, aiSection)
+    arrow stripSpecPlaceholder(s)
+    function buildProjectMd(name, userSection, aiSection, specSection = "")
     async function collectFacts(root)
     async arrow readJson(rel)
-    function deterministicAiSection(facts)
-    async function llmAiSection(facts, callLLM)
+    arrow clip(s, n)
+    async function generateSpecDraft(root, opts = {})
     async function regenerateProjectMd(root, opts = {})
 
 ## packages/server/src/lib/qa-results.mjs [javascript]
@@ -7540,6 +7631,59 @@ Languages: typescript(57), javascript(298), tsx(101)
     function updateQaResult(cwd, id, patch = {}, by = "human")
     function deleteQaResult(cwd, id)
     function qaStats(cwd)
+
+## packages/server/src/lib/release-diff.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← ./release-info-builder.mjs
+  Exports:
+    function: findPreviousRelease
+    function: buildDiffSummary
+    function: readDiffSummary
+  Functions:
+    function _infoDir(projectPath, rrId)
+    function findPreviousRelease(projectPath, currentRrId)
+    function _collectEvidence(projectPath, rrId, curInfo, curV)
+    arrow num(x, y)
+    arrow key(x)
+    async function _gitStat(projectPath, range)
+    arrow _stripFence(s)
+    async function _aiSummary(projectPath, ev)
+    async function buildDiffSummary(projectPath, rrId)
+    function readDiffSummary(projectPath, rrId)
+
+## packages/server/src/lib/release-docs.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← ../routes/shared.mjs
+    * ← ./release-requests.mjs
+    * ← undici
+  Exports:
+    function: docsStatusPath
+    function: readDocsStatus
+    function: triggerDoc
+    function: triggerAllDocs
+    function: verifyDocs
+    function: getDocsOverview
+  Functions:
+    arrow BASE()
+    arrow docFetch(url, opts)
+    function docsStatusPath(projectPath, rrId)
+    function readDocsStatus(projectPath, rrId)
+    function writeDocsStatus(projectPath, rrId, st)
+    function setDoc(projectPath, rrId, kind, patch)
+    async function triggerDoc(projectPath, rrId, kind)
+    async arrow run()
+    async function triggerAllDocs(projectPath, rrId)
+    arrow _readJson(p)
+    arrow _mtime(p)
+    async function verifyDocs(projectPath, rrId)
+    arrow add(doc, level, message)
+    async function getDocsOverview(projectPath, rrId)
+  React Components:
+    arrow: BASE
 
 ## packages/server/src/lib/release-evidence-snapshot.mjs [javascript]
   Imports:
@@ -7611,6 +7755,54 @@ Languages: typescript(57), javascript(298), tsx(101)
     function evidenceGaps(sev, ev)
     async function buildEvidenceMatrix(projectPath, changedFeatures, opts = {})
 
+## packages/server/src/lib/release-info-builder.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← ./test-runner.mjs
+    * ← ./release-evidence-snapshot.mjs
+    * ← ./release-requests.mjs
+    * ← ../routes/coding-helpers.mjs
+    * ← ./shell-exec.mjs
+    * ← ./evidence-by-api.mjs
+    * ← path
+    * ← url
+  Exports:
+    function: listInfoVersions
+    function: readInfoMatrix
+    function: readInfoVersion
+    function: startReleaseInfoBuild
+    function: listAllReleaseInfo
+    function: getLatestReleaseInfo
+    function: getBuildStatus
+  Functions:
+    function infoDir(projectPath, rrId)
+    function readStatus(projectPath, rrId)
+    function writeStatus(projectPath, rrId, st)
+    function listInfoVersions(projectPath, rrId)
+    function readInfoMatrix(projectPath, rrId, v)
+    function readInfoVersion(projectPath, rrId, v)
+    arrow sleep(ms)
+    async function _waitForTestRun(projectPath, timeoutMs = 15 * 60_000)
+    async function _gitOne(projectPath, cmd)
+    function _bumpPatch(tag)
+    async function _deterministicGitBlock(projectPath)
+    function _stripFence(s)
+    async function _cuContext(projectPath, changedFiles = [])
+    arrow norm(f)
+    arrow hit(files = [])
+    function _fallbackChanges(gitLog)
+    async function _aiSummaryAndChanges({ gitLog, scopeTxt, testRunTxt, rrTitle, previousTag, unitLog = "", cuTxt = "", baseGroups = [] })
+    function _validateAiPart(parsed, { hasCommits = true } = {})
+    async function _deterministicFeatures(projectPath, cu)
+    async function _aiFeaturesOnly(baseGroups)
+    function _mergeFeatures(base, ai)
+    arrow pick(g, i)
+    async function startReleaseInfoBuild(projectPath, rrId, { by = "human", includeE2e = true } = {})
+    async function listAllReleaseInfo(projectPath)
+    async function getLatestReleaseInfo(projectPath)
+    function getBuildStatus(projectPath, rrId)
+
 ## packages/server/src/lib/release-requests.mjs [javascript]
   Imports:
     * ← fs/promises
@@ -7637,6 +7829,7 @@ Languages: typescript(57), javascript(298), tsx(101)
     function: reviewChecklistItem
     function: refreshReleaseRequest
     function: closeReleaseRequest
+    function: reopenReleaseRequest
     function: cancelReleaseRequest
     function: setTargetLock
     function: suggestVerdicts
@@ -7674,8 +7867,9 @@ Languages: typescript(57), javascript(298), tsx(101)
     async function openReleaseRequest(projectPath, id)
     async function reviewChecklistItem(projectPath, id, itemId, verdict, note)
     async function refreshReleaseRequest(projectPath, id)
-    async function closeReleaseRequest(projectPath, id, { note } = {})
+    async function closeReleaseRequest(projectPath, id, { note, force = false } = {})
     arrow pad(n)
+    async function reopenReleaseRequest(projectPath, id, { reason } = {})
     async function cancelReleaseRequest(projectPath, id, { reason } = {})
     async function setTargetLock(projectPath, id, locked)
     async function suggestVerdicts(projectPath, id, items, by = "rm-agent")
@@ -7775,6 +7969,23 @@ Languages: typescript(57), javascript(298), tsx(101)
 ## packages/server/src/lib/running-agents.mjs [javascript]
   Exports:
     variable: runningCodingAgents
+
+## packages/server/src/lib/scan-skeleton.mjs [javascript]
+  Imports:
+    * ← fs
+    * ← path
+    * ← ./cu-source-scan.mjs
+  Exports:
+    function: buildScanSkeleton
+    function: serializeSkeleton
+    function: loadScanSkeleton
+    function: enforceScanSkeleton
+  Functions:
+    function buildScanSkeleton(root)
+    arrow has(d)
+    function serializeSkeleton(skeleton)
+    function loadScanSkeleton(paawReadJson)
+    function enforceScanSkeleton(scanJson, skeleton)
 
 ## packages/server/src/lib/script-guard.mjs [javascript]
   Imports:
@@ -8041,6 +8252,8 @@ Languages: typescript(57), javascript(298), tsx(101)
     function: readLastTestRun
   Functions:
     function detectTestGroups(projectPath, { includeE2e = false } = {})
+    arrow kindByName(n)
+    arrow after(re)
     function detectPytest(projectPath)
     function xmlAttrs(s)
     function parseJUnitXml(xml)
@@ -8052,7 +8265,6 @@ Languages: typescript(57), javascript(298), tsx(101)
     arrow skip(n)
     function parseNodeCoverage(out)
     async function runGroup(projectPath, group)
-    arrow walk(suites)
     function spawnCapture(cwd, cmd, timeoutMs)
     function getRunState(projectPath)
     function nextRunId(projectPath)
@@ -8727,6 +8939,16 @@ Languages: typescript(57), javascript(298), tsx(101)
     function readFileConversations(ruRoot)
     function _group(db, table, keyCol, valCol)
     function _groupObjects(db, table, keyCol, cols)
+
+## packages/server/src/lib/coding-db/release-info.repo.mjs [javascript]
+  Imports:
+    * ← ./connection.mjs
+  Exports:
+    function: writeReleaseInfo
+    function: listReleaseInfosDb
+  Functions:
+    function writeReleaseInfo(ruRoot, rec)
+    function listReleaseInfosDb(ruRoot, rrId)
 
 ## packages/server/src/lib/coding-db/ru-info.repo.mjs [javascript]
   Imports:
